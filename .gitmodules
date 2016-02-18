@@ -1,0 +1,3 @@
+[submodule "mongo_to_hive_mapping"]
+	path = mongo_to_hive_mapping
+	url = git@github.com:YaroslavLitvinov/mongo_to_hive_mapping.git
