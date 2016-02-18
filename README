@@ -1,1 +1,5 @@
 python oplog_handler.py
+
+oplog[1] Insert:
+INSERT INTO posts(body,user_id,_id_oid,title,created_at,updated_at,_id_bsontype)
+VALUES(body3,56b8d7caf9fcee1b00000001,56b8f05cf9fcee1b00000010,title3,2016-02-08T19:45:32.501Z,2016-02-08T19:45:32.501Z,7);
