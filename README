@@ -1,3 +1,4 @@
+export PYTHONPATH=$PYTHONPATH:~/git/gizer/mongo_to_hive_mapping/
 python oplog_handler.py
 
 oplog[1] Insert:
