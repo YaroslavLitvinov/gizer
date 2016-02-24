@@ -49,6 +49,38 @@ payload4 = {
     }
 }
 
+schema = {
+    "comments": [{
+        "_id": {
+            "oid": "STRING",
+            "bsontype": "INT"
+        },
+        "body": "STRING",
+        "updated_at": "TIMESTAMP",
+        "created_at": "TIMESTAMP"
+    }],
+    "title": "STRING",
+    "body": "STRING",
+    "user_id": "STRING",
+    "updated_at": "TIMESTAMP",
+    "created_at": "TIMESTAMP",
+    "_id": {
+        "oid": "STRING",
+        "bsontype": "INT"
+    }
+}
+
+
+def test_update():
+    """Test update callback."""
+    ns = 'users'
+    assert list(update.update(ns, payload2, schema)) == [
+        'update users set updated_at = 2016-02-08T19:52:23.883Z where users._id = %s'
+    ]
+    assert list(update.update(ns, payload1, schema)) == [
+        ''
+    ]
+
 
 def test_extract_query_objects_from():
     """Test query-objects generator."""

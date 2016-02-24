@@ -3,8 +3,24 @@
 
 import itertools
 
+from opinsert import get_insert_queries as insert
 
-def callback(collection, _id, payload, schema):
+UPSERT_TMLPT = """\
+LOOP
+    {update}
+    IF found THEN
+        RETURN;
+    END IF;
+    BEGIN
+        {insert}
+        RETURN;
+    EXCEPTION WHEN unique_violation THEN
+    END;
+END LOOP;
+"""
+
+
+def update(collection, payload, schema):
     """Update callback."""
     # first we need to detect what kind of update we have
     # options are:
@@ -14,33 +30,35 @@ def callback(collection, _id, payload, schema):
     # 4. update of nested doc that really insert and not update (append element in array)
     # We could generate 'upsert' for every nested update
     # We could easily see if update requires cascade delete (type of payload = list)
-    for (q, obj) in extract_query_objects_from(payload):
+    for (q, obj) in extract_query_objects_from(payload, []):
+        q = '.'.join(q[1:])
         # there should be only iteration, but for correctness..
         tables = tables_from_query(q)
         indices = indices_from_query(q)
         if not tables:
             # we have simple root collection update
             yield generate_update_query(collection, q, obj)
+            raise StopIteration
 
         # now check for cascade deletes need
         if type(obj) == list:
             # just call stubs, figure out args later
             for stmt in delete(collection, obj, schema):
                 yield stmt
-            for stmt in insert(collection, obj, schema):
+            for stmt in insert(collection, schema, obj):
                 yield stmt
+            raise StopIteration
 
         # now we have to generate upsert stmt
-        yield 'if ({select}) then {update} else {insert}'.format(
+        yield UPSERT_TMLPT.format(
             update=generate_update_query(collection, q, obj),
-            select=generate_id_select_query(collection, q),
-            insert=insert(collection, obj, schema)  # that might require some thinking
+            insert='\n'.join(flatten(insert('.' + collection, schema, obj)))
         )
 
 
-def insert(collection, payload, schema):
-    """Stub."""
-    return 'insert stub'
+def flatten(listOfLists):
+    "Flatten one level of nesting"
+    return itertools.chain.from_iterable(listOfLists)
 
 
 def delete(collection, payload, schema):
