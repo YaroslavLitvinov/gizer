@@ -1,0 +1,41 @@
+{
+    "field": "STRING", 
+    "relatives": [
+        {
+            "age": "INT", 
+            "relation": "STRING", 
+            "name": "STRING",
+			"contacts":[
+				{
+					"_id":"STRING",
+					"street":"STRING",
+					"apartment":"STRING",
+					"city":"STRING",
+					"state":"STRING",
+					"zip":"STRING",
+					"phones":[ 
+						{
+							"number":"STRING",
+							"count":"int"
+						}
+					]
+				}
+			]
+        }
+    ], 
+    "_id": {
+        "oid": "STRING", 
+        "bsontype": "INT"
+    }, 
+    "indeces": [
+        "INT"
+    ], 
+    "dates": [
+        {
+            "date1": "STRING", 
+            "date3": "STRING", 
+            "date2": "STRING", 
+            "date4": "STRING"
+        }
+    ]
+}
