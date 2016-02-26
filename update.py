@@ -4,6 +4,7 @@
 import itertools
 
 from opinsert import get_insert_queries as insert
+from util import table_name_from, columns_from, tables_from, column_prefix_from
 
 UPSERT_TMLPT = """\
 LOOP
@@ -33,7 +34,7 @@ def update(collection, payload, schema):
     for (q, obj) in extract_query_objects_from(payload, []):
         q = '.'.join(q[1:])
         # there should be only iteration, but for correctness..
-        tables = tables_from_query(q)
+        tables = table_name_from(collection, q)
         indices = indices_from_query(q)
         if not tables:
             # we have simple root collection update
@@ -99,13 +100,14 @@ def indices_from_query(query):
 
 def target_table(collection, query):
     """Target table name from root collection and query."""
-    return ([collection] + tables_from_query(query))[-1]
+    return table_name_from(collection, query)
 
 
 def generate_update_query(collection, query, payload):
     """Generate update sql query."""
     source_table = target_table(collection, query)
-    set_values = ['{0} = {1}'.format(k, v) for (k, v) in payload.items()]
+    prefix = column_prefix_from(collection, query)
+    set_values = ['{0} = {1}'.format(c, '%s') for c in columns_from(prefix, payload)]
 
     return 'update {table} set {values} {where}'.format(
         table=source_table,
@@ -121,19 +123,17 @@ def to_singular(plural):
 
 def generate_where_clause(collection, query):
     """Generate WHERE SQL clause."""
-    tables = [collection] + tables_from_query(query)
-    indices = indices_from_query(query)
-
-    rest_tables = tables[:-1]
+    root_table = target_table(collection, query)
     wheres = ['where {table}.{root}_id = %s'.format(
-        table=target_table(collection, query),
-        root=to_singular(rest_tables[0] if len(rest_tables) else '')
+        table=root_table,
+        root=to_singular(collection if collection != root_table else '')
     )]
 
-    for (table, index) in zip(rest_tables, indices):
-        wheres.append('{table}.{prev}_index = %s'.format(
+    idx_tables = list(tables_from(collection, query))[:-1]
+    for table in idx_tables:
+        wheres.append('{table}.{prev}_idx = %s'.format(
             table=target_table(collection, query),
-            prev=table[:-1],
+            prev=table,
         ))
 
     return ' and '.join(wheres)

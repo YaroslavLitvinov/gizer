@@ -41,11 +41,9 @@ payload3 = {
 
 payload4 = {
     "$set": {
-        "likes": [
-            "1",
-            "2",
-            "3"
-        ]
+        "address.0.street": {
+            "name": "STREETNAME"
+        }
     }
 }
 
@@ -75,7 +73,7 @@ def test_update():
     """Test update callback."""
     ns = 'users'
     assert list(update.update(ns, payload2, schema)) == [
-        'update users set updated_at = 2016-02-08T19:52:23.883Z where users._id = %s'
+        'update users set updated_at = %s where users._id = %s'
     ]
     assert list(update.update(ns, payload1, schema)) == [
         ''
@@ -116,9 +114,10 @@ def test_generate_id_select_query():
     """Test id retrieval generation."""
     assert update.generate_id_select_query('users', 'posts.3.comments.5') == \
         textwrap.dedent('''\
-            select comments._id from comments
-            where comments.user_id = %s and comments.user_index = %s
-            and comments.post_index = %s''').replace('\n', ' ')
+            select users_posts_comments._id from users_posts_comments
+            where users_posts_comments.user_id = %s and
+            users_posts_comments.users_idx = %s and
+            users_posts_comments.users_posts_idx = %s''').replace('\n', ' ')
 
 
 def test_generate_update_query():
@@ -132,24 +131,36 @@ def test_generate_update_query():
     payload2 = {
         "updated_at": "2016-02-08T19:52:23.883Z"
     }
+
+    payload4 = {
+        "name": "STREETNAME"
+    }
     assert update.generate_update_query('users', 'posts.3.comments.5', payload1) == \
         textwrap.dedent(
         """\
-        update comments
-         set body = comment6,
-         created_at = 2016-02-08T19:42:33.589Z,
-         _id = 56b8efa9f9fcee1b0000000f,
-         updated_at = 2016-02-08T19:42:33.589Z
+        update users_posts_comments
+         set body = %s,
+         created_at = %s,
+         _id = %s,
+         updated_at = %s
          where
-         comments.user_id = %s and
-         comments.user_index = %s and
-         comments.post_index = %s
+         users_posts_comments.user_id = %s and
+         users_posts_comments.users_idx = %s and
+         users_posts_comments.users_posts_idx = %s
          """).replace('\n', '')
 
     assert update.generate_update_query('users', '', payload2) == \
         textwrap.dedent(
         """\
         update users
-         set updated_at = 2016-02-08T19:52:23.883Z
+         set updated_at = %s
+         where
+         users._id = %s""").replace('\n', '')
+
+    assert update.generate_update_query('users', 'address.street', payload4) == \
+        textwrap.dedent(
+        """\
+        update users
+         set address_street_name = %s
          where
          users._id = %s""").replace('\n', '')
