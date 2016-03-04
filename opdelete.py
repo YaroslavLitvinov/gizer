@@ -3,147 +3,125 @@ __email__ = "vladimir.varchuk@rackspace.com"
 
 import json
 import pprint
-import bson
-from bson.json_util import loads
-import collections
+from d_utils import *
+
+DELETE_TMPL = 'DELETE FROM {table} WHERE {condition};'
+UPDATE_TMPL = 'UPDATE {table} SET {statement} WHERE {condition};'
 
 
-# from bson_processing import BsonProcessing
-
-# "posts.3.comments.5"
-# "main.relatives.2.contacts" id='asdasdasdaasdas'
-
-# "DELETE FROM main_retaives_contacts where _id='asdasdasdaasdas'"
-# "DELETE FROM main_retaives_contacts where main_relatives_contacts__id='asdasdasdaasdas'"
-CREATE_SQLs = {}
-
-def callback_internal(table, id, schema):
-    res = []
-
-    structtables = table.split(".");
-    print(structtables)
-    #    for type_item in schema:
-    # if type_item is list:
-
-    condition = ''
-    table_name = ''
-    res.append("DELETE FROM {table} WHERE {condition};".format(table=table_name, condition=condition))
-    return res
+def op_delete_stmts(schema, path, id):
+    return gen_statements(schema, path, id)
 
 
-def spaces(spaces_count):
-    str = '===='
-    for i in range(0, spaces_count, 1):
-        str = str + '===='
-    return str + '>'
+def get_max_id_in_array(path):
+    # stub
+    #
+    # get max index of element in array corresponding for deleted record
+
+    return '10'
 
 
-def get_postgres_type(type_name):
-    # TODO should be case insensitive
-    return {
-        'STRING': 'text',
-        'INT': 'integer',
-        'BOOL': 'boolean',
-        'LONG': 'bigint'
-    }[type_name]
-
-
-def get_list_ids(lst, ids):
+def get_ids_list(lst):
     list = lst[0]
     ids_to_add = {}
     for it in list:
-        if it in ['id', 'oid', '_id', '_oid']:
+        if isIdField(it):
             if type(list[it]) is dict:
                 for id_item in list[it]:
-                    if id_item in ['id', 'oid', '_id', '_oid']:
-                        ids_to_add[it + '_' + id_item] = get_postgres_type(list[it][id_item])
+                    if isIdField(id_item):
+                        ids_to_add[get_field_name_without_underscore(
+                            it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(
+                            list[it][id_item])
             else:
-                ids_to_add[it] = get_postgres_type(list[it])
-    if len(ids_to_add):
+                ids_to_add[get_field_name_without_underscore(it)] = get_postgres_type(list[it])
+    if len(ids_to_add) == 0:
         ids_to_add['idx'] = 'bigint'
-    ids.update(ids_to_add)
-    return ids
+    return ids_to_add
 
 
-def add_parental_table_name_to_ids(ids, table_name):
-    new_ids = {}
-    for id in ids:
-        new_ids[table_name + '_' + id] = ids[id]
-    return new_ids
-
-
-def get_child_dict_item(dict_items, field_list, parent_field):
+def get_child_dict_item(dict_items, table):
+    tables_list = []
     for it in dict_items:
-        # TODO add handler when item has list type
         if type(dict_items[it]) is dict:
-            field_list = get_child_dict_item(dict_items[it], field_list, parent_field + '_' + it)
-        else:
-            field_list[parent_field + '_' + it] = get_postgres_type(dict_items[it])
-    return field_list
+            tables_list = get_child_dict_item(dict_items[it], table + '_' + it)
+        elif type(dict_items[it]) is list:
+            tables_list = get_tables_list(dict_items[it], table + '_' + it)
+    return tables_list
 
 
-def generate_create_statement(table_name, ids_list, fields_list):
-    CREATE_TAMPLATE = 'CREATE {table_name} (\n\t{ids}, \n\t{fields}\n)'
-    max_len = max(max(map(len, fields_list)), max(map(len, ids_list)))
-    template = '{0:max_len}\t{1}'.replace('max_len', str(max_len))
-    ids = ', \n\t'.join([(template.format(key, value)) for (key, value) in ids_list.items()])
-    fields = ', \n\t'.join([(template.format(key, value)) for (key, value) in fields_list.items()])
-    return CREATE_TAMPLATE.format(table_name=table_name, ids=ids, fields=fields)
-
-
-def generate_schema_with_parental_ids(schema, ids, table):
-    field_list = {}
-    ids = get_list_ids(schema, ids)
-    new_schema = {}
+def get_tables_list(schema, table):
+    tables_list = []
+    tables_list.append(table)
     for item_list in schema:
         if type(item_list) is dict or type(item_list) is list:
             for it in item_list:
                 item_value = item_list[it]
                 if type(item_value) is dict:
-                    field_list = get_child_dict_item(item_value, field_list, it)
+                    tables_list.extend(get_child_dict_item(item_value, table + '_' + it))
                 elif type(item_value) is list:
-                    new_schema[it] = generate_schema_with_parental_ids(item_value,
-                                                                       add_parental_table_name_to_ids(ids, table),
-                                                                       table + '_' + it).copy()
-                else:
-                    field_list[it] = get_postgres_type(item_value)
-                    # else:
-                    # print(type(item_list), table, item_list, item_list)
-        if len(field_list) == 0:
-            field_list['data'] = get_postgres_type(item_list)
-        all_fields = ids.copy()
-        all_fields.update(field_list)
-        print(table)
-        new_schema[table] = all_fields
-        #print(generate_create_statement(table, ids, field_list))
-    CREATE_SQLs[table] = generate_create_statement(table, ids, field_list)
-    return new_schema
-
-def get_element(schema, path):
-    s_path = path.split('.')
-    element = schema
-    for table_name in s_path:
-        if not table_name.isdigit():
-            element = element[table_name]
-    return element
+                    tables_list.extend(get_tables_list(item_value, table + '_' + it))
+    return tables_list
 
 
-data = open('test_data/test_schema3.txt').read()
-schema = json.loads(data)
-table_name = 'main'
+def gen_where_clauses(schema, path, id):
+    spath = path.split('.')
+    parental_tables_list = get_indexes_dictionary(path)
+    where_clause_target_table = []
+    target_table = get_table_name_from_list(spath)
+    for it in parental_tables_list:
+        if target_table <> it:
+            where_clause_target_table.append('(' + it + '_idx=' + parental_tables_list[it] + ')')
+    ids = get_ids_list(schema)
+    root_id = ids.iterkeys().next()
+    root_table = get_root_table_from_path(path)
 
-pp = pprint.PrettyPrinter(indent=4)
-gen_schema = {}
-gen_schema[table_name] = generate_schema_with_parental_ids(schema, {}, table_name)
-#pp.pprint(gen_schema)
+    where_clause_child_tables = where_clause_target_table[:]
+    if root_table == target_table:
+        where_clause_target_table.append('(' + root_id + "='" + id + "')")
+        where_clause_child_tables.append('(' + target_table + '_' + root_id + "='" + id + "')")
+    else:
+        where_clause_target_table.append('(' + root_table + '_' + root_id + "='" + id + "')")
+        where_clause_child_tables.append('(' + root_table + '_' + root_id + "='" + id + "')")
+        where_clause_target_table.append('(idx=' + parental_tables_list[target_table] + ')')
+        where_clause_child_tables.append('(' + target_table + '_idx=' + parental_tables_list[target_table] + ')')
 
-for item in CREATE_SQLs:
-    print(CREATE_SQLs[item])
+    where_clauses = {}
+    where_clauses['target'] = ' and '.join(where_clause_target_table)
+    where_clauses['child'] = ' and '.join(where_clause_child_tables)
+    return where_clauses
 
 
-# "main.relatives.2.contacts" id='asdasdasdaasdas'
-path = 'main.relatives.2.contacts'
-id = 'asdasdasdaasdas'
+def gen_statements(schema, path, id):
+    where_clauses = gen_where_clauses(schema, path, id)
+    all_tables_list = get_tables_list(schema, get_root_table_from_path(path))
+    target_table = get_table_name_from_list(path.split('.'))
+    tables_list = []
+    for table in all_tables_list:
+        if str.startswith(str(table), target_table, 0, len(table)) and not table == target_table:
+            tables_list.append(table)
+    del_statements = []
+    del_statements.append(
+        DELETE_TMPL.format(table=target_table, condition=where_clauses['target']))
 
-pp.pprint(get_element(gen_schema, path))
+    for table in tables_list:
+        del_statements.append(
+            DELETE_TMPL.format(table=table, condition=where_clauses['child']))
 
+    update_statements = []
+    idx = get_last_idx_from_path(path)
+    max_idx = get_max_id_in_array(path)
+    if idx <= max_idx:
+        return {'del': del_statements, 'upd': update_statements}
+
+    for ind in range(int(idx) + 1, int(max_idx) + 1):
+        spath = path.split('.')
+        del spath[-1]
+        spath.append(str(ind))
+        path_to_update = '.'.join(spath)
+        udpate_where = gen_where_clauses(schema, path_to_update, id)
+        update_statements.append(
+            UPDATE_TMPL.format(table=target_table, statement='idx=' + str(ind - 1), condition=udpate_where['target']))
+        for table in tables_list:
+            update_statements.append(UPDATE_TMPL.format(table=table, statement=target_table + '_idx=' + str(ind - 1),
+                                                        condition=udpate_where['child']))
+    return {'del': del_statements, 'upd': update_statements}
