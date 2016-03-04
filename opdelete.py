@@ -1,8 +1,6 @@
 __author__ = 'Volodymyr Varchuk'
 __email__ = "vladimir.varchuk@rackspace.com"
 
-import json
-import pprint
 from d_utils import *
 
 DELETE_TMPL = 'DELETE FROM {table} WHERE {condition};'
