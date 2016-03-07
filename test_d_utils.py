@@ -43,13 +43,13 @@ def test_get_postgres_type():
 def test_get_table_name_from_list():
     # TODO should be person_relative_contact_phones
     path = 'persons.relatives.contacts.phones'
-    assert get_table_name_from_list(path.split('.')) == 'persons_relatives_contacts_phones'
+    assert get_table_name_from_list(path.split('.')) == 'person_relative_contact_phones'
     path = 'persons.relatives.2.contacts.3.phones.4'
-    assert get_table_name_from_list(path.split('.')) == 'persons_relatives_contacts_phones'
+    assert get_table_name_from_list(path.split('.')) == 'person_relative_contact_phones'
     path = 'persons.relatives.2contacts.phones'
-    assert get_table_name_from_list(path.split('.')) == 'persons_relatives_2contacts_phones'
+    assert get_table_name_from_list(path.split('.')) == 'person_relative_2contact_phones'
     path = 'persons.relatives2'
-    assert get_table_name_from_list(path.split('.')) == 'persons_relatives2'
+    assert get_table_name_from_list(path.split('.')) == 'person_relatives2'
     path = 'persons'
     assert get_table_name_from_list(path.split('.')) == 'persons'
     print('TEST', 'get_table_name_from_list', 'PASSED')
@@ -112,7 +112,7 @@ def check_dict(list1, list2):
     return True
 
 
-def run_tests():
+def run_tests_():
     test_get_field_name_without_underscore()
     test_isIdField()
     test_get_postgres_type()
@@ -123,8 +123,8 @@ def run_tests():
 
 
 if __name__ == "__main__":
-    print()
-    run_tests()
+
+    run_tests_()
 
 # data = open('test_data/test_schema4.txt').read()
 # schema = json.loads(data)
