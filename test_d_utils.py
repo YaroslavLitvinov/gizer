@@ -70,17 +70,17 @@ def test_get_root_table_from_path():
 
 def test_get_indexes_dictionary():
     path = 'persons.relatives.2.contacts.3.phones.4'
-    model = {'persons_relatives_contacts_phones': '4', 'persons_relatives': '2', 'persons_relatives_contacts': '3'}
+    model = {'person_relative_contact_phones': '4', 'person_relatives': '2', 'person_relative_contacts': '3'}
     f_return = get_indexes_dictionary(path)
     assert check_dict(model, f_return)
 
     path = 'persons.relatives.contacts.phones.4'
-    model = {'persons_relatives_contacts_phones': '4'}
+    model = {'person_relative_contact_phones': '4'}
     f_return = get_indexes_dictionary(path)
     assert check_dict(model, f_return)
 
     path = 'persons.1.relatives.2.contacts.3.phones.4'
-    model = {'persons_relatives_contacts_phones': '4', 'persons_relatives': '2', 'persons_relatives_contacts': '3',
+    model = {'person_relative_contact_phones': '4', 'person_relatives': '2', 'person_relative_contacts': '3',
              'persons': '1'}
     f_return = get_indexes_dictionary(path)
     assert check_dict(model, f_return)
