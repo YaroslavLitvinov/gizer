@@ -22,7 +22,7 @@
 			]
         }
     ], 
-    "_id": {
+    "_i2d": {
         "oid": "STRING", 
         "bsontype": "INT"
     }, 
