@@ -35,7 +35,7 @@ def get_table_name_from_list(spath):
     for it in spathl:
         if it.isdigit():
             spathl.remove(it)
-    if len(spath) > 1:
+    if len(spathl) > 1:
         return '_'.join(['_'.join((el[:-1]) for el in spathl[:-1]), spathl[-1]])
     else:
         return spathl[-1]
