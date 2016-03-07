@@ -1,4 +1,4 @@
-{
+[{
     "field": "STRING", 
     "relatives": [
         {
@@ -23,10 +23,7 @@
 			]
         }
     ], 
-    "_id": {
-        "oid": "STRING", 
-        "bsontype": "INT"
-    }, 
+    "_id": "STRING",
     "indeces": [
         "INT"
     ], 
@@ -38,4 +35,4 @@
             "date4": "STRING"
         }
     ]
-}
+}]
