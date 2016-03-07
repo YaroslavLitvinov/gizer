@@ -32,7 +32,7 @@
         }
     ], 
     "_id": {
-        "oid": "STRING", 
+        "_oid": "STRING", 
         "bsontype": "INT"
     }, 
     "indeces": [
