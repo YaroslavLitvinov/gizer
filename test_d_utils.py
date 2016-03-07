@@ -60,9 +60,9 @@ def test_get_root_table_from_path():
     # assert get_root_table_from_path(path) == 'persons_relatives_contacts_phones'
     assert get_root_table_from_path(path) == 'persons'
     path = 'persons.relatives.contacts.3.phones.4'
-    assert get_root_table_from_path(path) == 'persons_relatives'
+    assert get_root_table_from_path(path) == 'person_relatives'
     path = 'persons.relatives.contacts.phones'
-    assert get_root_table_from_path(path) == 'persons_relatives_contacts_phones'
+    assert get_root_table_from_path(path) == 'person_relative_contact_phones'
     path = 'persons.4.relatives.contacts.phones'
     assert get_root_table_from_path(path) == 'persons'
     print('TEST', 'get_root_table_from_path', 'PASSED')
