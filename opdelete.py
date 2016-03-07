@@ -41,9 +41,9 @@ def get_child_dict_item(dict_items, table):
     tables_list = []
     for it in dict_items:
         if type(dict_items[it]) is dict:
-            tables_list = get_child_dict_item(dict_items[it], table + '_' + it)
+            tables_list = get_child_dict_item(dict_items[it], table[:-1] + '_' + it)
         elif type(dict_items[it]) is list:
-            tables_list = get_tables_list(dict_items[it], table + '_' + it)
+            tables_list = get_tables_list(dict_items[it], table[:-1] + '_' + it)
     return tables_list
 
 
@@ -55,9 +55,9 @@ def get_tables_list(schema, table):
             for it in item_list:
                 item_value = item_list[it]
                 if type(item_value) is dict:
-                    tables_list.extend(get_child_dict_item(item_value, table + '_' + it))
+                    tables_list.extend(get_child_dict_item(item_value, table[:-1] + '_' + it))
                 elif type(item_value) is list:
-                    tables_list.extend(get_tables_list(item_value, table + '_' + it))
+                    tables_list.extend(get_tables_list(item_value, table[:-1] + '_' + it))
     return tables_list
 
 
@@ -95,7 +95,7 @@ def gen_statements(schema, path, id):
     target_table = get_table_name_from_list(path.split('.'))
     tables_list = []
     for table in all_tables_list:
-        if str.startswith(str(table), target_table, 0, len(table)) and not table == target_table:
+        if str.startswith(str(table), target_table[:-1], 0, len(table)) and not table == target_table:
             tables_list.append(table)
     del_statements = []
     del_statements.append(
