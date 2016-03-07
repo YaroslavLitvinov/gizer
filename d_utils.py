@@ -52,7 +52,7 @@ def get_root_table_from_path(path):
         collection_path.append(it)
     if remove_last and 1 < len(collection_path):
         del collection_path[len(collection_path) - 1]
-    return '_'.join(collection_path)
+    return get_table_name_from_list(collection_path)
 
 
 def get_indexes_dictionary(path):
