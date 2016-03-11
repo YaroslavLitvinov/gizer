@@ -56,46 +56,113 @@ def test_get_tables_list():
     print(TEST_INFO, 'get_tables_list', 'PASSED')
 
 
-def test_gen_where_clauses():
+def test_get_conditions_list():
     schema = json.loads(open('test_data/test_schema.txt').read())
     path = 'persons.relatives.contacts.phones'
     id = '0123456789abcdef'
-    model = {'target':"(idx='0123456789abcdef')", 'child':"(person_relative_contact_phones_idx='0123456789abcdef')"}
-    result = gen_where_clauses(schema, path, id)
+    model = {'target': {'idx': '0123456789abcdef'}, 'child': {'person_relative_contact_phones_idx': '0123456789abcdef'}}
+    result = get_conditions_list(schema, path, id)
     assert check_dict(model, result)
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.3.phones.4'
     id = '0123456789abcdef'
     model = {
-        'target': "(person_relatives_idx=2) and (person_relative_contacts_idx=3) and (persons_id_oid='0123456789abcdef') and (idx=4)",
-        'child': "(person_relatives_idx=2) and (person_relative_contacts_idx=3) and (persons_id_oid='0123456789abcdef') and (person_relative_contact_phones_idx=4)"
+        'target': {'person_relatives_idx': '2', 'person_relative_contacts_idx': '3',
+                   'persons_id_oid': '0123456789abcdef', 'idx': '4'},
+        'child': {'person_relatives_idx': '2', 'person_relative_contacts_idx': '3',
+                  'persons_id_oid': '0123456789abcdef', 'person_relative_contact_phones_idx': '4'}
     }
-    result = gen_where_clauses(schema, path, id)
+    result = get_conditions_list(schema, path, id)
     assert check_dict(model, result)
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789abcdef'
     model = {
-        'target': "(person_relatives_idx=2) and (persons_id_oid='0123456789abcdef') and (idx=5)",
-        'child': "(person_relatives_idx=2) and (persons_id_oid='0123456789abcdef') and (person_relative_contacts_idx=5)"
+        'target': {'person_relatives_idx': '2', 'persons_id_oid': '0123456789abcdef', 'idx': '5'},
+        'child': {'person_relatives_idx': '2', 'persons_id_oid': '0123456789abcdef',
+                  'person_relative_contacts_idx': '5'}
     }
-
-    result = gen_where_clauses(schema, path, id)
+    result = get_conditions_list(schema, path, id)
     assert check_dict(model, result)
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
     id = '0123456789abcdef'
     model = {
-        'target': "(id_oid='0123456789abcdef')",
-        'child': "(persons_id_oid='0123456789abcdef')"
+        'target': {'id_oid': '0123456789abcdef'},
+        'child': {'persons_id_oid': '0123456789abcdef'}
     }
-
-    result = gen_where_clauses(schema, path, id)
+    result = get_conditions_list(schema, path, id)
     assert check_dict(model, result)
-    print(TEST_INFO, 'gen_where_clauses', 'PASSED')
+
+    print(TEST_INFO, 'get_conditions_list', 'PASSED')
+
+
+def test_get_where_templates():
+    conditions_list = {'target': {'idx': '0123456789abcdef'},
+                       'child': {'person_relative_contact_phones_idx': '0123456789abcdef'}}
+    model = {'target': {'values': ['0123456789abcdef'], 'template': '(idx=%s)'},
+             'child': {'values': ['0123456789abcdef'], 'template': '(person_relative_contact_phones_idx=%s)'}}
+    result = get_where_templates(conditions_list)
+    assert check_dict(model, result)
+
+    conditions_list = {
+        'target': {'person_relatives_idx': '2', 'person_relative_contacts_idx': '3',
+                   'persons_id_oid': '0123456789abcdef', 'idx': '4'},
+        'child': {'person_relatives_idx': '2', 'person_relative_contacts_idx': '3',
+                  'persons_id_oid': '0123456789abcdef', 'person_relative_contact_phones_idx': '4'}
+    }
+    model = {
+        'target': {
+            'values': ['2', '4', '3', '0123456789abcdef'],
+            'template': '(person_relatives_idx=%s) and (idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s)'
+        },
+        'child': {
+            'values': ['2', '4', '3', '0123456789abcdef'],
+            'template': '(person_relatives_idx=%s) and (person_relative_contact_phones_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s)'
+        }
+    }
+    result = get_where_templates(conditions_list)
+    assert check_dict(model, result)
+
+    conditions_list = {
+        'target': {'person_relatives_idx': '2', 'persons_id_oid': '0123456789abcdef', 'idx': '5'},
+        'child': {'person_relatives_idx': '2', 'persons_id_oid': '0123456789abcdef',
+                  'person_relative_contacts_idx': '5'}
+    }
+    model = {
+        'target': {
+            'values': ['2', '5', '0123456789abcdef'],
+            'template': '(person_relatives_idx=%s) and (idx=%s) and (persons_id_oid=%s)'
+        },
+        'child': {
+            'values': ['2', '5', '0123456789abcdef'],
+            'template': '(person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s)'
+        }
+    }
+    result = get_where_templates(conditions_list)
+    assert check_dict(model, result)
+
+    conditions_list = {
+        'target': {'id_oid': '0123456789abcdef'},
+        'child': {'persons_id_oid': '0123456789abcdef'}
+    }
+    model = {
+        'target': {
+            'values': ['0123456789abcdef'],
+            'template': '(id_oid=%s)'
+        },
+        'child': {
+            'values': ['0123456789abcdef'],
+            'template': '(persons_id_oid=%s)'
+        }
+    }
+    result = get_where_templates(conditions_list)
+    assert check_dict(model, result)
+
+    print(TEST_INFO, 'get_where_templates', 'PASSED')
 
 
 def test_gen_statements():
@@ -106,18 +173,42 @@ def test_gen_statements():
     model = {
         'upd': [],
         'del': [
-            "DELETE FROM persons WHERE (id_oid='0123456789ABCDEF');",
-            "DELETE FROM person_dates WHERE (persons_id_oid='0123456789ABCDEF');",
-            "DELETE FROM person_relatives WHERE (persons_id_oid='0123456789ABCDEF');",
-            "DELETE FROM person_relative_jobs WHERE (persons_id_oid='0123456789ABCDEF');",
-            "DELETE FROM person_relative_contacts WHERE (persons_id_oid='0123456789ABCDEF');",
-            "DELETE FROM person_relative_contact_phones WHERE (persons_id_oid='0123456789ABCDEF');",
-            "DELETE FROM person_personal_inf_fl_nam_SSNs WHERE (persons_id_oid='0123456789ABCDEF');",
-            "DELETE FROM person_indeces WHERE (persons_id_oid='0123456789ABCDEF');"
+            {
+                'template': "DELETE FROM persons WHERE (id_oid=%s);",
+                'values': ['0123456789ABCDEF']
+            },
+            {
+                'template': "DELETE FROM person_dates WHERE (persons_id_oid=%s);",
+                'values': ['0123456789ABCDEF']
+            },
+            {
+                'template': "DELETE FROM person_relatives WHERE (persons_id_oid=%s);",
+                'values': ['0123456789ABCDEF']
+
+            },
+            {
+                'template': "DELETE FROM person_relative_jobs WHERE (persons_id_oid=%s);",
+                'values': ['0123456789ABCDEF']
+            },
+            {
+                'template': "DELETE FROM person_relative_contacts WHERE (persons_id_oid='0123456789ABCDEF');",
+                'values': ['0123456789ABCDEF']
+            },
+            {
+                'template': "DELETE FROM person_relative_contact_phones WHERE (persons_id_oid='0123456789ABCDEF');",
+                'values': ['0123456789ABCDEF']
+            },
+            {
+                'template': "DELETE FROM person_personal_inf_fl_nam_SSNs WHERE (persons_id_oid='0123456789ABCDEF');",
+                'values': ['0123456789ABCDEF']
+            },
+            {
+                'template': "DELETE FROM person_indeces WHERE (persons_id_oid='0123456789ABCDEF');",
+                'values': ['0123456789ABCDEF']
+            }
         ]
     }
     assert check_dict(model, result)
-
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
@@ -193,7 +284,6 @@ def test_gen_statements():
     print(TEST_INFO, 'gen_statements', 'PASSED')
 
 
-
 def check_dict(list1, list2):
     if len(list2) <> len(list2):
         return False
@@ -207,8 +297,9 @@ def run_tests():
     test_get_ids_list()
     test_get_child_dict_item()
     test_get_tables_list()
-    test_gen_where_clauses()
-    test_gen_statements()
+    test_get_conditions_list()
+    test_get_where_templates()
+    # test_gen_statements()
 
 
 run_tests()
