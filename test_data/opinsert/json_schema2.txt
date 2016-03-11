@@ -9,7 +9,10 @@
         "created_at": "TIMESTAMP",
         "items": [{
             "data": "STRING"
-        }]
+        }],
+        "slugs": [
+            "INT"
+        ]
     }],
     "title": "STRING",
     "body": "STRING",

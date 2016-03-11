@@ -9,6 +9,7 @@ def generate_insert_queries(table):
     """ get tuple: (format string, [(list,of,values,as,tuples)]) \
     @param table object schema_engine.SqlTable"""
     queries = []
+    print table.sql_column_names
     fmt_string = "INSERT INTO TABLE %s (%s) VALUES(%s);" \
                  % (table.table_name, \
                     ', '.join(table.sql_column_names), \
@@ -22,4 +23,5 @@ def generate_insert_queries(table):
 
 
 if __name__ == "__main__":
-    pass
+    from test_opinsert import test_insert1
+    test_insert1()
