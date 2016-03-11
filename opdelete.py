@@ -8,7 +8,7 @@ UPDATE_TMPL = 'UPDATE {table} SET {statement} WHERE {condition};'
 
 
 # UPDATE_TMPL2 = 'UPDATE %s SET %s WHERE (root_id="%s") and (idx=%s);'
-# {"template":'UPDATE table SET idx=34 WHERE idx=%s;', "params":['table', 'field', 'abcdef0123456', '45']}
+# {"template":'UPDATE table SET idx=34 WHERE idx=%s;', "params":['45']}
 
 
 def op_delete_stmts(schema, path, id):
@@ -94,6 +94,7 @@ def get_conditions_list(schema, path, id):
 
 
 def get_where_templates(conditions_list):
+    # TODO check id`s types. compliance quotes
     where_list = {'target': {}, 'child': {}}
     where_list['target']['template'] = ' and '.join([('({0}=%s)'.format(key)) for key in conditions_list['target']])
     where_list['target']['values'] = [conditions_list['target'][key] for key in conditions_list['target']]
@@ -103,22 +104,20 @@ def get_where_templates(conditions_list):
 
 
 def gen_statements(schema, path, id):
-    where_clauses = gen_list_where_condditioions(schema, path, id)
+    where_clauses = get_where_templates(get_conditions_list(schema, path, id))
     all_tables_list = get_tables_list(schema, get_root_table_from_path(path))
     target_table = get_table_name_from_list(path.split('.'))
     tables_list = []
     for table in all_tables_list:
         if str.startswith(str(table), target_table[:-1], 0, len(table)) and not table == target_table:
             tables_list.append(table)
-    del_statements = []
-    del_statements.append(
-        DELETE_TMPL.format(table=target_table, condition=where_clauses['target']))
-
+    del_statements = {}
+    del_statements[DELETE_TMPL.format(table=target_table, condition=where_clauses['target']['template'])] = \
+    where_clauses['target']['values']
     for table in tables_list:
-        del_statements.append(
-            DELETE_TMPL.format(table=table, condition=where_clauses['child']))
-
-    update_statements = []
+        del_statements[DELETE_TMPL.format(table=table, condition=where_clauses['child']['template'])] = \
+        where_clauses['child']['values']
+    update_statements = {}
     idx = get_last_idx_from_path(path)
     max_idx = get_max_id_in_array(path)
     if idx <= max_idx:
@@ -129,10 +128,13 @@ def gen_statements(schema, path, id):
         del spath[-1]
         spath.append(str(ind))
         path_to_update = '.'.join(spath)
-        udpate_where = gen_list_where_condditioions(schema, path_to_update, id)
-        update_statements.append(
-            UPDATE_TMPL.format(table=target_table, statement='idx=' + str(ind - 1), condition=udpate_where['target']))
+        udpate_where = get_where_templates(get_conditions_list(schema, path_to_update, id))
+        update_statements[UPDATE_TMPL.format(table=target_table, statement='idx=' + str(ind - 1),
+                                             condition=udpate_where['target']['template'])] = udpate_where['target'][
+            'values']
+
         for table in tables_list:
-            update_statements.append(UPDATE_TMPL.format(table=table, statement=target_table + '_idx=' + str(ind - 1),
-                                                        condition=udpate_where['child']))
+            update_statements[UPDATE_TMPL.format(table=table, statement=target_table + '_idx=' + str(ind - 1),
+                                                 condition=udpate_where['child']['template'])] = udpate_where['child'][
+                'values']
     return {'del': del_statements, 'upd': update_statements}
