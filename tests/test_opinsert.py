@@ -5,8 +5,8 @@ from mongo_to_hive_mapping.test_schema_engine import get_schema_engine, get_sche
 from opinsert import generate_insert_queries
 from mongo_to_hive_mapping import schema_engine
 
-files = {'a_inserts': ('test_data/opinsert/json_schema2.txt',
-                       'test_data/opinsert/bson_data2.txt')}
+files = {'a_inserts': ('../test_data/opinsert/json_schema2.txt',
+                       '../test_data/opinsert/bson_data2.txt')}
 
 def get_schema_engine(collection_name):
     dirpath=os.path.dirname(os.path.abspath(__file__))
@@ -65,8 +65,6 @@ def test_insert1():
     assert(len(inserts4[1])==1)
     query_fmt4 = 'INSERT INTO TABLE a_insert_comment_slugs (slugs, a_inserts_idx, a_inserts_comments_idx, idx) VALUES(%s, %s, %s, %s);'
     values41 = (22, 1, 1, 1)
-    print query_fmt4
-    print inserts4
     assert(query_fmt4==inserts4[0])
     assert(values41==inserts4[1][0])
 

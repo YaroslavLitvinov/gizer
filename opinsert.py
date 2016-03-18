@@ -21,6 +21,10 @@ def generate_insert_queries(table):
         queries.append( tuple(values) )
     return (fmt_string, queries)
 
+def opinsert_oplog_handler_callback(ns, schema, objdata):
+    return schema_engine.create_schema_engine(collection_name, schema_path)
+    pass
+
 
 if __name__ == "__main__":
     from test_opinsert import test_insert1
