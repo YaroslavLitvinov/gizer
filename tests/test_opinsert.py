@@ -44,7 +44,7 @@ def test_insert1():
     inserts2 = generate_insert_queries(sqltable2)
     assert(len(inserts2[1])==2)
     query_fmt2 = 'INSERT INTO TABLE a_insert_comments (a_inserts_id_oid, body, created_at, id_bsontype, id_oid, updated_at, a_inserts_idx, idx) VALUES(%s, %s, %s, %s, %s, %s, %s, %s);'
-    values21 = ('56b8f05cf9fcee1b00000010', u'body3', u'2016-02-08T19:45:32.501Z', 7, '56b8f05cf9fcee1b00000110', u'2016-02-08T19:45:32.501Z', 1, 1)
+    values21 = ('56b8f05cf9fcee1b00000010', None, u'2016-02-08T19:45:32.501Z', 7, '56b8f05cf9fcee1b00000110', u'2016-02-08T19:45:32.501Z', 1, 1)
     values22 = ('56b8f05cf9fcee1b00000010', u'body2', u'2016-02-08T19:45:33.501Z', 7, '56b8f05cf9fcee1b00000011', u'2016-02-08T19:45:33.501Z', 1, 2)
     assert(query_fmt2==inserts2[0])
     assert(values21==inserts2[1][0])
