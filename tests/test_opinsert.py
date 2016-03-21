@@ -2,7 +2,7 @@
 
 import os
 from mongo_to_hive_mapping.test_schema_engine import get_schema_engine, get_schema_tables
-from opinsert import generate_insert_queries
+from gizer.opinsert import generate_insert_queries
 from mongo_to_hive_mapping import schema_engine
 
 files = {'a_inserts': ('../test_data/opinsert/json_schema2.txt',
