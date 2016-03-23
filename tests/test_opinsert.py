@@ -36,7 +36,7 @@ def test_insert1():
     inserts1 = generate_insert_queries(sqltable1)
     assert(len(inserts1[1])==1)
     query_fmt1 = 'INSERT INTO TABLE a_inserts (body, created_at, id_bsontype, id_oid, title, updated_at, user_id, idx) VALUES(%s, %s, %s, %s, %s, %s, %s, %s);'
-    values11 = (u'body3', u'2016-02-08T19:45:32.501Z', 7, '56b8f05cf9fcee1b00000010', u'title3', u'2016-02-08T19:45:32.501Z', u'56b8d7caf9fcee1b00000001', 1)
+    values11 = (u'body3"\tbody2\nbody1', u'2016-02-08T19:45:32.501Z', 7, '56b8f05cf9fcee1b00000010', u'title3', u'2016-02-08T19:45:32.501Z', u'56b8d7caf9fcee1b00000001', 1)
     assert(query_fmt1==inserts1[0])
     assert(values11==inserts1[1][0])
 #test another table
