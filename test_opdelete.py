@@ -21,6 +21,12 @@ def test_get_ids_list():
     model = {'id_oid': 'text'}
     assert check_dict(get_ids_list(schema), model)
 
+    schema = json.loads(open('test_data/test_schema5.txt').read())
+    print('list', get_ids_list(schema))
+    # model = {'id_oid': 'text'}
+    # assert check_dict(get_ids_list(schema), model)
+
+
     print(TEST_INFO, 'get_ids_list', 'PASSED')
 
 
@@ -117,11 +123,11 @@ def test_get_where_templates():
     model = {
         'target': {
             'values': ['2', '4', '3', '0123456789abcdef'],
-            'template': '(person_relatives_idx=%s) and (idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s)'
+            'template': '(person_relatives_idx=%s) and (idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s")'
         },
         'child': {
             'values': ['2', '4', '3', '0123456789abcdef'],
-            'template': '(person_relatives_idx=%s) and (person_relative_contact_phones_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s)'
+            'template': '(person_relatives_idx=%s) and (person_relative_contact_phones_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s")'
         }
     }
     result = get_where_templates(conditions_list)
@@ -135,11 +141,11 @@ def test_get_where_templates():
     model = {
         'target': {
             'values': ['2', '5', '0123456789abcdef'],
-            'template': '(person_relatives_idx=%s) and (idx=%s) and (persons_id_oid=%s)'
+            'template': '(person_relatives_idx=%s) and (idx=%s) and (persons_id_oid="%s")'
         },
         'child': {
             'values': ['2', '5', '0123456789abcdef'],
-            'template': '(person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s)'
+            'template': '(person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s")'
         }
     }
     result = get_where_templates(conditions_list)
@@ -152,11 +158,11 @@ def test_get_where_templates():
     model = {
         'target': {
             'values': ['0123456789abcdef'],
-            'template': '(id_oid=%s)'
+            'template': '(id_oid="%s")'
         },
         'child': {
             'values': ['0123456789abcdef'],
-            'template': '(persons_id_oid=%s)'
+            'template': '(persons_id_oid="%s")'
         }
     }
     result = get_where_templates(conditions_list)
@@ -173,14 +179,14 @@ def test_gen_statements():
     model = {
         'upd': {},
         'del': {
-            "DELETE FROM persons WHERE (id_oid=%s);": ['0123456789ABCDEF'],
-            "DELETE FROM person_dates WHERE (persons_id_oid=%s);": ['0123456789ABCDEF'],
-            "DELETE FROM person_relatives WHERE (persons_id_oid=%s);": ['0123456789ABCDEF'],
-            "DELETE FROM person_relative_jobs WHERE (persons_id_oid=%s);": ['0123456789ABCDEF'],
-            "DELETE FROM person_relative_contacts WHERE (persons_id_oid=%s);": ['0123456789ABCDEF'],
-            "DELETE FROM person_relative_contact_phones WHERE (persons_id_oid=%s);": ['0123456789ABCDEF'],
-            "DELETE FROM person_personal_inf_fl_nam_SSNs WHERE (persons_id_oid=%s);": ['0123456789ABCDEF'],
-            "DELETE FROM person_indeces WHERE (persons_id_oid=%s);": ['0123456789ABCDEF']
+            'DELETE FROM persons WHERE (id_oid="%s");': ['0123456789ABCDEF'],
+            'DELETE FROM person_dates WHERE (persons_id_oid="%s");': ['0123456789ABCDEF'],
+            'DELETE FROM person_relatives WHERE (persons_id_oid="%s");': ['0123456789ABCDEF'],
+            'DELETE FROM person_relative_jobs WHERE (persons_id_oid="%s");': ['0123456789ABCDEF'],
+            'DELETE FROM person_relative_contacts WHERE (persons_id_oid="%s");': ['0123456789ABCDEF'],
+            'DELETE FROM person_relative_contact_phones WHERE (persons_id_oid="%s");': ['0123456789ABCDEF'],
+            'DELETE FROM person_personal_inf_fl_nam_SSNs WHERE (persons_id_oid="%s");': ['0123456789ABCDEF'],
+            'DELETE FROM person_indeces WHERE (persons_id_oid="%s");': ['0123456789ABCDEF']
         }
     }
     assert check_dict(model, result)
@@ -191,31 +197,31 @@ def test_gen_statements():
     result = gen_statements(schema, path, id)
     model = {
         'upd': {
-            "UPDATE person_relative_contacts SET idx=5 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contacts SET idx=5 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid="%s");': [
                 '2', '6', '0123456789ABCDEF'],
-            "UPDATE person_relative_contact_phones SET person_relative_contacts_idx=5 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relative_contacts_idx=5 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s");': [
                 '2', '6', '0123456789ABCDEF'],
-            "UPDATE person_relative_contacts SET idx=6 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contacts SET idx=6 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid="%s");': [
                 '2', '7', '0123456789ABCDEF'],
-            "UPDATE person_relative_contact_phones SET person_relative_contacts_idx=6 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relative_contacts_idx=6 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s");': [
                 '2', '7', '0123456789ABCDEF'],
-            "UPDATE person_relative_contacts SET idx=7 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contacts SET idx=7 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid="%s");': [
                 '2', '8', '0123456789ABCDEF'],
-            "UPDATE person_relative_contact_phones SET person_relative_contacts_idx=7 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relative_contacts_idx=7 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s");': [
                 '2', '8', '0123456789ABCDEF'],
-            "UPDATE person_relative_contacts SET idx=8 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contacts SET idx=8 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid="%s");': [
                 '2', '9', '0123456789ABCDEF'],
-            "UPDATE person_relative_contact_phones SET person_relative_contacts_idx=8 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relative_contacts_idx=8 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s");': [
                 '2', '9', '0123456789ABCDEF'],
-            "UPDATE person_relative_contacts SET idx=9 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contacts SET idx=9 WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid="%s");': [
                 '2', '10', '0123456789ABCDEF'],
-            "UPDATE person_relative_contact_phones SET person_relative_contacts_idx=9 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relative_contacts_idx=9 WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s");': [
                 '2', '10', '0123456789ABCDEF']
         },
         'del': {
-            "DELETE FROM person_relative_contacts WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid=%s);": [
+            'DELETE FROM person_relative_contacts WHERE (person_relatives_idx=%s) and (idx=%s) and (persons_id_oid="%s");': [
                 '2', '5', '0123456789ABCDEF'],
-            "DELETE FROM person_relative_contact_phones WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid=%s);": [
+            'DELETE FROM person_relative_contact_phones WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s");': [
                 '2', '5', '0123456789ABCDEF']
         }
     }
@@ -227,70 +233,70 @@ def test_gen_statements():
     result = gen_statements(schema, path, id)
     model = {
         'upd': {
-            "UPDATE person_relatives SET idx=2 WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '3'],
-            "UPDATE person_relative_jobs SET person_relatives_idx=2 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relatives SET idx=2 WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '3'],
+            'UPDATE person_relative_jobs SET person_relatives_idx=2 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '3'],
-            "UPDATE person_relative_contacts SET person_relatives_idx=2 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contacts SET person_relatives_idx=2 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '3'],
-            "UPDATE person_relative_contact_phones SET person_relatives_idx=2 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relatives_idx=2 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '3'],
-            "UPDATE person_relatives SET idx=3 WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '4'],
-            "UPDATE person_relative_jobs SET person_relatives_idx=3 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relatives SET idx=3 WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '4'],
+            'UPDATE person_relative_jobs SET person_relatives_idx=3 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '4'],
-            "UPDATE person_relative_contacts SET person_relatives_idx=3 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contacts SET person_relatives_idx=3 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '4'],
-            "UPDATE person_relative_contact_phones SET person_relatives_idx=3 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relatives_idx=3 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '4'],
-            "UPDATE person_relatives SET idx=4 WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '5'],
-            "UPDATE person_relative_jobs SET person_relatives_idx=4 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relatives SET idx=4 WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '5'],
+            'UPDATE person_relative_jobs SET person_relatives_idx=4 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '5'],
-            "UPDATE person_relative_contacts SET person_relatives_idx=4 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contacts SET person_relatives_idx=4 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '5'],
-            "UPDATE person_relative_contact_phones SET person_relatives_idx=4 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relatives_idx=4 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '5'],
-            "UPDATE person_relatives SET idx=5 WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '6'],
-            "UPDATE person_relative_jobs SET person_relatives_idx=5 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relatives SET idx=5 WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '6'],
+            'UPDATE person_relative_jobs SET person_relatives_idx=5 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '6'],
-            "UPDATE person_relative_contacts SET person_relatives_idx=5 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contacts SET person_relatives_idx=5 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '6'],
-            "UPDATE person_relative_contact_phones SET person_relatives_idx=5 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relatives_idx=5 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '6'],
-            "UPDATE person_relatives SET idx=6 WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '7'],
-            "UPDATE person_relative_jobs SET person_relatives_idx=6 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relatives SET idx=6 WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '7'],
+            'UPDATE person_relative_jobs SET person_relatives_idx=6 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '7'],
-            "UPDATE person_relative_contacts SET person_relatives_idx=6 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contacts SET person_relatives_idx=6 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '7'],
-            "UPDATE person_relative_contact_phones SET person_relatives_idx=6 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relatives_idx=6 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '7'],
-            "UPDATE person_relatives SET idx=7 WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '8'],
-            "UPDATE person_relative_jobs SET person_relatives_idx=7 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relatives SET idx=7 WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '8'],
+            'UPDATE person_relative_jobs SET person_relatives_idx=7 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '8'],
-            "UPDATE person_relative_contacts SET person_relatives_idx=7 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contacts SET person_relatives_idx=7 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '8'],
-            "UPDATE person_relative_contact_phones SET person_relatives_idx=7 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relatives_idx=7 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '8'],
-            "UPDATE person_relatives SET idx=8 WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '9'],
-            "UPDATE person_relative_jobs SET person_relatives_idx=8 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relatives SET idx=8 WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '9'],
+            'UPDATE person_relative_jobs SET person_relatives_idx=8 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '9'],
-            "UPDATE person_relative_contacts SET person_relatives_idx=8 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contacts SET person_relatives_idx=8 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '9'],
-            "UPDATE person_relative_contact_phones SET person_relatives_idx=8 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relatives_idx=8 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '9'],
-            "UPDATE person_relatives SET idx=9 WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '10'],
-            "UPDATE person_relative_jobs SET person_relatives_idx=9 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relatives SET idx=9 WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '10'],
+            'UPDATE person_relative_jobs SET person_relatives_idx=9 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '10'],
-            "UPDATE person_relative_contacts SET person_relatives_idx=9 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contacts SET person_relatives_idx=9 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '10'],
-            "UPDATE person_relative_contact_phones SET person_relatives_idx=9 WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'UPDATE person_relative_contact_phones SET person_relatives_idx=9 WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '10']
         },
         'del': {
-            "DELETE FROM person_relatives WHERE (persons_id_oid=%s) and (idx=%s);": ['0123456789ABCDEF', '2'],
-            "DELETE FROM person_relative_jobs WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'DELETE FROM person_relatives WHERE (persons_id_oid="%s") and (idx=%s);': ['0123456789ABCDEF', '2'],
+            'DELETE FROM person_relative_jobs WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '2'],
-            "DELETE FROM person_relative_contacts WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'DELETE FROM person_relative_contacts WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '2'],
-            "DELETE FROM person_relative_contact_phones WHERE (persons_id_oid=%s) and (person_relatives_idx=%s);": [
+            'DELETE FROM person_relative_contact_phones WHERE (persons_id_oid="%s") and (person_relatives_idx=%s);': [
                 '0123456789ABCDEF', '2']
         }
     }
