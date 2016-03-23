@@ -84,7 +84,6 @@ def get_conditions_list(schema, path, id):
         params_target[root_id] = id
         params_child[target_table + '_' + root_id] = id
     else:
-
         params_target[root_table + '_' + root_id] = id
         params_child[root_table + '_' + root_id] = id
         params_target['idx'] = parental_tables_list[target_table]
@@ -95,10 +94,17 @@ def get_conditions_list(schema, path, id):
 
 def get_where_templates(conditions_list):
     # TODO check id`s types. compliance quotes
+    def condition_with_quotes(key):
+        temp = ''
+        if key.endswith('_idx') or key == 'idx':
+            temp = '({0}=%s)'.format(key)
+        else:
+            temp = '({0}="%s")'.format(key)
+        return temp
     where_list = {'target': {}, 'child': {}}
-    where_list['target']['template'] = ' and '.join([('({0}=%s)'.format(key)) for key in conditions_list['target']])
+    where_list['target']['template'] = ' and '.join([(condition_with_quotes(key)) for key in conditions_list['target']])
     where_list['target']['values'] = [conditions_list['target'][key] for key in conditions_list['target']]
-    where_list['child']['template'] = ' and '.join([('({0}=%s)'.format(key)) for key in conditions_list['child']])
+    where_list['child']['template'] = ' and '.join([(condition_with_quotes(key)) for key in conditions_list['child']])
     where_list['child']['values'] = [conditions_list['child'][key] for key in conditions_list['child']]
     return where_list
 
