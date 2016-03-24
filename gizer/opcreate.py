@@ -15,7 +15,7 @@ def generate_create_table_statement(table):
             typo = override_types[sqlcol.typo]
         else:
             typo = sqlcol.typo
-        cols.append( "%s %s" % (sqlcol.name, \
+        cols.append( '"%s" %s' % (sqlcol.name, \
                                 typo ) )
-    query = "CREATE TABLE %s (%s);" % (table.table_name, ', '.join(cols))
+    query = 'CREATE TABLE IF NOT EXISTS "%s" (%s);' % (table.table_name, ', '.join(cols))
     return query
