@@ -11,3 +11,5 @@ git submodule update
 4. Load mongo push psql
 python mongo_to_hive_mapping/get_mongo_schema_as_json.py --host localhost:27017  -cn test.get_sql_query_tests > get_sql_query_tests.js
 python mongo_reader.py --host localhost:27017  -cn test.get_sql_query_tests -ifs get_sql_query_tests.js
+more examples:
+PSQLCONN="host=localhost port=5432 dbname=zvm user=zvm password=zvm" python mongo_reader.py --host $MONGO_URI -cn quote_management.open_sesame_users -user $MONGO_USER -passw $MONGO_PASS -ifs ~/git/caspian-data-access/proposal-manager/schema/pregenerated/open_sesame_users.json

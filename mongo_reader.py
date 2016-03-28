@@ -64,14 +64,18 @@ class MongoReader:
             return None
 
 
-def make_psql_requests(dbreq, schema, rec):
+def make_psql_requests(dbreq, schema, rec, psql_schema_name):
+    if psql_schema_name is None:
+        psql_schema_name = ""
     tables = schema_engine.create_tables_load_bson_data(schema, [rec]).tables
     for table in tables:
-        create_table = generate_create_table_statement(tables[table])
+        create_table = generate_create_table_statement(tables[table], \
+                                                           psql_schema_name)
         print create_table
         dbreq.cursor.execute(create_table)
         indexes = dbreq.get_table_max_indexes(tables[table])
-        inserts = generate_insert_queries(tables[table], initial_indexes = indexes)
+        inserts = generate_insert_queries(tables[table], psql_schema_name, \
+                                              initial_indexes = indexes)
         for query in inserts[1]:
             dbreq.cursor.execute(inserts[0], query)
         dbreq.cursor.execute('COMMIT')
@@ -89,6 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("-ifs", "--input-file-schema", action="store",
                         help="Input file with json schema", type=file)
     parser.add_argument("-js-request", help='Mongo db search request in json format. default=%s' % (default_request), type=str)
+    parser.add_argument("-psql-schema-name", help="", type=str)
 
     args = parser.parse_args()
 
@@ -134,7 +139,7 @@ if __name__ == "__main__":
             break
         else:
             print rec
-            make_psql_requests(dbreq, schema, rec)
+            make_psql_requests(dbreq, schema, rec, args.psql_schema_name)
             message(".", cr="")
 
     exit(mongo_reader.failed)
