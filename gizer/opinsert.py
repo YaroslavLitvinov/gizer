@@ -4,16 +4,19 @@ import json
 import bson
 from bson.json_util import loads
 
-def generate_insert_queries(table, initial_indexes = {}):
+def generate_insert_queries(table, psql_schema_name, initial_indexes = {}):
     """ get insert queries as 
     tuple: (format string, [(list,of,values,as,tuples)])
     @param table object schema_engine.SqlTable
     @param initial_indexes dict of indexes from db tables"""
     queries = []
-    fmt_string = "INSERT INTO %s (%s) VALUES(%s);" \
-                 % (table.table_name, \
-                    ', '.join(table.sql_column_names), \
-                    ', '.join(['%s' for i in table.sql_column_names]))
+    if len(psql_schema_name):
+        psql_schema_name += '.'
+    fmt_string = "INSERT INTO %s%s (%s) VALUES(%s);" \
+        % (psql_schema_name, \
+               table.table_name, \
+               ', '.join(table.sql_column_names), \
+               ', '.join(['%s' for i in table.sql_column_names]))
     firstcolname = table.sql_column_names[0]
     reccount = len(table.sql_columns[firstcolname].values)
     for val_i in xrange(reccount):

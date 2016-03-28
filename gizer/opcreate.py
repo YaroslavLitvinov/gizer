@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-def generate_create_table_statement(table):
+def generate_create_table_statement(table, psql_schema_name):
     """ return string
     @param table object schema_engine.SqlTable"""
     override_types = {'INT': 'INTEGER',
@@ -17,5 +17,8 @@ def generate_create_table_statement(table):
             typo = sqlcol.typo
         cols.append( '"%s" %s' % (sqlcol.name, \
                                 typo ) )
-    query = 'CREATE TABLE IF NOT EXISTS "%s" (%s);' % (table.table_name, ', '.join(cols))
+    if len(psql_schema_name):
+        psql_schema_name += '.'
+    query = 'CREATE TABLE IF NOT EXISTS %s"%s" (%s);' \
+        % (psql_schema_name, table.table_name, ', '.join(cols))
     return query
