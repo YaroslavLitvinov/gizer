@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+def generate_drop_table_statement(table, psql_schema_name):
+    """ return string
+    @param table object schema_engine.SqlTable"""
+    if len(psql_schema_name):
+        psql_schema_name += '.'
+    query = 'DROP TABLE IF EXISTS %s"%s";' \
+        % (psql_schema_name, table.table_name)
+    return query
+
 
 def generate_create_table_statement(table, psql_schema_name):
     """ return string
