@@ -15,7 +15,7 @@ def test_all():
         create_table = generate_create_table_statement(tables[table], "")
         print create_table
         dbreq.cursor.execute(create_table)
-        indexes = dbreq.get_table_max_indexes(tables[table])
+        indexes = dbreq.get_table_max_indexes(tables[table], "")
         inserts = generate_insert_queries(tables[table], "", initial_indexes = indexes)
         for query in inserts[1]:
             dbreq.cursor.execute(inserts[0], query)
