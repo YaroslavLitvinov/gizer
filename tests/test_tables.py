@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import pprint
 import os
 from mongo_to_hive_mapping.test_schema_engine import get_schema_engine, get_schema_tables
 from mongo_to_hive_mapping import schema_engine
@@ -29,4 +30,6 @@ def test_tables():
                                     'a_inserts',
                                     'a_insert_comments',
                                     'a_insert_comment_slugs'])
+    pp = pprint.PrettyPrinter()
+    pp.pprint(tables.errors)
     return tables.tables
