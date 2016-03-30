@@ -12,13 +12,6 @@ def d(str_date, tzinfo):
     l = datetime.strptime(str_date, timestamp_fmt)
     return datetime(l.year, l.month, l.day, l.hour, l.minute, l.second, l.microsecond, tzinfo)
 
-def rem_tz(tupl):
-    nw = []
-    for l in tupl:
-        if type(l) is datetime.datetime:
-            datetime.datetime(l.year, l.month, l.day, l.hour, l.minute, l.second, l.microsecond, tzinfo)
-            
-
 def test_insert1():
     collection_name = 'a_inserts'
     tables = test_tables()
