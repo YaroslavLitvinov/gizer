@@ -4,10 +4,12 @@
 
 import cProfile, pstats #profiling
 import pprint
+import time
 
 import sys
 import json
 import argparse
+import pymongo
 from pymongo.mongo_client import MongoClient
 # modules or psql requests
 import os
@@ -22,8 +24,9 @@ def message(mes, cr='\n'):
     sys.stderr.write( mes + cr)
 
 class MongoReader:
-    def __init__(self, host, port, dbname, collection, \
+    def __init__(self, ssl, host, port, dbname, collection, \
                  user, passw, request):
+        self.ssl = ssl
         self.host = host
         self.port = int(port)
         self.dbname = dbname
@@ -33,48 +36,50 @@ class MongoReader:
         self.request = request
         self.rec_i = 0
         self.cursor = None
+        self.client = None
         self.failed = False
         self.attempts = 0
 
     def connauthreq(self):
-        client = MongoClient(self.host, self.port)
+        self.client = MongoClient(self.host, self.port, ssl=self.ssl)
         if self.user and self.passw:
-            client[self.dbname].authenticate(self.user, self.passw)
+            self.client[self.dbname].authenticate(self.user, self.passw)
             message("Authenticated")
-        mongo_collection = client[self.dbname][self.collection]
+        mongo_collection = self.client[self.dbname][self.collection]
         self.cursor = mongo_collection.find(self.request)
         self.cursor.batch_size(1000)
         return self.cursor
 
     def nextrec(self):
         if not self.cursor:
-            message("Connect attempt #%d" % (self.attempts))
             self.connauthreq()
 
-        if self.rec_i < self.cursor.count():
+        self.attempts = 0
+        rec = None
+        while True and self.failed is False:
             try:
-                rec = self.cursor[self.rec_i]
-                self.rec_i += 1
-            except:
-                self.cursor.close()
-                self.cursor = None
+                rec = self.cursor.next()
+            except pymongo.errors.AutoReconnect:
                 self.attempts += 1
-                if self.attempts <= 3:
-                    rec = self.nextrec()
+                if self.attempts <= 4:
+                    time.sleep(pow(2, self.attempts))
+                    message("Connect attempt #%d, %s" % (self.attempts, str(time.time())))
+                    continue
                 else:
                     self.failed = True
-                    rec = None
-            return rec
-        else:
-            return None
+            except pymongo.errors.OperationFailure:
+                self.failed = True
+                message("Exception: pymongo.errors.OperationFailure")
+            break
+        return rec
 
 
 def create_table(dbreq, sqltable, psql_schema_name):
     drop_table = generate_drop_table_statement(sqltable, psql_schema_name)
-    print drop_table
+#    print drop_table
     dbreq.cursor.execute(drop_table)
     create_table = generate_create_table_statement(sqltable, psql_schema_name)
-    print create_table
+#    print create_table
     dbreq.cursor.execute(create_table)
 
 def merge_dicts(store, append):
@@ -109,7 +114,8 @@ def make_psql_requests(dbreq, tables_obj, psql_schema_name, use_cached):
                                               initial_indexes = indexes)
         for query in inserts[1]:
             try:
-                dbreq.cursor.execute(inserts[0], query)
+                #dbreq.cursor.execute(inserts[0], query)
+                pass
             except:
                 print inserts[0]
                 print query
@@ -127,6 +133,7 @@ if __name__ == "__main__":
     default_request = '{}'
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("-ssl", action="store_true", help="connect to ssl port")
     parser.add_argument("--host", help="Mongo db host:port", type=str)
     parser.add_argument("-user", help="Mongo db user", type=str)
     parser.add_argument("-passw", help="Mongo db pass", type=str)
@@ -171,30 +178,31 @@ if __name__ == "__main__":
 
     js_schema = [json.load(args.input_file_schema)]
     schema = schema_engine.SchemaEngine(collection_name, js_schema)
-    mongo_reader = MongoReader(host, port, dbname, collection_name, \
-                           args.user, args.passw, search_request)
+    mongo_reader = MongoReader(args.ssl, host, port, \
+                                   dbname, collection_name, \
+                                   args.user, args.passw, search_request)
 
     connstr = os.environ['PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
-    first = True
-    while True:
-        rec = mongo_reader.nextrec()
-        if mongo_reader.failed == True or rec is None:
-            message("")
-            break
-        else:
-#            print rec
-            tables_obj = schema_engine.create_tables_load_bson_data(schema, [rec])
-            make_psql_requests(dbreq, tables_obj, args.psql_schema_name, 
-                               args.use_cached_indexes )
-            errors = merge_dicts(errors, tables_obj.errors)
-            first = False
-            message(".", cr="")
-
-    dbreq.cursor.execute('COMMIT')
+    rec = True
+    try:
+        while rec:
+            rec = mongo_reader.nextrec()
+            if rec:
+    #            print rec
+                tables_obj = schema_engine.create_tables_load_bson_data(schema, [rec])
+                make_psql_requests(dbreq, tables_obj, args.psql_schema_name, 
+                                   args.use_cached_indexes )
+                errors = merge_dicts(errors, tables_obj.errors)
+                message(".", cr="")
+    except KeyboardInterrupt:
+        mongo_reader.failed = True
+    message("")
+    if mongo_reader.failed is False:
+        dbreq.cursor.execute('COMMIT')
     pr.disable()
     ps = pstats.Stats(pr).sort_stats('cumulative') #profiling
     ps.print_stats()
