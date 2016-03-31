@@ -24,18 +24,21 @@ def get_max_id_in_array(path):
 
 
 def get_ids_list(lst):
-    list = lst[0]
+    if type(lst) is list:
+        list_it = lst[0]
+    else:
+        list_it = lst
     ids_to_add = {}
-    for it in list:
+    for it in list_it:
         if isIdField(it):
-            if type(list[it]) is dict:
-                for id_item in list[it]:
+            if type(list_it[it]) is dict:
+                for id_item in list_it[it]:
                     if isIdField(id_item):
                         ids_to_add[get_field_name_without_underscore(
                             it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(
-                            list[it][id_item])
+                            list_it[it][id_item])
             else:
-                ids_to_add[get_field_name_without_underscore(it)] = get_postgres_type(list[it])
+                ids_to_add[get_field_name_without_underscore(it)] = get_postgres_type(list_it[it])
     if len(ids_to_add) == 0:
         ids_to_add['idx'] = 'bigint'
     return ids_to_add
