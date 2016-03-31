@@ -2,23 +2,23 @@
 
 """Read data from mongo collection"""
 
-import cProfile, pstats #profiling
 import pprint
 import time
-
+import cProfile, pstats # profiling
+# modules affected in data in
 import sys
 import json
 import argparse
 import pymongo
 from pymongo.mongo_client import MongoClient
-# modules or psql requests
+# modules affected in data out
 import os
-import psycopg2
 from mongo_to_hive_mapping import schema_engine
-from gizer.psql_requests import PsqlRequests
+from gizer.opcsv import CsvManager
 from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opinsert import generate_insert_queries
+
 
 def message(mes, cr='\n'):
     sys.stderr.write( mes + cr)
@@ -74,13 +74,10 @@ class MongoReader:
         return rec
 
 
-def create_table(dbreq, sqltable, psql_schema_name):
-    drop_table = generate_drop_table_statement(sqltable, psql_schema_name)
-#    print drop_table
-    dbreq.cursor.execute(drop_table)
-    create_table = generate_create_table_statement(sqltable, psql_schema_name)
-#    print create_table
-    dbreq.cursor.execute(create_table)
+def create_table(sqltable, psql_schema_name):
+    drop = generate_drop_table_statement(sqltable, psql_schema_name)
+    create = generate_create_table_statement(sqltable, psql_schema_name)
+    return drop + '\n' + create + '\n';
 
 def merge_dicts(store, append):
     for index_key, index_val in append.iteritems():
@@ -91,41 +88,26 @@ def merge_dicts(store, append):
     return store
 
 
-def make_psql_requests(dbreq, tables_obj, psql_schema_name, use_cached):
-    if not hasattr(make_psql_requests, "created_tables"):
-        make_psql_requests.created_tables = {}
+def create_table_queries(sqltables, psql_schema_name):
+    if not hasattr(create_table_queries, "created_tables"):
+        create_table_queries.created_tables = {}
 
-    if psql_schema_name is None:
-        psql_schema_name = ""
-    
-    if use_cached is True:
-        if hasattr(make_psql_requests, "indexes"):
-            indexes = make_psql_requests.indexes
-        else:
-            indexes = make_psql_requests.indexes = {}
-    tables = tables_obj.tables
-    for table in tables:
-        if tables[table].table_name not in make_psql_requests.created_tables:
-            create_table(dbreq, tables[table], psql_schema_name)
-            make_psql_requests.created_tables[tables[table].table_name] = 1
-        if use_cached is not True:
-            indexes = dbreq.get_table_max_indexes(tables[table], psql_schema_name)
-        inserts = generate_insert_queries(tables[table], psql_schema_name, \
-                                              initial_indexes = indexes)
-        for query in inserts[1]:
-            try:
-                #dbreq.cursor.execute(inserts[0], query)
-                pass
-            except:
-                print inserts[0]
-                print query
-                raise
+    for tablename, sqltable in sqltables.iteritems():
+        if tablename not in create_table_queries.created_tables:
+            create_table_queries.created_tables[tablename] = \
+                create_table(sqltable, psql_schema_name)
+
+
+def make_psql_requests(tables_obj, csm):
+    if not hasattr(make_psql_requests, "max_indexes"):
+        make_psql_requests.max_indexes = {}
+
+    for name, table in tables_obj.tables.iteritems():
+        csm.write_csv(table)
 
 #cache initial indexes
-    if use_cached is True:
-        make_psql_requests.indexes \
-            = merge_dicts(make_psql_requests.indexes,
-                          tables_obj.data_engine.indexes)
+    make_psql_requests.max_indexes = \
+        merge_dicts(make_psql_requests.max_indexes, tables_obj.data_engine.indexes)
 
 
 if __name__ == "__main__":
@@ -142,8 +124,6 @@ if __name__ == "__main__":
                         help="Input file with json schema", type=file)
     parser.add_argument("-js-request", help='Mongo db search request in json format. default=%s' % (default_request), type=str)
     parser.add_argument("-psql-schema-name", help="", type=str)
-    parser.add_argument("-use-cached-indexes", action="store_true", help="Use cached indexes instead making get_max_index request from psql db")
-
 
     args = parser.parse_args()
 
@@ -182,9 +162,11 @@ if __name__ == "__main__":
                                    dbname, collection_name, \
                                    args.user, args.passw, search_request)
 
-    connstr = os.environ['PSQLCONN']
-    dbreq = PsqlRequests(psycopg2.connect(connstr))
+    psql_schema_name = args.psql_schema_name
+    if not args.psql_schema_name:
+        psql_schema_name = ''
 
+    csm = CsvManager('tmp', '/QM/foo/2016/03/30/csv', 1024*1024*100)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
     rec = True
@@ -192,17 +174,15 @@ if __name__ == "__main__":
         while rec:
             rec = mongo_reader.nextrec()
             if rec:
-    #            print rec
                 tables_obj = schema_engine.create_tables_load_bson_data(schema, [rec])
-                make_psql_requests(dbreq, tables_obj, args.psql_schema_name, 
-                                   args.use_cached_indexes )
+                create_table_queries(tables_obj.tables, psql_schema_name)
+                make_psql_requests(tables_obj, csm)
                 errors = merge_dicts(errors, tables_obj.errors)
                 message(".", cr="")
     except KeyboardInterrupt:
         mongo_reader.failed = True
+    csm.finalize()
     message("")
-    if mongo_reader.failed is False:
-        dbreq.cursor.execute('COMMIT')
     pr.disable()
     ps = pstats.Stats(pr).sort_stats('cumulative') #profiling
     ps.print_stats()
