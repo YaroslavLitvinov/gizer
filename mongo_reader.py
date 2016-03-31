@@ -56,7 +56,7 @@ class MongoReader:
 
         self.attempts = 0
         rec = None
-        while True and self.failed is False:
+        while self.cursor.alive and self.failed is False:
             try:
                 rec = self.cursor.next()
             except pymongo.errors.AutoReconnect:
@@ -98,16 +98,16 @@ def create_table_queries(sqltables, psql_schema_name):
                 create_table(sqltable, psql_schema_name)
 
 
-def make_psql_requests(tables_obj, csm):
-    if not hasattr(make_psql_requests, "max_indexes"):
-        make_psql_requests.max_indexes = {}
+def gen_insert_queries(tables_obj, csm):
+    if not hasattr(gen_insert_queries, "max_indexes"):
+        gen_insert_queries.max_indexes = {}
 
     for name, table in tables_obj.tables.iteritems():
         csm.write_csv(table)
 
 #cache initial indexes
-    make_psql_requests.max_indexes = \
-        merge_dicts(make_psql_requests.max_indexes, tables_obj.data_engine.indexes)
+    gen_insert_queries.max_indexes = \
+        merge_dicts(gen_insert_queries.max_indexes, tables_obj.data_engine.indexes)
 
 
 if __name__ == "__main__":
@@ -124,10 +124,15 @@ if __name__ == "__main__":
                         help="Input file with json schema", type=file)
     parser.add_argument("-js-request", help='Mongo db search request in json format. default=%s' % (default_request), type=str)
     parser.add_argument("-psql-schema-name", help="", type=str)
+    parser.add_argument("--hdfs-path", help="Path to save csv files", type=str)
 
     args = parser.parse_args()
 
-    if args.host == None or args.collection_name == None:
+    if args.host is None or \
+            args.collection_name is None or \
+            args.input_file_schema is None or \
+            args.hdfs_path is None or \
+            args.hdfs_path is not None and len(args.hdfs_path) < 3:
         parser.print_help()
         exit(1)
 
@@ -166,7 +171,7 @@ if __name__ == "__main__":
     if not args.psql_schema_name:
         psql_schema_name = ''
 
-    csm = CsvManager('tmp', '/QM/foo/2016/03/30/csv', 1024*1024*100)
+    csm = CsvManager('tmp', args.hdfs_path, 1024*1024*100)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
     rec = True
@@ -176,7 +181,7 @@ if __name__ == "__main__":
             if rec:
                 tables_obj = schema_engine.create_tables_load_bson_data(schema, [rec])
                 create_table_queries(tables_obj.tables, psql_schema_name)
-                make_psql_requests(tables_obj, csm)
+                gen_insert_queries(tables_obj, csm)
                 errors = merge_dicts(errors, tables_obj.errors)
                 message(".", cr="")
     except KeyboardInterrupt:
