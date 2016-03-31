@@ -1,15 +1,14 @@
-#!/usr/bin/env python
-
 import os
-import collections
 import csv
+import sys
+from subprocess import call
+from gizer.opexecutor import Executor
 
 class CsvInfo:
-    def __init__(self, writer, filepath, name, datac, filec):
+    def __init__(self, writer, filepath, name, filec):
         self.writer = writer
         self.filepath = filepath 
         self.name = name
-        self.data_counter = datac
         self.file_counter = filec
 
 class CsvManager:
@@ -18,34 +17,43 @@ class CsvManager:
         self.tmp_path = tmp_path
         self.hdfs_path = hdfs_path
         self.chunk_size = chunk_size
+        self.hdfs_dirs = {}
+        self.executor = Executor()
 
     def put_to_hdfs(self, wrt):
+#ensure hdfs dirs exists
         hdfsdir = os.path.join(self.hdfs_path, wrt.name)
-        print "hdfs dfs -mkdir -p ", hdfsdir
-        print "hdfs dfs -put", wrt.filepath, \
-            os.path.join(hdfsdir, str(wrt.file_counter).zfill(4))
-        print "rm -f", wrt.filepath
+        if hdfsdir not in self.hdfs_dirs:
+            rm_cmd = ['hdfs', 'dfs', '-rm', '-R', '-f', hdfsdir]
+            call(rm_cmd)
+            mkdir_cmd = ['hdfs', 'dfs', '-mkdir', '-p', hdfsdir]
+            if call(mkdir_cmd) is 0:
+                self.hdfs_dirs[hdfsdir] = True
 
-    def create_writer(self, name, number):
-        filepath = os.path.join(self.tmp_path, name+'.'+str(number).zfill(4))
+        cmd = ['hdfs', 'dfs', '-moveFromLocal', wrt.filepath, \
+                   os.path.join(hdfsdir, str(wrt.file_counter).zfill(5))]
+        self.executor.execute(cmd)
+
+    def create_writer(self, name, fnumber):
+        filepath = os.path.join(self.tmp_path, name+'.'+str(fnumber).zfill(5))
         f = open(filepath, 'wb')
-        wrt = CsvInfo(CsvWriter(f, '\\N'),  filepath, name, 0, number)
+        wrt = CsvInfo(CsvWriter(f, '\\N'),  filepath, name, fnumber)
         return wrt
 
     def write_csv(self, sqltable):
         name = sqltable.table_name
-        filec = None
         if name not in self.writers.keys():
-            filec = 0
-        elif self.writers[name].data_counter >= self.chunk_size:
-            filec = self.writers[name].file_counter + 1
-        if filec is not None:
-            self.writers[name] = self.create_writer(name, filec)
+            self.writers[name] = self.create_writer(name, 0)
+        elif not self.writers[name].writer.file:
+            newfile_count = self.writers[name].file_counter + 1
+            self.writers[name] = self.create_writer(name, newfile_count)
+
         wrt = self.writers[name]
-        wrt.data_counter += wrt.writer.write_csv(sqltable)
-        if wrt.data_counter >= self.chunk_size:
+        wrt.writer.write_csv(sqltable)
+        if wrt.writer.file.tell() >= self.chunk_size:
             wrt.writer.close()
             self.put_to_hdfs(wrt)
+        self.writers[name] = wrt
     
     def finalize(self):
         for name, wrt in self.writers.iteritems():
@@ -65,8 +73,8 @@ class CsvWriter:
                                     quoting=csv.QUOTE_ALL)
 
     def close(self):
-        print "close file"
         self.file.close()
+        self.file = None
 
     def write_csv(self, sqltable):
         """ @param table object schema_engine.SqlTable
@@ -87,7 +95,6 @@ class CsvWriter:
                     csvvals.append(self.null_val)
             return csvvals
 
-        counter = 0
         firstcolname = sqltable.sql_column_names[0]
         reccount = len(sqltable.sql_columns[firstcolname].values)
         for val_i in xrange(reccount):
@@ -95,5 +102,3 @@ class CsvWriter:
                                        sqltable.sql_column_names, 
                                        sqltable.sql_columns)
             self.csvwriter.writerow(csvdata)
-            counter += len(csvdata)
-        return counter
