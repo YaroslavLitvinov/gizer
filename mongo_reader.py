@@ -76,9 +76,11 @@ class MongoReader:
         return rec
 
 
-def create_table(sqltable, psql_schema_name):
-    drop = generate_drop_table_statement(sqltable, psql_schema_name)
-    create = generate_create_table_statement(sqltable, psql_schema_name)
+def create_table(sqltable, psql_schema_name, psql_table_name_prefix):
+    drop = generate_drop_table_statement(sqltable, psql_schema_name, 
+                                         psql_table_name_prefix)
+    create = generate_create_table_statement(sqltable, psql_schema_name, 
+                                             psql_table_name_prefix)
     return drop + '\n' + create + '\n';
 
 def merge_dicts(store, append):
@@ -90,14 +92,14 @@ def merge_dicts(store, append):
     return store
 
 
-def create_table_queries(sqltables, psql_schema_name):
+def create_table_queries(sqltables, psql_schema_name, psql_table_name_prefix):
     if not hasattr(create_table_queries, "created_tables"):
         create_table_queries.created_tables = {}
 
     for tablename, sqltable in sqltables.iteritems():
         if tablename not in create_table_queries.created_tables:
             create_table_queries.created_tables[tablename] = \
-                create_table(sqltable, psql_schema_name)
+                create_table(sqltable, psql_schema_name, psql_table_name_prefix)
 
 
 def gen_insert_queries(tables_obj, csm):
@@ -128,6 +130,7 @@ expected in format db_name.collection_name", type=str, required=True)
     parser.add_argument("-js-request", help='Mongo db search request in json format. \
 default=%s' % (default_request), type=str)
     parser.add_argument("-psql-schema-name", help="", type=str)
+    parser.add_argument("-psql-table-name-prefix", help="", type=str)
     parser.add_argument("--ddl-statements-file", help="File to save create table \
 statements", type=argparse.FileType('w'), required=True)
     parser.add_argument("--hdfs-path", help="Hdfs path (at least 3 letters) to save \
@@ -174,6 +177,10 @@ folders with csv files", type=str, required=True)
     if not args.psql_schema_name:
         psql_schema_name = ''
 
+    psql_table_name_prefix = args.psql_table_name_prefix
+    if not args.psql_table_name_prefix:
+        psql_table_name_prefix = ''
+
     csm = CsvManager('tmp', args.hdfs_path, CSV_CHUNK_SIZE)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
@@ -183,7 +190,7 @@ folders with csv files", type=str, required=True)
             rec = mongo_reader.nextrec()
             if rec:
                 tables_obj = schema_engine.create_tables_load_bson_data(schema, [rec])
-                create_table_queries(tables_obj.tables, psql_schema_name)
+                create_table_queries(tables_obj.tables, psql_schema_name, psql_table_name_prefix)
                 gen_insert_queries(tables_obj, csm)
                 errors = merge_dicts(errors, tables_obj.errors)
                 message(".", cr="")
