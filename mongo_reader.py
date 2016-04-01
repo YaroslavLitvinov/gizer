@@ -20,6 +20,8 @@ from gizer.opcreate import generate_drop_table_statement
 from gizer.opinsert import generate_insert_queries
 
 
+CSV_CHUNK_SIZE = 1024*1024*100 # 100MB
+
 def message(mes, cr='\n'):
     sys.stderr.write( mes + cr)
 
@@ -116,24 +118,25 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-ssl", action="store_true", help="connect to ssl port")
-    parser.add_argument("--host", help="Mongo db host:port", type=str)
+    parser.add_argument("--host", help="Mongo db host:port", type=str, required=True)
     parser.add_argument("-user", help="Mongo db user", type=str)
     parser.add_argument("-passw", help="Mongo db pass", type=str)
-    parser.add_argument("-cn", "--collection-name", help="Mongo collection name that is expected in format db_name.collection_name", type=str)
+    parser.add_argument("-cn", "--collection-name", help="Mongo collection name that is \
+expected in format db_name.collection_name", type=str, required=True)
     parser.add_argument("-ifs", "--input-file-schema", action="store",
-                        help="Input file with json schema", type=file)
-    parser.add_argument("-js-request", help='Mongo db search request in json format. default=%s' % (default_request), type=str)
+                        help="Input file with json schema", type=file, required=True)
+    parser.add_argument("-js-request", help='Mongo db search request in json format. \
+default=%s' % (default_request), type=str)
     parser.add_argument("-psql-schema-name", help="", type=str)
-    parser.add_argument("--hdfs-path", help="Path to save csv files", type=str)
+    parser.add_argument("--ddl-statements-file", help="File to save create table \
+statements", type=argparse.FileType('w'), required=True)
+    parser.add_argument("--hdfs-path", help="Hdfs path (at least 3 letters) to save \
+folders with csv files", type=str, required=True)
 
     args = parser.parse_args()
 
-    if args.host is None or \
-            args.collection_name is None or \
-            args.input_file_schema is None or \
-            args.hdfs_path is None or \
-            args.hdfs_path is not None and len(args.hdfs_path) < 3:
-        parser.print_help()
+    if len(args.hdfs_path) < 3:
+        message("--hdfs-path param should be at least tree chars length")
         exit(1)
 
     split_name = args.collection_name.split('.')
@@ -171,7 +174,7 @@ if __name__ == "__main__":
     if not args.psql_schema_name:
         psql_schema_name = ''
 
-    csm = CsvManager('tmp', args.hdfs_path, 1024*1024*100)
+    csm = CsvManager('tmp', args.hdfs_path, CSV_CHUNK_SIZE)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
     rec = True
@@ -186,6 +189,12 @@ if __name__ == "__main__":
                 message(".", cr="")
     except KeyboardInterrupt:
         mongo_reader.failed = True
+
+#save create table statements    
+    for table_name, create_query in \
+            create_table_queries.created_tables.iteritems():
+        args.ddl_statements_file.write(create_query)
+#save csv files
     csm.finalize()
     message("")
     pr.disable()

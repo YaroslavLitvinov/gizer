@@ -59,6 +59,7 @@ class CsvManager:
         for name, wrt in self.writers.iteritems():
             wrt.writer.close()
             self.put_to_hdfs(wrt)
+        self.executor.wait_for_complete()
 
 class CsvWriter:
     def __init__(self, output_file, null_val_as):

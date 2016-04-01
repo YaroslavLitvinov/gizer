@@ -1,9 +1,6 @@
 import collections
 from subprocess import Popen
 
-def message(mes, cr='\n'):
-    sys.stderr.write( mes + cr)
-
 class Executor:
     def __init__(self):
         self.subprocesses = []
@@ -13,7 +10,7 @@ class Executor:
         if retcode is None:
             return None
         if retcode != 0:
-            message('Exit code=%d,  %s' % (retcode, str(proc.cmd)))
+            raise Exception('Opexecutor', 'Exit code=%d,  %s' % (retcode, str(proc.cmd)))
         return retcode
        
     def free_completed(self):
