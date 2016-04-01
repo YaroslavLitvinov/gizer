@@ -58,8 +58,8 @@ def test_insert1():
     sqltable4 = tables[collection_name[:-1]+'_comment_slugs']
     inserts4 = generate_insert_queries(sqltable4, "")
     assert(len(inserts4[1])==1)
-    query_fmt4 = 'INSERT INTO a_insert_comment_slugs ("slugs", "a_inserts_idx", "a_inserts_comments_idx", "idx") VALUES(%s, %s, %s, %s);'
-    values41 = (22, 1, 1, 1)
+    query_fmt4 = 'INSERT INTO a_insert_comment_slugs ("a_inserts_comments_id_oid", "a_inserts_id_oid", "slugs", "a_inserts_idx", "a_inserts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s);'
+    values41 = ('56b8f05cf9fcee1b00000110', '56b8f05cf9fcee1b00000010', 22, 1, 1, 1)
     assert(query_fmt4==inserts4[0])
     assert(values41==inserts4[1][0])
 

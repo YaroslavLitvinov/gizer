@@ -14,7 +14,7 @@ def test_csv1():
     for table_name, table in tables.iteritems():
         output = StringIO.StringIO()
         if table_name not in csvs.keys():
-            csvs[table_name] = [output, CsvWriter(output, null_val_as='\\\\N')]
+            csvs[table_name] = [output, CsvWriter(output, null_val_as='\N')]
         csvs[table_name][1].write_csv(table)
 
     table1_name = collection_name
@@ -23,6 +23,6 @@ def test_csv1():
     table2_name = collection_name[:-1]+'_comments'
     table2_data = csvs[table2_name][0].getvalue()
     print table2_data
-    assert(table2_data.split('"\t')[1] == '"\\\\N')
+    assert(table2_data.split('\t')[1] == '\\\\N')
     assert(len(table2_data.splitlines(False)) == 2)
 

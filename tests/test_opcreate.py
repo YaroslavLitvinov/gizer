@@ -31,5 +31,5 @@ def test_insert1():
 #test another table
     sqltable4 = tables[collection_name[:-1]+'_comment_slugs']
     create4 = generate_create_table_statement(sqltable4, "", "")
-    query4 = 'CREATE TABLE IF NOT EXISTS "a_insert_comment_slugs" ("slugs" INTEGER, "a_inserts_idx" BIGINT, "a_inserts_comments_idx" BIGINT, "idx" BIGINT);'
+    query4 = 'CREATE TABLE IF NOT EXISTS "a_insert_comment_slugs" ("a_inserts_comments_id_oid" TEXT, "a_inserts_id_oid" TEXT, "slugs" INTEGER, "a_inserts_idx" BIGINT, "a_inserts_comments_idx" BIGINT, "idx" BIGINT);'
     assert(query4==create4)

@@ -30,7 +30,7 @@ class CsvManager:
             if call(mkdir_cmd) is 0:
                 self.hdfs_dirs[hdfsdir] = True
 
-        cmd = ['hdfs', 'dfs', '-moveFromLocal', wrt.filepath, \
+        cmd = ['hdfs', 'dfs', '-copyFromLocal', wrt.filepath, \
                    os.path.join(hdfsdir, str(wrt.file_counter).zfill(5))]
         self.executor.execute(cmd)
 
@@ -71,7 +71,7 @@ class CsvWriter:
                                     delimiter='\t',
                                     lineterminator='\n',
                                     doublequote=False,
-                                    quoting=csv.QUOTE_ALL)
+                                    quoting=csv.QUOTE_NONE)
 
     def close(self):
         self.file.close()
