@@ -41,6 +41,11 @@ class CsvManager:
         return wrt
 
     def write_csv(self, sqltable):
+        """
+        Write table records to csv file and place asynchronously to hdfs
+        @param sqltable data to write
+        @return records count written
+        """
         name = sqltable.table_name
         if name not in self.writers.keys():
             self.writers[name] = self.create_writer(name, 0)
@@ -49,11 +54,12 @@ class CsvManager:
             self.writers[name] = self.create_writer(name, newfile_count)
 
         wrt = self.writers[name]
-        wrt.writer.write_csv(sqltable)
+        written_reccount = wrt.writer.write_csv(sqltable)
         if wrt.writer.file.tell() >= self.chunk_size:
             wrt.writer.close()
             self.put_to_hdfs(wrt)
         self.writers[name] = wrt
+        return written_reccount
     
     def finalize(self):
         for name, wrt in self.writers.iteritems():
@@ -78,7 +84,9 @@ class CsvWriter:
         self.file = None
 
     def write_csv(self, sqltable):
-        """ @param table object schema_engine.SqlTable
+        """ 
+        @param table object schema_engine.SqlTable
+        @return records count was written
         """
         def escape_val(val):
             if type(val) is str or type(val) is unicode:
@@ -103,3 +111,4 @@ class CsvWriter:
                                        sqltable.sql_column_names, 
                                        sqltable.sql_columns)
             self.csvwriter.writerow(csvdata)
+        return reccount
