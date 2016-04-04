@@ -106,8 +106,11 @@ def gen_insert_queries(tables_obj, csm):
     if not hasattr(gen_insert_queries, "max_indexes"):
         gen_insert_queries.max_indexes = {}
 
+    written = {}
     for name, table in tables_obj.tables.iteritems():
-        csm.write_csv(table)
+        reccount = csm.write_csv(table)
+        written[name] = reccount
+    return written
 
 #cache initial indexes
     gen_insert_queries.max_indexes = \
@@ -133,6 +136,8 @@ default=%s' % (default_request), type=str)
     parser.add_argument("-psql-table-name-prefix", help="", type=str)
     parser.add_argument("--ddl-statements-file", help="File to save create table \
 statements", type=argparse.FileType('w'), required=True)
+    parser.add_argument("-stats-file", help="File to write written record counts", 
+                        type=argparse.FileType('w'))
     parser.add_argument("--hdfs-path", help="Hdfs path (at least 3 letters) to save \
 folders with csv files", type=str, required=True)
 
@@ -184,6 +189,7 @@ folders with csv files", type=str, required=True)
     csm = CsvManager('tmp', args.hdfs_path, CSV_CHUNK_SIZE)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
+    all_wrtitten_reccount = {}
     rec = True
     try:
         while rec:
@@ -191,7 +197,8 @@ folders with csv files", type=str, required=True)
             if rec:
                 tables_obj = schema_engine.create_tables_load_bson_data(schema, [rec])
                 create_table_queries(tables_obj.tables, psql_schema_name, psql_table_name_prefix)
-                gen_insert_queries(tables_obj, csm)
+                written = gen_insert_queries(tables_obj, csm)
+                all_wrtitten_reccount = merge_dicts(all_wrtitten_reccount, written)
                 errors = merge_dicts(errors, tables_obj.errors)
                 message(".", cr="")
     except KeyboardInterrupt:
@@ -209,5 +216,9 @@ folders with csv files", type=str, required=True)
     ps.print_stats()
 
     pp.pprint(errors)
+    pp.pprint(all_wrtitten_reccount)
+    if args.stats_file:
+        for name, value in all_wrtitten_reccount.iteritems():
+            args.stats_file.write(name+" "+str(value)+"\n")
 
     exit(mongo_reader.failed)
