@@ -18,3 +18,5 @@ PSQLCONN="host=localhost port=5432 dbname=zvm user=zvm password=zvm" python mong
 time PSQLCONN="$PSQLCONNQA" python mongo_reader.py --host $MONGO_URI -cn quote_management.quotes -user $MONGO_USER -passw $MONGO_PASS -ifs ~/git/caspian-data-access/proposal-manager/schema/pregenerated/quotes_schema_verified.json -psql-schema-name quote_mgmt_ods -use-cached-indexes
 
 time python mongo_reader.py --host $MONGO_URI_SSL -cn quote_management.quotes -user $MONGO_USER -passw $MONGO_PASS -ifs ~/git/caspian-data-access/proposal-manager/schema/pregenerated/quotes_schema_verified.json -psql-schema-name quote_mgmt_ods -ssl
+
+time python mongo_reader.py --host $MONGO_URI_SSL -cn quote_management.quotes -user $MONGO_USER -passw $MONGO_PASS -ifs ~/schema/pregenerated/quotes_schema_verified.json -psql-schema-name quote_mgmt_ods -ssl --ddl-statements-file quotes.sql --hdfs-path /QM/foo/2016/04/04/csv -psql-table-name-prefix 2016_04_04_ -stats-file quotes.stat
