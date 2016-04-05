@@ -18,7 +18,7 @@ def test_oplog_parser():
     def test_cb_delete(ns, schema, objdata):
         return "delete"
 
-    p = OplogParser("./schemas/rails4_mongoid_development",
+    p = OplogParser("./test_data/schemas/rails4_mongoid_development",
                     test_cb_insert, test_cb_update, test_cb_delete)
     p.load_file('test_data/test_oplog.js')
     while p.next() != None:
