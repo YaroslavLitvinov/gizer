@@ -90,7 +90,7 @@ class CsvWriter:
         """
         def escape_val(val):
             if type(val) is str or type(val) is unicode:
-                return val.replace('\n', '\\n').replace('\t', '\\t').encode('utf-8')
+                return val.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').encode('utf-8')
             else:
                 return val
 
