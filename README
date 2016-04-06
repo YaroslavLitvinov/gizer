@@ -1,6 +1,5 @@
-1. 
-git submodule init
-git submodule update
+1. Add directory containing mongo_schema module to python path. 
+If module resided in git directory: export PYTHONPATH=~/git/
 
 2.Specify PSQLCONN env variable before running tests, for example:
   export PSQLCONN="dbname=zvm user=zvm"

@@ -1,6 +1,6 @@
 from gizer.oplog_parser import OplogParser
 from gizer.opinsert import generate_insert_queries
-from mongo_to_hive_mapping.schema_engine import create_tables_load_bson_data
+from mongo_schema.schema_engine import create_tables_load_bson_data
 
 
 def test_oplog_parser():

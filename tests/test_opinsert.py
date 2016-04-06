@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+import sys
 import os
-from mongo_to_hive_mapping.test_schema_engine import get_schema_engine, get_schema_tables
+from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_tables
 from gizer.opinsert import generate_insert_queries
-from mongo_to_hive_mapping import schema_engine
+from mongo_schema import schema_engine
 from test_tables import test_tables
 from datetime import datetime
 

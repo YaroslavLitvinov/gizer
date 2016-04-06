@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from mongo_to_hive_mapping import schema_engine
+from mongo_schema import schema_engine
 import os
 
 def get_schema_files(schemas_dirpath):

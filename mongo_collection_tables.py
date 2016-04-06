@@ -5,7 +5,7 @@
 import sys
 import argparse
 import json
-from mongo_to_hive_mapping import schema_engine
+from mongo_schema import schema_engine
 
 def message(mes, cr='\n'):
     sys.stderr.write( mes + cr)

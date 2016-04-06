@@ -13,7 +13,7 @@ import pymongo
 from pymongo.mongo_client import MongoClient
 # modules affected in data out
 import os
-from mongo_to_hive_mapping import schema_engine
+from mongo_schema import schema_engine
 from gizer.opcsv import CsvManager
 from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_drop_table_statement
