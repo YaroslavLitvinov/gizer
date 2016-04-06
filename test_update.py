@@ -118,9 +118,24 @@ def test_get_obj_id_recursive():
     assert model == get_obj_id_recursive(test_data_01, [], [])
     print(TEST_INFO, 'get_obj_id_recursive', 'PASSED')
 
+
 def test_update_new():
-#    print(update_new(schema, oplog_u_02))
+    print('######################')
+    print(update_new(schema, oplog_u_01))
+    print('######################')
+    print(update_new(schema, oplog_u_02))
+    print('######################')
+    print(update_new(schema, oplog_u_03))
+    print('######################')
     print(update_new(schema, oplog_u_04))
+    print('######################')
+    print(update_new(schema, oplog_u_05))
+    print('######################')
+    print(update_new(schema, oplog_u_06))
+    print('######################')
+    print(update_new(schema, oplog_u_07))
+    print('######################')
+    print(update_new(schema, oplog_u_08))
 
 
 
@@ -129,9 +144,9 @@ def test_update():
     ns = 'posts'
     #print (list(update.update(ns, payload2, schema)))
 
-    print( (update.update(ns, schema, payload1, '001122334455667788')))
-    print( (update.update(ns, schema, payload2, '001122334455667788')))
-    print( (update.update(ns, schema, payload5, 'aabbccddeeff')))
+    print( (update(ns, schema, oplog_u_02["o"], '001122334455667788')))
+    print( (update(ns, schema, oplog_u_04["o"], '001122334455667788')))
+    print( (update(ns, schema, oplog_u_05["o"], 'aabbccddeeff')))
 
     # tables = schema_engine.create_tables_load_bson_data(SchemaEngine(ns, schema), payload1['$set'])
     # print(tables.data)
