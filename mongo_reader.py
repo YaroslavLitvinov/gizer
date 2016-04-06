@@ -140,6 +140,7 @@ statements", type=argparse.FileType('w'), required=True)
                         type=argparse.FileType('w'))
     parser.add_argument("--hdfs-path", help="Hdfs path (at least 3 letters) to save \
 folders with csv files", type=str, required=True)
+    parser.add_argument("--tmp-path", help="tmp path", type=str, required=True)
 
     args = parser.parse_args()
 
@@ -186,7 +187,7 @@ folders with csv files", type=str, required=True)
     if not args.psql_table_name_prefix:
         psql_table_name_prefix = ''
 
-    csm = CsvManager('tmp', args.hdfs_path, CSV_CHUNK_SIZE)
+    csm = CsvManager(args.tmp_path, args.hdfs_path, CSV_CHUNK_SIZE)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
     all_wrtitten_reccount = {}
