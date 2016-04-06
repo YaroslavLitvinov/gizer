@@ -72,6 +72,7 @@ def update(collection, schema, data, obj_id):
         print(obj)
         print(collection)
         print(indices)
+        print(tables)
         return {'upd':{generate_update_query(collection, q, obj):[obj[k] for k in obj] + [obj_id] + indices}}
         # yield UPSERT_TMLPT.format(
         #     update=generate_update_query(collection, q, obj),
@@ -89,12 +90,22 @@ def update_new (schema, oplog_data):
     doc_id = get_obj_id(oplog_data)
     u_data = oplog_data["o"]["$set"]
     target_table_name = oplog_data["ns"]
+
+    k = u_data.iterkeys().next()
+    updating_obj = k.split('.')
     # simple object update
-    if type(u_data) is dict:
+    if not updating_obj[-1].isdigit():
         q_columns = get_query_columns_with_nested(schema,u_data, '', {})
         upd_stmnt = UPDATE_TMPLT.format( table = target_table_name, statements = ', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions = '{column}=%s'.format(column = doc_id.iterkeys().next()))
         upd_values = [q_columns[col] for col in q_columns] + [doc_id.itervalues().next()]
+    if type(u_data[k]) is dict:
+        upd_stmnt = 'nested update'
+        upd_values = ''
+    elif type(u_data[k]) is list:
+        upd_stmnt = 'array update'
+        upd_values = ''
     return {upd_stmnt:upd_values}
+
 
 def get_obj_id(oplog_data):
     return get_obj_id_recursive(oplog_data["o2"], [], [])
