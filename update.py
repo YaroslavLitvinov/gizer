@@ -3,8 +3,14 @@
 
 import itertools
 
-from opinsert import get_insert_queries as insert
+from gizer.opinsert import *
+from mongo_to_hive_mapping import schema_engine
 from util import table_name_from, columns_from, tables_from, column_prefix_from
+from mongo_to_hive_mapping.schema_engine import *
+from opdelete import op_delete_stmts as delete
+from d_utils import *
+import collections
+
 
 UPSERT_TMLPT = """\
 LOOP
@@ -20,8 +26,10 @@ LOOP
 END LOOP;
 """
 
+UPDATE_TMPLT = "UPDATE {table} SET {statements} WHERE {conditions}"
 
-def update(collection, payload, schema):
+
+def update(collection, schema, data, obj_id):
     """Update callback."""
     # first we need to detect what kind of update we have
     # options are:
@@ -31,40 +39,97 @@ def update(collection, payload, schema):
     # 4. update of nested doc that really insert and not update (append element in array)
     # We could generate 'upsert' for every nested update
     # We could easily see if update requires cascade delete (type of payload = list)
-    for (q, obj) in extract_query_objects_from(payload, []):
+    upd_stmnts = {}
+    #print (len(extract_query_objects_from(data, [])))
+    for (q, obj) in extract_query_objects_from(data, []):
         q = '.'.join(q[1:])
         # there should be only iteration, but for correctness..
         tables = table_name_from(collection, q)
         indices = indices_from_query(q)
         if not tables:
             # we have simple root collection update
-            yield generate_update_query(collection, q, obj)
-            raise StopIteration
+            return generate_update_query(collection, q, obj)
+            #raise StopIteration
 
         # now check for cascade deletes need
         if type(obj) == list:
             # just call stubs, figure out args later
-            for stmt in delete(collection, obj, schema):
-                yield stmt
-            for stmt in insert(collection, schema, obj):
-                yield stmt
-            raise StopIteration
+            #for stmt in delete(schema, collection, obj_id):
+            generate_insert_queries(tables.tables[collection])
+            return delete(schema, collection, obj_id)
+
+            #for stmt in insert(collection, schema, obj):
+            #    yield stmt
+            #raise StopIteration
 
         # now we have to generate upsert stmt
-        yield UPSERT_TMLPT.format(
-            update=generate_update_query(collection, q, obj),
-            insert='\n'.join(flatten(insert('.' + collection, schema, obj)))
-        )
 
+        #table_obj = schema_engine.create_tables_load_bson_data(SchemaEngine(collection, schema), data['$set']).tables[collection]
+        #print(table_obj.tables.viewitems())
+        print('gen query')
+        print(data)
+        print(q)
+        print(obj)
+        print(collection)
+        print(indices)
+        return {'upd':{generate_update_query(collection, q, obj):[obj[k] for k in obj] + [obj_id] + indices}}
+        # yield UPSERT_TMLPT.format(
+        #     update=generate_update_query(collection, q, obj),
+        #     insert='\n'#.join(flatten(generate_insert_queries(table_obj)))
+        # )
+
+# def update_lst(collection, schema, data, obj_id):
+#     stmt_list = []
+#     for stmt in update(collection, schema, data, obj_id):
+#         stmt_list.append(stmt)
+#     return stmt
+
+def update_new (schema, oplog_data):
+    # plain update of root document
+    doc_id = get_obj_id(oplog_data)
+    u_data = oplog_data["o"]["$set"]
+    target_table_name = oplog_data["ns"]
+    # simple object update
+    if type(u_data) is dict:
+        q_columns = get_query_columns_with_nested(schema,u_data, '', {})
+        upd_stmnt = UPDATE_TMPLT.format( table = target_table_name, statements = ', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions = '{column}=%s'.format(column = doc_id.iterkeys().next()))
+        upd_values = [q_columns[col] for col in q_columns] + [doc_id.itervalues().next()]
+    return {upd_stmnt:upd_values}
+
+def get_obj_id(oplog_data):
+    return get_obj_id_recursive(oplog_data["o2"], [], [])
+
+def get_obj_id_recursive(data, name, value_id):
+    if type(data) is dict:
+        next_column = data.iterkeys().next()
+    name.append(get_field_name_without_underscore(next_column))
+    if type(data[next_column]) is dict:
+        ret = get_obj_id_recursive(data[next_column], name, value_id)
+    else:
+        value_id.append(data[next_column])
+    return {'_'.join(name):value_id[0]}
+
+def get_query_columns_with_nested (schema, u_data, parent_path, columns_list):
+    for k in u_data:
+        if parent_path <> '':
+            column_name = parent_path + '_' + get_field_name_without_underscore(k)
+        else:
+            column_name = get_field_name_without_underscore(k)
+        if type(u_data[k]) is dict:
+            get_query_columns_with_nested(schema, u_data[k], column_name, columns_list).copy()
+        else:
+            columns_list[column_name] = u_data[k]
+    return columns_list
 
 def flatten(listOfLists):
     "Flatten one level of nesting"
     return itertools.chain.from_iterable(listOfLists)
 
 
-def delete(collection, payload, schema):
-    """Stub."""
-    return 'delete stub'
+
+# def delete(collection, obj_id, schema):
+#     delete(schema, collection, obj_id)
+#     return 'delete stub'
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -130,6 +195,7 @@ def generate_where_clause(collection, query):
     )]
 
     idx_tables = list(tables_from(collection, query))[:-1]
+    print('idx_tables', idx_tables)
     for table in idx_tables:
         wheres.append('{table}.{prev}_idx = %s'.format(
             table=target_table(collection, query),
