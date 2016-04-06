@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from oplog_parser import OplogParser
-from mongo_to_hive_mapping import schema_engine
+from mongo_schema import schema_engine
 
 def default_cb_update(ns, schema, objdata, parent_id):
     return ["default update", parent_id, objdata]

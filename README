@@ -8,7 +8,7 @@ If module resided in git directory: export PYTHONPATH=~/git/
 ./run_cov_tests.sh or py.test
 
 4. Load mongo push psql
-python mongo_to_hive_mapping/get_mongo_schema_as_json.py --host localhost:27017  -cn test.get_sql_query_tests > get_sql_query_tests.js
+python mongo_schema/get_mongo_schema_as_json.py --host localhost:27017  -cn test.get_sql_query_tests > get_sql_query_tests.js
 python mongo_reader.py --host localhost:27017  -cn test.get_sql_query_tests -ifs get_sql_query_tests.js
 
 more examples:
