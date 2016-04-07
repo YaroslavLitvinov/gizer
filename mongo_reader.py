@@ -61,6 +61,7 @@ class MongoReader:
         while self.cursor.alive and self.failed is False:
             try:
                 rec = self.cursor.next()
+                self.rec_i += 1
             except pymongo.errors.AutoReconnect:
                 self.attempts += 1
                 if self.attempts <= 4:
@@ -191,10 +192,13 @@ folders with csv files", type=str, required=True)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
     all_wrtitten_reccount = {}
+    count = None
     rec = True
     try:
         while rec:
             rec = mongo_reader.nextrec()
+            if count is None:
+                count = mongo_reader.cursor.count()
             if rec:
                 tables_obj = schema_engine.create_tables_load_bson_data(schema, [rec])
                 create_table_queries(tables_obj.tables, psql_schema_name, psql_table_name_prefix)
@@ -202,6 +206,8 @@ folders with csv files", type=str, required=True)
                 all_wrtitten_reccount = merge_dicts(all_wrtitten_reccount, written)
                 errors = merge_dicts(errors, tables_obj.errors)
                 message(".", cr="")
+                if mongo_reader.rec_i % 1000 == 0:
+                    message("\n%d of %d" % (mongo_reader.rec_i, count))
     except KeyboardInterrupt:
         mongo_reader.failed = True
 
