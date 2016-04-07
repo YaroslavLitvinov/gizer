@@ -93,21 +93,40 @@ def update_new (schema, oplog_data):
     k = u_data.iterkeys().next()
     updating_obj = k.split('.')
     # simple object update
-    if not updating_obj[-1].isdigit():
-        q_columns = get_query_columns_with_nested(schema, u_data, '', {})
-        upd_stmnt = UPDATE_TMPLT.format( table = root_table_name, statements = ', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions = '{column}=%s'.format(column = doc_id.iterkeys().next()))
-        upd_values = [q_columns[col] for col in q_columns] + [doc_id.itervalues().next()]
     upd_path = [root_table_name] + updating_obj
-    if type(u_data[k]) is dict:
-        target_table_name = get_table_name_from_list(upd_path)
-        q_conditions = get_conditions_list(schema, '.'.join(upd_path), doc_id.itervalues().next())
-        q_columns = get_query_columns_with_nested(schema, u_data[k], '', {})
-        upd_stmnt = UPDATE_TMPLT.format( table=target_table_name, statements=', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions=' and '.join(['{column}=%s'.format(column = col) for col in q_conditions['target']]))
-        upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
-    elif type(u_data[k]) is list:
-        upd_stmnt = 'array update'
-        upd_values = ''
-    return {upd_stmnt:upd_values}
+    upd_path_str = '.'.join(upd_path)
+    if not updating_obj[-1].isdigit():
+        if type(u_data[k]) is list:
+            del_stmnt = delete(schema, upd_path_str, doc_id.itervalues().next())
+            upd_values = []
+            upd_stmnt = ''
+        else:
+            q_columns = get_query_columns_with_nested(schema, u_data, '', {})
+            upd_stmnt = UPDATE_TMPLT.format( table = root_table_name, statements = ', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions = '{column}=%s'.format(column = doc_id.iterkeys().next()))
+            upd_values = [q_columns[col] for col in q_columns] + [doc_id.itervalues().next()]
+            del_stmnt = {}
+            upd = {upd_stmnt:upd_values}
+    else:
+        if type(u_data[k]) is dict:
+            # insert statement should to be added  in case when updated record  does not exist
+            target_table_name = get_table_name_from_list(upd_path)
+            q_conditions = get_conditions_list(schema, '.'.join(upd_path), doc_id.itervalues().next())
+            q_columns = get_query_columns_with_nested(schema, u_data[k], '', {})
+            upd_stmnt = UPDATE_TMPLT.format( table=target_table_name, statements=', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions=' and '.join(['{column}=%s'.format(column = col) for col in q_conditions['target']]))
+            upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
+            upd = {upd_stmnt:upd_values}
+            del_stmnt = {}
+
+    ret_val = {}
+    #TODO need to be fixed in delete opertion should be just single dictionary, where: keys - SQL template, values - values for template (data, conditions, ids)
+    for op in del_stmnt:
+        if type(del_stmnt[op]) is dict:
+            for k in del_stmnt[op]:
+                ret_val[k] = del_stmnt[op][k]
+            for k in del_stmnt[op]:
+                ret_val[k] = del_stmnt[op][k]
+    ret_val[upd_stmnt] = upd_values
+    return ret_val
 
 
 def get_obj_id(oplog_data):
