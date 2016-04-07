@@ -7,7 +7,7 @@ from gizer.opinsert import *
 from mongo_to_hive_mapping import schema_engine
 from util import table_name_from, columns_from, tables_from, column_prefix_from
 from mongo_to_hive_mapping.schema_engine import *
-from opdelete import op_delete_stmts as delete
+from opdelete import op_delete_stmts as delete, get_conditions_list
 from d_utils import *
 import collections
 
@@ -89,18 +89,21 @@ def update_new (schema, oplog_data):
     # plain update of root document
     doc_id = get_obj_id(oplog_data)
     u_data = oplog_data["o"]["$set"]
-    target_table_name = oplog_data["ns"]
-
+    root_table_name = oplog_data["ns"].split('.')[-1]
     k = u_data.iterkeys().next()
     updating_obj = k.split('.')
     # simple object update
     if not updating_obj[-1].isdigit():
-        q_columns = get_query_columns_with_nested(schema,u_data, '', {})
-        upd_stmnt = UPDATE_TMPLT.format( table = target_table_name, statements = ', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions = '{column}=%s'.format(column = doc_id.iterkeys().next()))
+        q_columns = get_query_columns_with_nested(schema, u_data, '', {})
+        upd_stmnt = UPDATE_TMPLT.format( table = root_table_name, statements = ', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions = '{column}=%s'.format(column = doc_id.iterkeys().next()))
         upd_values = [q_columns[col] for col in q_columns] + [doc_id.itervalues().next()]
+    upd_path = [root_table_name] + updating_obj
     if type(u_data[k]) is dict:
-        upd_stmnt = 'nested update'
-        upd_values = ''
+        target_table_name = get_table_name_from_list(upd_path)
+        q_conditions = get_conditions_list(schema, '.'.join(upd_path), doc_id.itervalues().next())
+        q_columns = get_query_columns_with_nested(schema, u_data[k], '', {})
+        upd_stmnt = UPDATE_TMPLT.format( table=target_table_name, statements=', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions=' and '.join(['{column}=%s'.format(column = col) for col in q_conditions['target']]))
+        upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
     elif type(u_data[k]) is list:
         upd_stmnt = 'array update'
         upd_values = ''
