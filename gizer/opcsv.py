@@ -37,7 +37,7 @@ class CsvManager:
     def create_writer(self, name, fnumber):
         filepath = os.path.join(self.tmp_path, name+'.'+str(fnumber).zfill(5))
         f = open(filepath, 'wb')
-        wrt = CsvInfo(CsvWriter(f, '\\N'),  filepath, name, fnumber)
+        wrt = CsvInfo(CsvWriter(f, '\\\\N'),  filepath, name, fnumber)
         return wrt
 
     def write_csv(self, sqltable):
@@ -90,7 +90,7 @@ class CsvWriter:
         """
         def escape_val(val):
             if type(val) is str or type(val) is unicode:
-                return val.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').encode('utf-8')
+                return val.replace('\n', ' ').replace('\r', ' ').encode('utf-8')
             else:
                 return val
 
