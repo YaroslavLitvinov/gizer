@@ -77,7 +77,7 @@ class CsvWriter:
                                     delimiter='\t',
                                     lineterminator='\n',
                                     doublequote=False,
-                                    quoting=csv.QUOTE_NONE)
+                                    quoting=csv.QUOTE_ALL)
 
     def close(self):
         self.file.close()

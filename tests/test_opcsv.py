@@ -24,6 +24,6 @@ def test_csv1():
     table2_name = collection_name[:-1]+'_comments'
     table2_data = csvs[table2_name][0].getvalue()
     print table2_data
-    assert(table2_data.split('\t')[1] == '\\\\N')
+    assert(table2_data.split('\t')[1] == '"\\N"')
     assert(len(table2_data.splitlines(False)) == 2)
 
