@@ -16,7 +16,7 @@ def test_all():
         print create_table
         dbreq.cursor.execute(create_table)
         indexes = dbreq.get_table_max_indexes(tables[table], "")
-        inserts = generate_insert_queries(tables[table], "", initial_indexes = indexes)
+        inserts = generate_insert_queries(tables[table], "", "", initial_indexes = indexes)
         for query in inserts[1]:
             dbreq.cursor.execute(inserts[0], query)
     dbreq.cursor.execute('COMMIT')

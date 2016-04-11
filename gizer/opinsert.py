@@ -4,19 +4,31 @@ import json
 import bson
 from bson.json_util import loads
 
-def generate_insert_queries(table, psql_schema_name, initial_indexes = {}):
+def format_string_insert_query(table, psql_schema_name, table_prefix):
+    """ format string to be used with execute
+    @param table object schema_engine.SqlTable
+    @param psql_schema_name
+    @param table_prefix
+    """
+    if len(psql_schema_name):
+        psql_schema_name += '.'
+    table_name = table.table_name
+    if len(table_prefix):
+        table_name = table_prefix + table_name
+    fmt_string = 'INSERT INTO %s"%s" (%s) VALUES(%s);' \
+        % (psql_schema_name, table_name, \
+               ', '.join(['"'+i+'"' for i in table.sql_column_names]), \
+               ', '.join(['%s' for i in table.sql_column_names]))
+    return fmt_string
+
+
+def generate_insert_queries(table, psql_schema_name, table_prefix, initial_indexes = {}):
     """ get insert queries as 
     tuple: (format string, [(list,of,values,as,tuples)])
     @param table object schema_engine.SqlTable
     @param initial_indexes dict of indexes from db tables"""
     queries = []
-    if len(psql_schema_name):
-        psql_schema_name += '.'
-    fmt_string = "INSERT INTO %s%s (%s) VALUES(%s);" \
-        % (psql_schema_name, \
-               table.table_name, \
-               ', '.join(['"'+i+'"' for i in table.sql_column_names]), \
-               ', '.join(['%s' for i in table.sql_column_names]))
+    fmt_string = format_string_insert_query(table, psql_schema_name, table_prefix)
     firstcolname = table.sql_column_names[0]
     reccount = len(table.sql_columns[firstcolname].values)
     for val_i in xrange(reccount):

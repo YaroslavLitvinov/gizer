@@ -10,7 +10,7 @@ def test_oplog_parser():
         posts_table = tables.tables['posts']
         assert(posts_table)
         assert(posts_table.sql_column_names == [u'body', u'created_at', u'id_bsontype', u'id_oid', u'title', u'updated_at', u'user_id', 'idx'])
-        return generate_insert_queries(posts_table, "")
+        return generate_insert_queries(posts_table, "", "")
 
     def test_cb_update(ns, schema, objdata, parent_id):
         return "update"
