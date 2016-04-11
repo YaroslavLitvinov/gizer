@@ -2,7 +2,7 @@
 
 import sys
 import os
-import StringIO
+from io import BytesIO
 import collections
 from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_tables
 from mongo_schema import schema_engine
@@ -17,15 +17,14 @@ def row_by_idx(sqltable, idx):
     return csvvals
 
 def test_csv1():
-    NULL_VAL = '\\N'
     collection_name = 'a_inserts'
     tables = test_tables()
     csvs = {}
     CsvStruct = collections.namedtuple('CsvStruct', ['output', 'writer'])
     for table_name, table in tables.iteritems():
-        output = StringIO.StringIO()
+        output = BytesIO()
         if table_name not in csvs.keys():
-            csvs[table_name] = CsvStruct(output = output, writer=CsvWriter(output, NULL_VAL))
+            csvs[table_name] = CsvStruct(output = output, writer=CsvWriter(output, True))
         csvs[table_name].writer.write_csv(table)
         csvs[table_name].output.seek(0)
 
@@ -33,7 +32,7 @@ def test_csv1():
     tz = tables[table1_name].sql_columns['created_at'].values[0].tzinfo
     table1_data_row_0 = row_by_idx(tables[table1_name], 0)
     print "table1_data_row_0", table1_data_row_0
-    csv_reader1 = CsvReader(csvs[table1_name].output, NULL_VAL)
+    csv_reader1 = CsvReader(csvs[table1_name].output)
     table1_csv_row_0 = csv_reader1.read_record()
     print "table1_csv_row_0", table1_csv_row_0
     assert(csv_reader1.read_record() == None)
@@ -45,7 +44,7 @@ def test_csv1():
     table2_data_row_0 = row_by_idx(tables[table2_name], 0)
     table2_data = csvs[table2_name].output.getvalue()
     print "table2_data_row_0", table2_data_row_0
-    csv_reader2 = CsvReader(csvs[table2_name].output, NULL_VAL)
+    csv_reader2 = CsvReader(csvs[table2_name].output)
     table2_csv_row_0 = csv_reader2.read_record()
     print "table2_csv_row_0", table2_csv_row_0
     assert(table2_data_row_0[1] == table2_csv_row_0[1])

@@ -4,6 +4,7 @@ import sys
 from subprocess import call
 from gizer.opexecutor import Executor
 
+NULLVAL = '\N'
 ESCAPECHAR = '\\'
 DELIMITER = '\t'
 LINETERMINATOR = '\n'
@@ -18,9 +19,9 @@ class CsvInfo:
         self.file_counter = filec
 
 class CsvManager:
-    def __init__(self, tmp_path, hdfs_path, chunk_size):
+    def __init__(self, csvs_path, hdfs_path, chunk_size):
         self.writers = {}
-        self.tmp_path = tmp_path
+        self.csvs_path = csvs_path
         self.hdfs_path = hdfs_path
         self.chunk_size = chunk_size
         self.hdfs_dirs = {}
@@ -36,14 +37,17 @@ class CsvManager:
             if call(mkdir_cmd) is 0:
                 self.hdfs_dirs[hdfsdir] = True
 
-        cmd = ['hdfs', 'dfs', '-moveFromLocal', wrt.filepath, \
+        cmd = ['hdfs', 'dfs', '-copyFromLocal', wrt.filepath, \
                    os.path.join(hdfsdir, str(wrt.file_counter).zfill(5))]
         self.executor.execute(cmd)
 
     def create_writer(self, name, fnumber):
-        filepath = os.path.join(self.tmp_path, name+'.'+str(fnumber).zfill(5))
+        dirpath = os.path.join(self.csvs_path, name)
+        if not os.path.exists(dirpath):
+            os.mkdir(dirpath)
+        filepath = os.path.join(dirpath, str(fnumber).zfill(5))
         f = open(filepath, 'wb')
-        wrt = CsvInfo(CsvWriter(f, '\\\\N'),  filepath, name, fnumber)
+        wrt = CsvInfo(CsvWriter(f, False),  filepath, name, fnumber)
         return wrt
 
     def write_csv(self, sqltable):
@@ -74,8 +78,9 @@ class CsvManager:
         self.executor.wait_for_complete()
 
 class CsvWriter:
-    def __init__(self, output_file, null_val_as):
-        self.null_val = null_val_as
+    def __init__(self, output_file, escape_data, null_val = NULLVAL):
+        self.null_val = null_val
+        self.escape_data = escape_data
         self.file = output_file
         self.csvwriter = csv.writer(output_file, 
                                     escapechar = ESCAPECHAR,
@@ -95,7 +100,10 @@ class CsvWriter:
         """
         def escape_val(val):
             if type(val) is str or type(val) is unicode:
-                return val.encode('unicode-escape').encode('utf-8')
+                if self.escape_data == True:
+                    return val.encode('unicode-escape').encode('utf-8')
+                else:
+                    return val.encode('utf-8')
             else:
                 return val
 
@@ -122,8 +130,8 @@ class CsvWriter:
 ################
 
 class CsvReader:
-    def __init__(self, input_file, null_val_as):
-        self.null_val = null_val_as
+    def __init__(self, input_file, null_val = NULLVAL):
+        self.null_val = null_val
         self.file = input_file
         self.csvreader = csv.reader(input_file, 
                                     escapechar = ESCAPECHAR,
