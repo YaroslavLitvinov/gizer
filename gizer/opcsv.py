@@ -4,6 +4,12 @@ import sys
 from subprocess import call
 from gizer.opexecutor import Executor
 
+ESCAPECHAR = '\\'
+DELIMITER = '\t'
+LINETERMINATOR = '\n'
+DOUBLEQUOTE = False
+QUOTING = csv.QUOTE_NONE
+
 class CsvInfo:
     def __init__(self, writer, filepath, name, filec):
         self.writer = writer
@@ -72,12 +78,11 @@ class CsvWriter:
         self.null_val = null_val_as
         self.file = output_file
         self.csvwriter = csv.writer(output_file, 
-                                    quotechar='"',
-                                    escapechar='\\',
-                                    delimiter='\t',
-                                    lineterminator='\n',
-                                    doublequote=False,
-                                    quoting=csv.QUOTE_ALL)
+                                    escapechar = ESCAPECHAR,
+                                    delimiter = DELIMITER,
+                                    lineterminator = LINETERMINATOR,
+                                    doublequote = DOUBLEQUOTE,
+                                    quoting = QUOTING)
 
     def close(self):
         self.file.close()
@@ -90,7 +95,7 @@ class CsvWriter:
         """
         def escape_val(val):
             if type(val) is str or type(val) is unicode:
-                return val.replace('\n', ' ').replace('\r', ' ').replace('\\', '\\\\').encode('utf-8')
+                return val.encode('unicode-escape').encode('utf-8')
             else:
                 return val
 
@@ -112,3 +117,46 @@ class CsvWriter:
                                        sqltable.sql_columns)
             self.csvwriter.writerow(csvdata)
         return reccount
+
+
+################
+
+class CsvReader:
+    def __init__(self, input_file, null_val_as):
+        self.null_val = null_val_as
+        self.file = input_file
+        self.csvreader = csv.reader(input_file, 
+                                    escapechar = ESCAPECHAR,
+                                    delimiter = DELIMITER,
+                                    lineterminator = LINETERMINATOR,
+                                    doublequote = DOUBLEQUOTE,
+                                    quoting = QUOTING)
+
+    def close(self):
+        self.file.close()
+        self.file = None
+
+    def read_record(self):
+        """ 
+        @param table object schema_engine.SqlTable
+        @return records read records
+        """
+        def decode_val(val):
+            if type(val) is str or type(val) is unicode:
+                if val == self.null_val:
+                    return None
+                else:
+                    return val.decode('utf-8').decode('unicode-escape')
+            else:
+                return val
+
+        def prepare_csv_data(row):
+            csvvals = []
+            for val in row:
+                csvvals.append(decode_val(val))
+            return csvvals
+
+        try:
+            return prepare_csv_data(self.csvreader.next())
+        except StopIteration:
+            return None
