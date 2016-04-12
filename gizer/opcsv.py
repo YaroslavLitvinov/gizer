@@ -89,9 +89,9 @@ class CsvManager:
         self.executor.wait_for_complete()
 
 class CsvWriter:
-    def __init__(self, output_file, escape_data, null_val = NULLVAL):
+    def __init__(self, output_file, psql_copy, null_val = NULLVAL):
         self.null_val = null_val
-        self.escape_data = escape_data
+        self.psql_copy = psql_copy
         self.file = output_file
         self.csvwriter = csv.writer(output_file, 
                                     escapechar = ESCAPECHAR,
@@ -111,10 +111,10 @@ class CsvWriter:
         """
         def escape_val(val):
             if type(val) is str or type(val) is unicode:
-                if self.escape_data == True:
+                if self.psql_copy == False:
                     return val.encode('unicode-escape').encode('utf-8')
                 else:
-                    return val.encode('utf-8')
+                    return val.encode('utf-8').replace('\r', '\\\r')
             else:
                 return val
 

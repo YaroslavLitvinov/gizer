@@ -24,7 +24,7 @@ def test_csv1():
     for table_name, table in tables.iteritems():
         output = BytesIO()
         if table_name not in csvs.keys():
-            csvs[table_name] = CsvStruct(output = output, writer=CsvWriter(output, True))
+            csvs[table_name] = CsvStruct(output = output, writer=CsvWriter(output, False))
         csvs[table_name].writer.write_csv(table)
         csvs[table_name].output.seek(0)
 
