@@ -87,9 +87,10 @@ if __name__ == "__main__":
     for name in csv_files:
         csvpath = join(args.input_csv_dir, name)
         with open(csvpath, 'rb') as f:
+            schema_name_subst = schema_name
             if len(schema_name):
-                schema_name += '.'
-            tname = '%s"%s%s"' % (schema_name, table_prefix, args.psql_table_name)
+                schema_name_subst += '.'
+            tname = '%s"%s%s"' % (schema_name_subst, table_prefix, args.psql_table_name)
             copy_from_csv(dbreq, f, tname)
             #export_csv_file(dbreq, f, fmtstring)
 
