@@ -26,7 +26,11 @@ def get_postgres_type(type_name):
         'STRING': 'text',
         'INT': 'integer',
         'BOOL': 'boolean',
-        'LONG': 'bigint'
+        'LONG': 'bigint',
+        'string': 'text',
+        'int': 'integer',
+        'bool': 'boolean',
+        'long': 'bigint'
     }[type_name]
 
 
@@ -130,7 +134,7 @@ def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_
             get_table_struct_from_dict(table_struct[element], table, table_mappings, parent_tables_ids.copy(),
                                        get_field_name_without_underscore(element))
         else:
-            table_mappings[table][get_field_name_without_underscore(element)] = table_struct[element]
+            table_mappings[table][get_field_name_without_underscore(element)] = get_postgres_type(table_struct[element])
     return table_mappings
 
 
@@ -143,7 +147,7 @@ def get_table_struct_from_dict(schema, table, table_mappings, parent_tables_ids,
             get_tables_structure(schema[column], table[:-1] + '_' + parent_name + '_' + column, table_mappings,
                                  parent_tables_ids, 0)
         else:
-            table_mappings[table][parent_name + '_' + get_field_name_without_underscore(column)] = schema[column]
+            table_mappings[table][parent_name + '_' + get_field_name_without_underscore(column)] = get_postgres_type(schema[column])
 
 
 def get_type(schema, table, field_name, collection_name):
