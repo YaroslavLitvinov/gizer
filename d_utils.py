@@ -150,13 +150,13 @@ def get_table_struct_from_dict(schema, table, table_mappings, parent_tables_ids,
             table_mappings[table][parent_name + '_' + get_field_name_without_underscore(column)] = get_postgres_type(schema[column])
 
 
-def get_type(schema, table, field_name, collection_name):
+def get_column_type(schema, table, field_name, collection_name):
     return get_tables_structure(schema, collection_name, {}, {}, 1)[table][field_name]
 
 
 def get_quotes_using(schema, table, field_name, collection_name):
     quotes_not_needed = ['int', 'bigint', 'integer']
-    if get_type(schema, table, field_name, collection_name) in quotes_not_needed:
+    if get_column_type(schema, table, field_name, collection_name) in quotes_not_needed:
         return False
     else:
         return True
