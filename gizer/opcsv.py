@@ -28,31 +28,34 @@ class CsvInfo:
         self.file_counter = filec
 
 class CsvManager:
-    def __init__(self, csvs_path, hdfs_path, chunk_size):
+    def __init__(self, names, csvs_path, hdfs_path, chunk_size):
         self.writers = {}
         self.csvs_path = csvs_path
         self.hdfs_path = hdfs_path
         self.chunk_size = chunk_size
-        self.hdfs_dirs = {}
         self.executor = Executor()
+        self.cleandirs(names)
+
+    def cleandirs(self, names):
+        for name in names:
+            dirpath = os.path.join(self.csvs_path, name)
+            ensure_dir_empty(dirpath)
+            hdfsdir = os.path.join(self.hdfs_path, name)
+            rm_cmd = ['hdfs', 'dfs', '-rm', '-R', '-f', hdfsdir]
+            call(rm_cmd)
+            mkdir_cmd = ['hdfs', 'dfs', '-mkdir', '-p', hdfsdir]
+            call(mkdir_cmd)
+        
 
     def put_to_hdfs(self, wrt):
 #ensure hdfs dirs exists
         hdfsdir = os.path.join(self.hdfs_path, wrt.name)
-        if hdfsdir not in self.hdfs_dirs:
-            rm_cmd = ['hdfs', 'dfs', '-rm', '-R', '-f', hdfsdir]
-            call(rm_cmd)
-            mkdir_cmd = ['hdfs', 'dfs', '-mkdir', '-p', hdfsdir]
-            if call(mkdir_cmd) is 0:
-                self.hdfs_dirs[hdfsdir] = True
-
         cmd = ['hdfs', 'dfs', '-copyFromLocal', wrt.filepath, \
                    os.path.join(hdfsdir, str(wrt.file_counter).zfill(5))]
         self.executor.execute(cmd)
 
     def create_writer(self, name, fnumber):
         dirpath = os.path.join(self.csvs_path, name)
-        ensure_dir_empty(dirpath)
         filepath = os.path.join(dirpath, str(fnumber).zfill(5))
         f = open(filepath, 'wb')
         wrt = CsvInfo(CsvWriter(f, False),  filepath, name, fnumber)

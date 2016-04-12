@@ -188,7 +188,10 @@ folders with csv files", type=str, required=True)
     if not args.psql_table_name_prefix:
         psql_table_name_prefix = ''
 
-    csm = CsvManager(args.csv_path, args.hdfs_path, CSV_CHUNK_SIZE)
+    sqltables = schema_engine.create_tables_load_bson_data(schema, None).tables
+    table_names = sqltables.keys()
+
+    csm = CsvManager(table_names, args.csv_path, args.hdfs_path, CSV_CHUNK_SIZE)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
     all_wrtitten_reccount = {}
