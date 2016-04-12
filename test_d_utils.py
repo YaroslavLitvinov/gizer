@@ -1,6 +1,7 @@
 __author__ = 'volodymyr'
 
 from d_utils import *
+import json
 
 
 def test_get_field_name_without_underscore():
@@ -72,23 +73,23 @@ def test_get_indexes_dictionary():
     path = 'persons.relatives.2.contacts.3.phones.4'
     model = {'person_relative_contact_phones': '4', 'person_relatives': '2', 'person_relative_contacts': '3'}
     f_return = get_indexes_dictionary(path)
-    assert check_dict(model, f_return)
+    assert model == f_return
 
     path = 'persons.relatives.contacts.phones.4'
     model = {'person_relative_contact_phones': '4'}
     f_return = get_indexes_dictionary(path)
-    assert check_dict(model, f_return)
+    assert model == f_return
 
     path = 'persons.1.relatives.2.contacts.3.phones.4'
     model = {'person_relative_contact_phones': '4', 'person_relatives': '2', 'person_relative_contacts': '3',
              'persons': '1'}
     f_return = get_indexes_dictionary(path)
-    assert check_dict(model, f_return)
+    assert model == f_return
 
     path = 'persons.relatives.contacts.phones'
     model = {}
     f_return = get_indexes_dictionary(path)
-    assert check_dict(model, f_return)
+    assert model == f_return
 
     print('TEST', 'get_indexes_dictionary', 'PASSED')
 
@@ -105,11 +106,186 @@ def test_get_last_idx_from_path():
     print('TEST', 'get_last_idx_from_path', 'PASSED')
 
 
-def check_dict(list1, list2):
-    for it in list1:
-        if list1[it] <> list2[it]:
-            return False
-    return True
+def test_get_tables_structure():
+    schema = json.loads(open('test_data/test_schema5.txt').read())
+    collection_name = 'documents'
+    result = get_tables_structure(schema, collection_name, {}, {}, 1)
+    model = {
+        u'documents': {
+            u'personal_info_driver_licence': u'text',
+            u'personal_info_fl_name_f_name': u'text',
+            u'id_bsontype': u'integer',
+            u'personal_info_date_of_birth': u'text',
+            u'clients': u'text',
+            u'personal_info_fl_name_l_name': u'text',
+            u'id_oid': u'text'
+        },
+        u'document_relative_contacts': {
+            u'city': u'text',
+            u'apartment': u'text',
+            u'street': u'text',
+            u'idx': u'bigint',
+            u'zip': u'text',
+            u'document_relatives_idx': u'bigint',
+            u'state': u'text',
+            u'documents_id_oid': u'text',
+            u'id': u'text'
+        },
+        u'document_relative_contact_phones': {
+            u'count': u'integer',
+            u'documents_id_oid': u'text',
+            u'idx': u'bigint',
+            u'document_relatives_idx': u'bigint',
+            u'number': u'text',
+            u'document_relative_contacts_idx': u'bigint'
+        },
+        u'document_dates': {
+            u'date1': u'text',
+            u'date3': u'text',
+            u'documents_id_oid': u'text',
+            u'date4': u'text',
+            u'idx': u'bigint',
+            u'date2': u'text'
+        },
+        u'document_relatives': {
+            u'age': u'integer',
+            u'documents_id_oid': u'text',
+            u'relation': u'text',
+            u'name': u'text',
+            u'idx': u'bigint'
+        },
+        u'document_personal_info_fl_name_SSNs': {
+            u'documents_id_oid': u'text',
+            u'data': u'INT',
+            u'idx': u'bigint'
+        },
+        u'document_indeces': {
+            u'documents_id_oid': u'text',
+            u'data': u'INT',
+            u'idx': u'bigint'
+        },
+        u'document_relative_jobs': {
+            u'test1': u'integer',
+            u'test2': u'text',
+            u'documents_id_oid': u'text',
+            u'idx': u'bigint',
+            u'document_relatives_idx': u'bigint'
+        }
+    }
+    assert model == result
+
+    schema = json.loads(open('test_data/test_schema6.txt').read())
+    result = get_tables_structure(schema, collection_name, {}, {}, 1)
+    model = {'documents': {}}
+    assert model == result
+
+    schema = json.loads(open('test_data/test_schema4.txt').read())
+    result = get_tables_structure(schema, collection_name, {}, {}, 1)
+    model = {
+        'documents' : {
+            'personal_info_driver_licence' : 'text',
+            'personal_info_date_of_birth' : 'text',
+            'id_bsontype' : 'integer',
+            'personal_info_full_name_last_name' : 'text',
+            'field' : 'text',
+            'id_oid' : 'text',
+            'personal_info_full_name_first_name' : 'text'
+        },
+        'document_relative_contacts' : {
+            'city' : 'text',
+            'apartment' : 'text',
+            'street' : 'text',
+            'idx' : 'bigint',
+            'zip' : 'text',
+            'document_relatives_idx' : 'bigint',
+            'state' : 'text',
+            'documents_id_oid' : 'text',
+            'id' : 'text'
+        },
+        'document_relative_contact_phones' : {
+            'count' : 'integer',
+            'documents_id_oid' : 'text',
+            'idx' : 'bigint',
+            'document_relatives_idx' : 'bigint',
+            'number' : 'text',
+            'document_relative_contacts_idx' : 'bigint'
+        },
+        'document_dates' : {
+            'date1' : 'text',
+            'date3' : 'text',
+            'documents_id_oid' : 'text',
+            'date4' : 'text',
+            'idx' : 'bigint',
+            'date2' : 'text'
+        },
+        'document_relatives' : {
+            'age' : 'integer',
+            'documents_id_oid' : 'text',
+            'relation' : 'text',
+            'name' : 'text',
+            'idx' : 'bigint'
+        },
+        'document_indeces' : {
+            'documents_id_oid' : 'text',
+            'data' : 'INT',
+            'idx' : 'bigint'
+        },
+        'document_personal_info_full_name_SSNs' : {
+            'documents_id_oid' : 'text',
+            'data' : 'INT',
+            'idx' : 'bigint'
+        }
+    }
+    assert model == result
+
+    schema = json.loads(open('test_data/test_schema.txt').read())
+    result = get_tables_structure(schema, collection_name, {}, {}, 1)
+    model = {
+        'documents' : {
+            'field' : 'text',
+            'i2d_bsontype' : 'integer',
+            'i2d_oid' : 'text'
+        },
+        'document_relative_contacts' : {
+            'city' : 'text',
+            'apartment' : 'text',
+            'idx' : 'bigint',
+            'zip' : 'text',
+            'document_relatives_idx' : 'bigint',
+            'state' : 'text',
+            'street' : 'text',
+            'documents_idx' : 'bigint'
+        },
+        'document_relative_contact_phones' : {
+            'count' : 'integer',
+            'idx' : 'bigint',
+            'document_relatives_idx' : 'bigint',
+            'number' : 'text',
+            'document_relative_contacts_idx' : 'bigint',
+            'documents_idx' : 'bigint'
+        },
+        'document_dates' : {
+            'date1' : 'text',
+            'date3' : 'text',
+            'date2' : 'text',
+            'date4' : 'text',
+            'idx' : 'bigint',
+            'documents_idx' : 'bigint'
+        },
+        'document_relatives' : {
+            'age' : 'integer',
+            'documents_idx' : 'bigint',
+            'relation' : 'text',
+            'name' : 'text',
+            'idx' : 'bigint'
+        },
+        'document_indeces' : {
+            'documents_idx' : 'bigint',
+            'data' : 'INT',
+            'idx' : 'bigint'
+        }
+    }
+    assert model == result
 
 
 def run_tests_():
@@ -120,10 +296,10 @@ def run_tests_():
     test_get_root_table_from_path()
     test_get_indexes_dictionary()
     test_get_last_idx_from_path()
+    test_get_tables_structure()
 
 
 if __name__ == "__main__":
-
     run_tests_()
 
 # data = open('test_data/test_schema4.txt').read()
