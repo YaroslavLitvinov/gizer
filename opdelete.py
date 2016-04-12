@@ -50,6 +50,7 @@ def get_child_dict_item(dict_items, table):
     tables_list = []
     for it in dict_items:
         if type(dict_items[it]) is dict:
+            #TODO fix last letter in dictionary
             tables_list = get_child_dict_item(dict_items[it], table[:-1] + '_' + it)
         elif type(dict_items[it]) is list:
             tables_list = get_tables_list(dict_items[it], table[:-1] + '_' + it)
@@ -64,6 +65,7 @@ def get_tables_list(schema, table):
             for it in item_list:
                 item_value = item_list[it]
                 if type(item_value) is dict:
+                    #TODO last letted in dictioonary
                     tables_list.extend(get_child_dict_item(item_value, table[:-1] + '_' + it))
                 elif type(item_value) is list:
                     tables_list.extend(get_tables_list(item_value, table[:-1] + '_' + it))
@@ -106,6 +108,7 @@ def get_where_templates(conditions_list):
         else:
             temp = '({0}="%s")'.format(key)
         return temp
+
     where_list = {'target': {}, 'child': {}}
     where_list['target']['template'] = ' and '.join([(condition_with_quotes(key)) for key in conditions_list['target']])
     where_list['target']['values'] = [conditions_list['target'][key] for key in conditions_list['target']]
@@ -124,10 +127,10 @@ def gen_statements(schema, path, id):
             tables_list.append(table)
     del_statements = {}
     del_statements[DELETE_TMPL.format(table=target_table, condition=where_clauses['target']['template'])] = \
-    where_clauses['target']['values']
+        where_clauses['target']['values']
     for table in tables_list:
         del_statements[DELETE_TMPL.format(table=table, condition=where_clauses['child']['template'])] = \
-        where_clauses['child']['values']
+            where_clauses['child']['values']
     update_statements = {}
     idx = get_last_idx_from_path(path)
     max_idx = get_max_id_in_array(path)
@@ -151,59 +154,59 @@ def gen_statements(schema, path, id):
     return {'del': del_statements, 'upd': update_statements}
 
 
-def get_tables_structure( schema, table, table_mappings, parent_tables_ids ):
+def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_table):
     if type(schema) is list:
         table_struct = schema[0]
     else:
         table_struct = schema
 
     table_mappings[table] = {}
-    table_mappings[table]['idx'] = 'bigint'
+
     for ids in parent_tables_ids:
         table_mappings[table][ids] = parent_tables_ids[ids]
+
+    if not root_table:
+        table_mappings[table][u'idx'] = u'bigint'
+        parent_tables_ids[table+u'_idx'] = u'bigint'
+    else:
+        root_ids = get_ids_list(schema)
+        root_id_key = root_ids.iterkeys().next()
+        parent_tables_ids[table+'_'+root_id_key] = root_ids[root_id_key].decode('utf-8')
+    root_table = 0
+
     if not type(table_struct) is dict:
-        table_mappings[table]['data'] = table_struct
-        parent_tables_ids[table] = {}
-        if table in parent_tables_ids.keys():
-            del parent_tables_ids[table]
+        table_mappings[table][u'data'] = table_struct
         return table_mappings
 
-    parent_tables_ids[table+'_idx'] = 'bigint'
     for element in table_struct:
         if type(table_struct[element]) is list:
-            get_tables_structure(table_struct[element], table[:-1] + '_' + get_field_name_without_underscore(element), table_mappings, parent_tables_ids)
+            get_tables_structure(table_struct[element], table[:-1] + '_' + get_field_name_without_underscore(element),
+                                 table_mappings, parent_tables_ids.copy(), root_table)
         elif type(table_struct[element]) is dict:
-            get_table_struct_from_dict(table_struct[element], table, table_mappings, parent_tables_ids, get_field_name_without_underscore(element))
+            print(table, element)
+            get_table_struct_from_dict(table_struct[element], table, table_mappings, parent_tables_ids.copy(),
+                                       get_field_name_without_underscore(element))
         else:
             table_mappings[table][get_field_name_without_underscore(element)] = table_struct[element]
-
-    del parent_tables_ids[table+'_idx']
     return table_mappings
 
-def get_table_struct_from_dict(schema, table, table_mappings, parent_tables_ids, parent_name):
 
+def get_table_struct_from_dict(schema, table, table_mappings, parent_tables_ids, parent_name):
     for column in schema:
         if type(schema[column]) is dict:
-            get_table_struct_from_dict(schema[column], table, table_mappings, parent_tables_ids, parent_name+'_'+get_field_name_without_underscore(column))
+            get_table_struct_from_dict(schema[column], table, table_mappings, parent_tables_ids,
+                                       parent_name + '_' + get_field_name_without_underscore(column))
         elif type(schema[column]) is list:
-            get_tables_structure(schema[column], table[:-1]+'_'+parent_name, table_mappings, parent_tables_ids)
+            get_tables_structure(schema[column], table[:-1] + '_' + parent_name+'_'+column, table_mappings, parent_tables_ids, 0)
         else:
-            table_mappings[table][parent_name+'_'+get_field_name_without_underscore(column)] = schema[column]
-    #return table_mappings
-
+            table_mappings[table][parent_name + '_' + get_field_name_without_underscore(column)] = schema[column]
 
 import json
+
 schema = json.loads(open('test_data/test_schema5.txt').read())
 
 pp = pprint.PrettyPrinter(indent=4)
 
-#print(get_tables_list(schema, 'mains'))
-#print(get_child_dict_item((schema[0]), 'mains'))
-#print(get_ids_list(schema))
-
-#pp.pprint(generate_schema_with_parental_ids(schema, {}, 'mains', {}))
 collection = 'mains'
-ids = get_ids_list(schema)
-id_key = ids.iterkeys().next()
-parents_ids = {collection+'_' + id_key:ids[id_key]}
-pp.pprint(get_tables_structure(schema, collection, {}, parents_ids))
+#get_tables_structure(schema, collection, {}, {}, 1)
+pp.pprint(get_tables_structure(schema, collection, {}, {}, 1))
