@@ -123,7 +123,7 @@ def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_
     root_table = 0
 
     if not type(table_struct) is dict:
-        table_mappings[table][u'data'] = table_struct
+        table_mappings[table][u'data'] = get_postgres_type(table_struct)
         return table_mappings
 
     for element in table_struct:
