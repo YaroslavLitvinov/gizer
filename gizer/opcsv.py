@@ -1,6 +1,7 @@
 import os
 import csv
 import sys
+import shutil
 from subprocess import call
 from gizer.opexecutor import Executor
 
@@ -10,6 +11,14 @@ DELIMITER = '\t'
 LINETERMINATOR = '\n'
 DOUBLEQUOTE = False
 QUOTING = csv.QUOTE_NONE
+
+def ensure_dir_empty(dirpath):
+    if not os.path.exists(dirpath):
+        os.mkdir(dirpath)
+    for fname in os.listdir(dirpath):
+        fpath = os.path.join(dirpath, fname)
+        if os.path.isfile(fpath):
+            os.remove(fpath)
 
 class CsvInfo:
     def __init__(self, writer, filepath, name, filec):
@@ -43,8 +52,7 @@ class CsvManager:
 
     def create_writer(self, name, fnumber):
         dirpath = os.path.join(self.csvs_path, name)
-        if not os.path.exists(dirpath):
-            os.mkdir(dirpath)
+        ensure_dir_empty(dirpath)
         filepath = os.path.join(dirpath, str(fnumber).zfill(5))
         f = open(filepath, 'wb')
         wrt = CsvInfo(CsvWriter(f, False),  filepath, name, fnumber)
