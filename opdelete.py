@@ -25,32 +25,11 @@ def get_max_id_in_array(path):
     return '10'
 
 
-def get_ids_list(lst):
-    if type(lst) is list:
-        list_it = lst[0]
-    else:
-        list_it = lst
-    ids_to_add = {}
-    for it in list_it:
-        if isIdField(it):
-            if type(list_it[it]) is dict:
-                for id_item in list_it[it]:
-                    if isIdField(id_item):
-                        ids_to_add[get_field_name_without_underscore(
-                            it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(
-                            list_it[it][id_item])
-            else:
-                ids_to_add[get_field_name_without_underscore(it)] = get_postgres_type(list_it[it])
-    if len(ids_to_add) == 0:
-        ids_to_add['idx'] = 'bigint'
-    return ids_to_add
-
-
 def get_child_dict_item(dict_items, table):
     tables_list = []
     for it in dict_items:
         if type(dict_items[it]) is dict:
-            #TODO fix last letter in dictionary
+            # TODO fix last letter in dictionary
             tables_list = get_child_dict_item(dict_items[it], table[:-1] + '_' + it)
         elif type(dict_items[it]) is list:
             tables_list = get_tables_list(dict_items[it], table[:-1] + '_' + it)
@@ -65,7 +44,7 @@ def get_tables_list(schema, table):
             for it in item_list:
                 item_value = item_list[it]
                 if type(item_value) is dict:
-                    #TODO last letted in dictioonary
+                    # TODO last letted in dictioonary
                     tables_list.extend(get_child_dict_item(item_value, table[:-1] + '_' + it))
                 elif type(item_value) is list:
                     tables_list.extend(get_tables_list(item_value, table[:-1] + '_' + it))
@@ -152,61 +131,3 @@ def gen_statements(schema, path, id):
                                                  condition=udpate_where['child']['template'])] = udpate_where['child'][
                 'values']
     return {'del': del_statements, 'upd': update_statements}
-
-
-def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_table):
-    if type(schema) is list:
-        table_struct = schema[0]
-    else:
-        table_struct = schema
-
-    table_mappings[table] = {}
-
-    for ids in parent_tables_ids:
-        table_mappings[table][ids] = parent_tables_ids[ids]
-
-    if not root_table:
-        table_mappings[table][u'idx'] = u'bigint'
-        parent_tables_ids[table+u'_idx'] = u'bigint'
-    else:
-        root_ids = get_ids_list(schema)
-        root_id_key = root_ids.iterkeys().next()
-        parent_tables_ids[table+'_'+root_id_key] = root_ids[root_id_key].decode('utf-8')
-    root_table = 0
-
-    if not type(table_struct) is dict:
-        table_mappings[table][u'data'] = table_struct
-        return table_mappings
-
-    for element in table_struct:
-        if type(table_struct[element]) is list:
-            get_tables_structure(table_struct[element], table[:-1] + '_' + get_field_name_without_underscore(element),
-                                 table_mappings, parent_tables_ids.copy(), root_table)
-        elif type(table_struct[element]) is dict:
-            print(table, element)
-            get_table_struct_from_dict(table_struct[element], table, table_mappings, parent_tables_ids.copy(),
-                                       get_field_name_without_underscore(element))
-        else:
-            table_mappings[table][get_field_name_without_underscore(element)] = table_struct[element]
-    return table_mappings
-
-
-def get_table_struct_from_dict(schema, table, table_mappings, parent_tables_ids, parent_name):
-    for column in schema:
-        if type(schema[column]) is dict:
-            get_table_struct_from_dict(schema[column], table, table_mappings, parent_tables_ids,
-                                       parent_name + '_' + get_field_name_without_underscore(column))
-        elif type(schema[column]) is list:
-            get_tables_structure(schema[column], table[:-1] + '_' + parent_name+'_'+column, table_mappings, parent_tables_ids, 0)
-        else:
-            table_mappings[table][parent_name + '_' + get_field_name_without_underscore(column)] = schema[column]
-
-import json
-
-schema = json.loads(open('test_data/test_schema5.txt').read())
-
-pp = pprint.PrettyPrinter(indent=4)
-
-collection = 'mains'
-#get_tables_structure(schema, collection, {}, {}, 1)
-pp.pprint(get_tables_structure(schema, collection, {}, {}, 1))
