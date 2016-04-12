@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 def generate_drop_table_statement(table, psql_schema_name, table_name_prefix):
     """ return string
     @param table object schema_engine.SqlTable"""

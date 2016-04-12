@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 from gizer.oplog_parser import OplogParser
 from gizer.opinsert import generate_insert_queries
 from mongo_schema.schema_engine import create_tables_load_bson_data

@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 from gizer.all_schema_engines import get_schema_files, get_schema_engines_as_dict
 
 def test_get_schema_engines_as_dist():

@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 import sys
 import os
 from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_tables

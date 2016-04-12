@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 from oplog_parser import OplogParser
 from mongo_schema import schema_engine
 

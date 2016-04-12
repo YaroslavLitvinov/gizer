@@ -1,7 +1,12 @@
+#!/usr/bin/env python
+
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 import os
 import csv
 import sys
-import shutil
 from subprocess import call
 from gizer.opexecutor import Executor
 
