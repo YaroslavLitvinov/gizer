@@ -86,7 +86,7 @@ if __name__ == "__main__":
     csv_files.sort()
     for name in csv_files:
         csvpath = join(args.input_csv_dir, name)
-        with open(csvpath, 'rb') as f:
+        with open(csvpath, 'r') as f:
             schema_name_subst = schema_name
             if len(schema_name):
                 schema_name_subst += '.'

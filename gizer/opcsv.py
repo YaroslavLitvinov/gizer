@@ -8,7 +8,7 @@ from gizer.opexecutor import Executor
 NULLVAL = '\N'
 ESCAPECHAR = '\\'
 DELIMITER = '\t'
-LINETERMINATOR = '\n'
+LINETERMINATOR = '\r\n'
 DOUBLEQUOTE = False
 QUOTING = csv.QUOTE_NONE
 
@@ -58,7 +58,7 @@ class CsvManager:
         dirpath = os.path.join(self.csvs_path, name)
         filepath = os.path.join(dirpath, str(fnumber).zfill(5))
         f = open(filepath, 'wb')
-        wrt = CsvInfo(CsvWriter(f, False),  filepath, name, fnumber)
+        wrt = CsvInfo(CsvWriter(f, True),  filepath, name, fnumber)
         return wrt
 
     def write_csv(self, sqltable):
@@ -114,7 +114,7 @@ class CsvWriter:
                 if self.psql_copy == False:
                     return val.encode('unicode-escape').encode('utf-8')
                 else:
-                    return val.encode('utf-8').replace('\r', '\\\r')
+                    return val.encode('utf-8')
             else:
                 return val
 
