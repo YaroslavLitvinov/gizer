@@ -156,12 +156,12 @@ def test_get_tables_structure():
         },
         u'document_personal_info_fl_name_SSNs': {
             u'documents_id_oid': u'text',
-            u'data': u'INT',
+            u'data': u'integer',
             u'idx': u'bigint'
         },
         u'document_indeces': {
             u'documents_id_oid': u'text',
-            u'data': u'INT',
+            u'data': u'integer',
             u'idx': u'bigint'
         },
         u'document_relative_jobs': {
@@ -227,12 +227,12 @@ def test_get_tables_structure():
         },
         'document_indeces' : {
             'documents_id_oid' : 'text',
-            'data' : 'INT',
+            'data' : 'integer',
             'idx' : 'bigint'
         },
         'document_personal_info_full_name_SSNs' : {
             'documents_id_oid' : 'text',
-            'data' : 'INT',
+            'data' : 'integer',
             'idx' : 'bigint'
         }
     }
@@ -281,11 +281,48 @@ def test_get_tables_structure():
         },
         'document_indeces' : {
             'documents_idx' : 'bigint',
-            'data' : 'INT',
+            'data' : 'integer',
             'idx' : 'bigint'
         }
     }
     assert model == result
+    print('TEST', 'get_tables_structure', 'PASSED')
+
+
+def test_get_quotes_using():
+    schema = json.loads(open('test_data/test_schema5.txt').read())
+    collection_name = 'documents'
+
+    table = 'documents'
+    field_name = 'id_bsontype'
+    model = False
+    result = get_quotes_using(schema,table, field_name, collection_name)
+    assert model == result
+
+    table = 'documents'
+    field_name = 'personal_info_fl_name_f_name'
+    model = True
+    result = get_quotes_using(schema,table, field_name, collection_name)
+    assert model == result
+
+    table = 'document_relative_contacts'
+    field_name = 'zip'
+    model = True
+    result = get_quotes_using(schema,table, field_name, collection_name)
+    assert model == result
+
+    table = 'document_personal_info_fl_name_SSNs'
+    field_name = 'documents_id_oid'
+    model = True
+    result = get_quotes_using(schema,table, field_name, collection_name)
+    assert model == result
+
+    table = 'document_personal_info_fl_name_SSNs'
+    field_name = 'data'
+    model = False
+    result = get_quotes_using(schema,table, field_name, collection_name)
+    assert model == result
+    print('TEST', 'get_quotes_using', 'PASSED')
 
 
 def run_tests_():
@@ -297,6 +334,7 @@ def run_tests_():
     test_get_indexes_dictionary()
     test_get_last_idx_from_path()
     test_get_tables_structure()
+    test_get_quotes_using()
 
 
 if __name__ == "__main__":
