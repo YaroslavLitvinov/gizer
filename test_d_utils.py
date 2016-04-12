@@ -325,6 +325,42 @@ def test_get_quotes_using():
     print('TEST', 'get_quotes_using', 'PASSED')
 
 
+def test_get_type():
+    schema = json.loads(open('test_data/test_schema4.txt').read())
+    collection_name = 'documents'
+
+    table = 'document_relatives'
+    field_name = 'relation'
+    model = 'text'
+    result = get_type(schema,table, field_name, collection_name)
+    assert model == result
+
+    table = 'document_personal_info_full_name_SSNs'
+    field_name = 'data'
+    model = 'integer'
+    result = get_type(schema,table, field_name, collection_name)
+    assert model == result
+
+    table = 'document_personal_info_full_name_SSNs'
+    field_name = 'documents_id_oid'
+    model = 'text'
+    result = get_type(schema,table, field_name, collection_name)
+    assert model == result
+
+    table = 'document_relative_contact_phones'
+    field_name = 'document_relative_contacts_idx'
+    model = 'bigint'
+    result = get_type(schema,table, field_name, collection_name)
+    assert model == result
+
+    table = 'document_relative_contact_phones'
+    field_name = 'number'
+    model = 'text'
+    result = get_type(schema,table, field_name, collection_name)
+    assert model == result
+    print('TEST', 'get_type', 'PASSED')
+
+
 def run_tests_():
     test_get_field_name_without_underscore()
     test_isIdField()
@@ -335,7 +371,7 @@ def run_tests_():
     test_get_last_idx_from_path()
     test_get_tables_structure()
     test_get_quotes_using()
-
+    test_get_type()
 
 if __name__ == "__main__":
     run_tests_()
