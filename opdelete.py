@@ -1,3 +1,5 @@
+import pprint
+
 __author__ = 'Volodymyr Varchuk'
 __email__ = "vladimir.varchuk@rackspace.com"
 
@@ -147,3 +149,61 @@ def gen_statements(schema, path, id):
                                                  condition=udpate_where['child']['template'])] = udpate_where['child'][
                 'values']
     return {'del': del_statements, 'upd': update_statements}
+
+
+def get_tables_structure( schema, table, table_mappings, parent_tables_ids ):
+    if type(schema) is list:
+        table_struct = schema[0]
+    else:
+        table_struct = schema
+
+    table_mappings[table] = {}
+    table_mappings[table]['idx'] = 'bigint'
+    for ids in parent_tables_ids:
+        table_mappings[table][ids] = parent_tables_ids[ids]
+    if not type(table_struct) is dict:
+        table_mappings[table]['data'] = table_struct
+        parent_tables_ids[table] = {}
+        if table in parent_tables_ids.keys():
+            del parent_tables_ids[table]
+        return table_mappings
+
+    parent_tables_ids[table+'_idx'] = 'bigint'
+    for element in table_struct:
+        if type(table_struct[element]) is list:
+            get_tables_structure(table_struct[element], table[:-1] + '_' + get_field_name_without_underscore(element), table_mappings, parent_tables_ids)
+        elif type(table_struct[element]) is dict:
+            get_table_struct_from_dict(table_struct[element], table, table_mappings, parent_tables_ids, get_field_name_without_underscore(element))
+        else:
+            table_mappings[table][get_field_name_without_underscore(element)] = table_struct[element]
+
+    del parent_tables_ids[table+'_idx']
+    return table_mappings
+
+def get_table_struct_from_dict(schema, table, table_mappings, parent_tables_ids, parent_name):
+
+    for column in schema:
+        if type(schema[column]) is dict:
+            get_table_struct_from_dict(schema[column], table, table_mappings, parent_tables_ids, parent_name+'_'+get_field_name_without_underscore(column))
+        elif type(schema[column]) is list:
+            get_tables_structure(schema[column], table[:-1]+'_'+parent_name, table_mappings, parent_tables_ids)
+        else:
+            table_mappings[table][parent_name+'_'+get_field_name_without_underscore(column)] = schema[column]
+    #return table_mappings
+
+
+import json
+schema = json.loads(open('test_data/test_schema5.txt').read())
+
+pp = pprint.PrettyPrinter(indent=4)
+
+#print(get_tables_list(schema, 'mains'))
+#print(get_child_dict_item((schema[0]), 'mains'))
+#print(get_ids_list(schema))
+
+#pp.pprint(generate_schema_with_parental_ids(schema, {}, 'mains', {}))
+collection = 'mains'
+ids = get_ids_list(schema)
+id_key = ids.iterkeys().next()
+parents_ids = {collection+'_' + id_key:ids[id_key]}
+pp.pprint(get_tables_structure(schema, collection, {}, parents_ids))
