@@ -18,6 +18,7 @@ import pymongo
 from pymongo.mongo_client import MongoClient
 # modules affected in data out
 import os
+from multiprocessing import Pool
 from mongo_schema import schema_engine
 from gizer.opcsv import CsvManager
 from gizer.opcreate import generate_create_table_statement
@@ -26,7 +27,7 @@ from gizer.opinsert import generate_insert_queries
 
 
 CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
-
+PROCESSES_COUNT = 7
 
 def message(mes, cr='\n'):
     sys.stderr.write(mes + cr)
@@ -130,6 +131,20 @@ def gen_insert_queries(tables_obj, csm):
                     tables_obj.data_engine.indexes)
 
 
+def process_pool_record(args):
+    schema = args[0]
+    rec = args[1]
+    return schema_engine.create_tables_load_bson_data(schema, 
+                                                      [rec])
+
+def process_records_in_parallel(pool, schema, records):
+    # prepare pool args
+    args = []
+    for rec in records:
+        args.append((schema, rec))
+    return pool.map(process_pool_record, args)
+
+
 if __name__ == "__main__":
 
     default_request = '{}'
@@ -213,23 +228,31 @@ folders with csv files", type=str, required=True)
     all_wrtitten_reccount = {}
     count = None
     rec = True
+    records_queue = []
+    pool = Pool(PROCESSES_COUNT)
     try:
         while rec:
             rec = mongo_reader.nextrec()
             if count is None:
                 count = mongo_reader.cursor.count()
             if rec:
-                tables_obj = schema_engine.create_tables_load_bson_data(schema, 
-                                                                        [rec])
-                create_table_queries(
-                    tables_obj.tables, psql_schema_name, psql_table_name_prefix)
-                written = gen_insert_queries(tables_obj, csm)
-                all_wrtitten_reccount = merge_dicts(
-                    all_wrtitten_reccount, written)
-                errors = merge_dicts(errors, tables_obj.errors)
+                records_queue.append(rec)
                 message(".", cr="")
                 if mongo_reader.rec_i % 1000 == 0:
                     message("\n%d of %d" % (mongo_reader.rec_i, count))
+            if len(records_queue) == PROCESSES_COUNT or \
+                    not rec and len(records_queue) > 0:
+                reslist = process_records_in_parallel(pool, 
+                                                      schema, 
+                                                      records_queue)
+                for tables_obj in reslist:
+                    create_table_queries(
+                        tables_obj.tables, psql_schema_name, psql_table_name_prefix)
+                    written = gen_insert_queries(tables_obj, csm)
+                    all_wrtitten_reccount = merge_dicts(
+                        all_wrtitten_reccount, written)
+                    errors = merge_dicts(errors, tables_obj.errors)
+
     except KeyboardInterrupt:
         mongo_reader.failed = True
 
