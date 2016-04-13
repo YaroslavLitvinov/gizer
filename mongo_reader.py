@@ -27,7 +27,8 @@ from gizer.opinsert import generate_insert_queries
 
 
 CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
-PROCESSES_COUNT = 7
+PROCESS_NUMBER = 7
+REC_COUNT_PER_POOL = PROCESS_NUMBER*7
 
 def message(mes, cr='\n'):
     sys.stderr.write(mes + cr)
@@ -61,7 +62,7 @@ class MongoReader:
         self.cursor.batch_size(1000)
         return self.cursor
 
-    def nextrec(self):
+    def next(self):
         if not self.cursor:
             self.connauthreq()
 
@@ -144,6 +145,21 @@ def process_records_in_parallel(pool, schema, records):
         args.append((schema, rec))
     return pool.map(process_pool_record, args)
 
+
+# def get_next_result(pool, mongo_reader):
+#     def pool_callback(res):
+#         process_pool_record
+
+#     if not hasattr(get_next_result, "pools"):
+#         get_next_result.pools = []
+
+#     if len(cache) >= REC_COUNT_PER_POOL:
+        
+#         del cache[:]
+#     cache.append(mongo_reader.next())
+#     imap.next()
+#     return res
+    
 
 if __name__ == "__main__":
 
@@ -229,10 +245,10 @@ folders with csv files", type=str, required=True)
     count = None
     rec = True
     records_queue = []
-    pool = Pool(PROCESSES_COUNT)
+    pool = Pool(PROCESS_NUMBER)
     try:
         while rec:
-            rec = mongo_reader.nextrec()
+            rec = mongo_reader.next()
             if count is None:
                 count = mongo_reader.cursor.count()
             if rec:
@@ -240,7 +256,7 @@ folders with csv files", type=str, required=True)
                 message(".", cr="")
                 if mongo_reader.rec_i % 1000 == 0:
                     message("\n%d of %d" % (mongo_reader.rec_i, count))
-            if len(records_queue) == PROCESSES_COUNT or \
+            if len(records_queue) == REC_COUNT_PER_POOL or \
                     not rec and len(records_queue) > 0:
                 reslist = process_records_in_parallel(pool, 
                                                       schema, 
