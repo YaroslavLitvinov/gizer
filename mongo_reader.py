@@ -235,8 +235,10 @@ folders with csv files", type=str, required=True)
             if fast_queue.poll() or fast_queue.count() >= QUEUE_SIZE:
                 reslist.append(fast_queue.get())
             if not rec: # no more records
-                while fast_queue.count():
-                    reslist.append(fast_queue.get())
+                q = fast_queue.get()
+                while q:
+                    reslist.append(q)
+                    q = fast_queue.get()
             for tables_obj in reslist:
                 create_table_queries(
                     tables_obj.tables, psql_schema_name, psql_table_name_prefix)
