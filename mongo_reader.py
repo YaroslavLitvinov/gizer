@@ -24,11 +24,12 @@ from gizer.opcsv import CsvManager
 from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opinsert import generate_insert_queries
+from gizer.opmultiprocessing import FastQueueProcessor
 
 
 CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
 PROCESS_NUMBER = 7
-REC_COUNT_PER_POOL = PROCESS_NUMBER*7
+QUEUE_SIZE = PROCESS_NUMBER
 
 def message(mes, cr='\n'):
     sys.stderr.write(mes + cr)
@@ -132,34 +133,9 @@ def gen_insert_queries(tables_obj, csm):
                     tables_obj.data_engine.indexes)
 
 
-def process_pool_record(args):
-    schema = args[0]
-    rec = args[1]
+def worker(schema, rec):
     return schema_engine.create_tables_load_bson_data(schema, 
                                                       [rec])
-
-def process_records_in_parallel(pool, schema, records):
-    # prepare pool args
-    args = []
-    for rec in records:
-        args.append((schema, rec))
-    return pool.map(process_pool_record, args)
-
-
-# def get_next_result(pool, mongo_reader):
-#     def pool_callback(res):
-#         process_pool_record
-
-#     if not hasattr(get_next_result, "pools"):
-#         get_next_result.pools = []
-
-#     if len(cache) >= REC_COUNT_PER_POOL:
-        
-#         del cache[:]
-#     cache.append(mongo_reader.next())
-#     imap.next()
-#     return res
-    
 
 if __name__ == "__main__":
 
@@ -244,31 +220,30 @@ folders with csv files", type=str, required=True)
     all_wrtitten_reccount = {}
     count = None
     rec = True
-    records_queue = []
-    pool = Pool(PROCESS_NUMBER)
+    fast_queue = FastQueueProcessor(worker, schema, PROCESS_NUMBER)
     try:
         while rec:
             rec = mongo_reader.next()
             if count is None:
                 count = mongo_reader.cursor.count()
             if rec:
-                records_queue.append(rec)
+                fast_queue.put(rec)
                 message(".", cr="")
                 if mongo_reader.rec_i % 1000 == 0:
                     message("\n%d of %d" % (mongo_reader.rec_i, count))
-            if len(records_queue) == REC_COUNT_PER_POOL or \
-                    not rec and len(records_queue) > 0:
-                reslist = process_records_in_parallel(pool, 
-                                                      schema, 
-                                                      records_queue)
-                del records_queue[:]
-                for tables_obj in reslist:
-                    create_table_queries(
-                        tables_obj.tables, psql_schema_name, psql_table_name_prefix)
-                    written = gen_insert_queries(tables_obj, csm)
-                    all_wrtitten_reccount = merge_dicts(
-                        all_wrtitten_reccount, written)
-                    errors = merge_dicts(errors, tables_obj.errors)
+            reslist = []
+            if fast_queue.poll() or fast_queue.count() >= QUEUE_SIZE:
+                reslist.append(fast_queue.get())
+            if not rec: # no more records
+                while fast_queue.count():
+                    reslist.append(fast_queue.get())
+            for tables_obj in reslist:
+                create_table_queries(
+                    tables_obj.tables, psql_schema_name, psql_table_name_prefix)
+                written = gen_insert_queries(tables_obj, csm)
+                all_wrtitten_reccount = merge_dicts(
+                    all_wrtitten_reccount, written)
+                errors = merge_dicts(errors, tables_obj.errors)
 
     except KeyboardInterrupt:
         mongo_reader.failed = True
@@ -290,4 +265,5 @@ folders with csv files", type=str, required=True)
         for name, value in all_wrtitten_reccount.iteritems():
             args.stats_file.write(name + " " + str(value) + "\n")
 
+    del(fast_queue)
     exit(mongo_reader.failed)
