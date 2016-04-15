@@ -11,22 +11,20 @@ TEST_INFO = 'TEST_OPDELETE'
 def test_get_ids_list():
     schema = json.loads(open('test_data/test_schema.txt').read())
     model = {'idx': 'bigint'}
-    assert check_dict(get_ids_list(schema), model)
+    assert get_ids_list(schema) == model
 
     schema = json.loads(open('test_data/test_schema2.txt').read())
     model = {'id': 'text'}
-    assert check_dict(get_ids_list(schema), model)
+    assert get_ids_list(schema) == model
 
     schema = json.loads(open('test_data/test_schema3.txt').read())
     model = {'id_oid': 'text'}
-    assert check_dict(get_ids_list(schema), model)
+    assert get_ids_list(schema) == model
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
-    print('list', get_ids_list(schema))
+    #print('list', get_ids_list(schema))
     # model = {'id_oid': 'text'}
     # assert check_dict(get_ids_list(schema), model)
-
-
     print(TEST_INFO, 'get_ids_list', 'PASSED')
 
 
@@ -320,7 +318,6 @@ def run_tests():
     test_get_conditions_list()
     test_get_where_templates()
     test_gen_statements()
-
 
 pp = pprint.PrettyPrinter(indent=4)
 run_tests()
