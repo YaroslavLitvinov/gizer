@@ -110,7 +110,7 @@ def test_get_where_templates():
     model = {'target': {'values': ['0123456789abcdef'], 'template': '(idx=%s)'},
              'child': {'values': ['0123456789abcdef'], 'template': '(person_relative_contact_phones_idx=%s)'}}
     result = get_where_templates(conditions_list)
-    assert check_dict(model, result)
+    assert model == result
 
     conditions_list = {
         'target': {'person_relatives_idx': '2', 'person_relative_contacts_idx': '3',
@@ -129,7 +129,7 @@ def test_get_where_templates():
         }
     }
     result = get_where_templates(conditions_list)
-    assert check_dict(model, result)
+    assert model == result
 
     conditions_list = {
         'target': {'person_relatives_idx': '2', 'persons_id_oid': '0123456789abcdef', 'idx': '5'},
@@ -147,7 +147,7 @@ def test_get_where_templates():
         }
     }
     result = get_where_templates(conditions_list)
-    assert check_dict(model, result)
+    assert model == result
 
     conditions_list = {
         'target': {'id_oid': '0123456789abcdef'},
@@ -164,7 +164,7 @@ def test_get_where_templates():
         }
     }
     result = get_where_templates(conditions_list)
-    assert check_dict(model, result)
+    assert model == result
 
     print(TEST_INFO, 'get_where_templates', 'PASSED')
 
