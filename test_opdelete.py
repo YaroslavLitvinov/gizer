@@ -66,7 +66,7 @@ def test_get_conditions_list():
     id = '0123456789abcdef'
     model = {'target': {'idx': '0123456789abcdef'}, 'child': {'person_relative_contact_phones_idx': '0123456789abcdef'}}
     result = get_conditions_list(schema, path, id)
-    assert check_dict(model, result)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.3.phones.4'
@@ -78,7 +78,7 @@ def test_get_conditions_list():
                   'persons_id_oid': '0123456789abcdef', 'person_relative_contact_phones_idx': '4'}
     }
     result = get_conditions_list(schema, path, id)
-    assert check_dict(model, result)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
@@ -89,7 +89,7 @@ def test_get_conditions_list():
                   'person_relative_contacts_idx': '5'}
     }
     result = get_conditions_list(schema, path, id)
-    assert check_dict(model, result)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
@@ -99,7 +99,7 @@ def test_get_conditions_list():
         'child': {'persons_id_oid': '0123456789abcdef'}
     }
     result = get_conditions_list(schema, path, id)
-    assert check_dict(model, result)
+    assert model == result
 
     print(TEST_INFO, 'get_conditions_list', 'PASSED')
 
