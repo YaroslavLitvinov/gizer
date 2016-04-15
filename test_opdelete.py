@@ -38,24 +38,24 @@ def test_get_tables_list():
     result = get_tables_list(schema, 'mains')
     model = ['mains', 'main_personal_inf_fl_nam_SSNs', 'main_relatives', 'main_relative_contacts',
              'main_relative_contact_phones', 'main_relative_jobs', 'main_indeces', 'main_dates']
-    assert sorted(model) == sorted(result)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema4.txt').read())
     result = get_tables_list(schema, 'table1')
     model = ['table_personal_inf_full_nam_SSNs', 'table_relative_contact_phones', 'table_relative_contacts',
              'table_relatives', 'table1', 'table_indeces', 'table_dates']
-    assert sorted(model) == sorted(result)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema3.txt').read())
     result = get_tables_list(schema, 'table1')
     model = ['table1', 'table_relative_contact_phones', 'table_relative_contacts', 'table_relatives',
              'table_indeces', 'table_dates']
-    assert sorted(model) == sorted(result)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema6.txt').read())
     result = get_tables_list(schema, 'table1')
     model = ['table1']
-    assert sorted(model) == sorted(result)
+    assert model == result
 
     print(TEST_INFO, 'get_tables_list', 'PASSED')
 
