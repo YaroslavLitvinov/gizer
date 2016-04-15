@@ -187,7 +187,7 @@ def test_gen_statements():
             'DELETE FROM person_indeces WHERE (persons_id_oid="%s");': ['0123456789ABCDEF']
         }
     }
-    assert check_dict(model, result)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
@@ -223,7 +223,7 @@ def test_gen_statements():
                 '2', '5', '0123456789ABCDEF']
         }
     }
-    assert check_dict(model, result)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2'
@@ -298,7 +298,7 @@ def test_gen_statements():
                 '0123456789ABCDEF', '2']
         }
     }
-    assert check_dict(model, result)
+    assert model == result
     print(TEST_INFO, 'gen_statements', 'PASSED')
 
 
