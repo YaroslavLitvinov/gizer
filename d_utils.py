@@ -70,6 +70,8 @@ def get_indexes_dictionary(path):
             del spath[i]
             del spath[i - 1]
             next(iter_i)
+        else:
+            del spath[i]
     return index_dict
 
 
