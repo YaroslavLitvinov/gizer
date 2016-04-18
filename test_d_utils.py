@@ -91,6 +91,16 @@ def test_get_indexes_dictionary():
     f_return = get_indexes_dictionary(path)
     assert model == f_return
 
+    path = 'persons.1.relatives.2.contacts.3.phones'
+    model = {'person_relative_contacts':'3', 'persons':'1', 'person_relatives':'2'}
+    f_return = get_indexes_dictionary(path)
+    assert model == f_return
+
+    path = 'persons.1.relatives.contacts.3.phones.6.numbers'
+    model = {'person_relative_contacts':'3', 'persons':'1', 'person_relative_contact_phones':'6'}
+    f_return = get_indexes_dictionary(path)
+    assert model == f_return
+
     print('TEST', 'get_indexes_dictionary', 'PASSED')
 
 
