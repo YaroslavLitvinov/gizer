@@ -311,6 +311,21 @@ def test_gen_statements():
         }
     }
     assert model == result
+
+    schema = json.loads(open('test_data/test_schema5.txt').read())
+    path = 'persons.relatives.2.contacts.5.phones'
+    id = '0123456789ABCDEF'
+    result = gen_statements(schema, path, id)
+    model = {
+        'upd': {},
+        'del': {
+            'DELETE FROM person_relative_contact_phones WHERE (person_relatives_idx=%s) and (person_relative_contacts_idx=%s) and (persons_id_oid="%s");': [
+                '2', '5', '0123456789ABCDEF']
+        }
+    }
+    assert model == result
+
+
     print(TEST_INFO, 'gen_statements', 'PASSED')
 
 
