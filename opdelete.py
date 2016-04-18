@@ -72,9 +72,9 @@ def get_conditions_list(schema, path, id):
     else:
         params_target[root_table + '_' + root_id] = id
         params_child[root_table + '_' + root_id] = id
-        params_target['idx'] = parental_tables_list[target_table]
-        params_child[target_table + '_idx'] = parental_tables_list[target_table]
-
+        if target_table in parental_tables_list.keys():
+            params_target['idx'] = parental_tables_list[target_table]
+            params_child[target_table + '_idx'] = parental_tables_list[target_table]
     return {'target': params_target, 'child': params_child}
 
 
