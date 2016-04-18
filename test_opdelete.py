@@ -80,6 +80,17 @@ def test_get_conditions_list():
     result = get_conditions_list(schema, path, id)
     assert model == result
 
+    schema = json.loads(open('test_data/test_schema5.txt').read())
+    path = 'persons.relatives.2.contacts.3.phones'
+    id = '0123456789abcdef'
+    model = {
+        'target': {'person_relatives_idx': '2', 'person_relative_contacts_idx': '3',
+                   'persons_id_oid': '0123456789abcdef'},
+        'child': {'person_relatives_idx': '2', 'person_relative_contacts_idx': '3',
+                  'persons_id_oid': '0123456789abcdef'}
+    }
+    result = get_conditions_list(schema, path, id)
+    assert model == result
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
