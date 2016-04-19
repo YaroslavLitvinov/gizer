@@ -5,9 +5,6 @@ __email__ = "vladimir.varchuk@rackspace.com"
 
 from util import *
 
-DELETE_TMPL = 'DELETE FROM {table} WHERE {condition};'
-UPDATE_TMPL = 'UPDATE {table} SET {statement} WHERE {condition};'
-
 
 # UPDATE_TMPL2 = 'UPDATE %s SET %s WHERE (root_id="%s") and (idx=%s);'
 # {"template":'UPDATE table SET idx=34 WHERE idx=%s;', "params":['45']}
@@ -105,10 +102,10 @@ def gen_statements(schema, path, id):
         if str.startswith(str(table), target_table[:-1], 0, len(table)) and not table == target_table:
             tables_list.append(table)
     del_statements = {}
-    del_statements[DELETE_TMPL.format(table=target_table, condition=where_clauses['target']['template'])] = \
+    del_statements[DELETE_TMPLT.format(table=target_table, conditions=where_clauses['target']['template'])] = \
         where_clauses['target']['values']
     for table in tables_list:
-        del_statements[DELETE_TMPL.format(table=table, condition=where_clauses['child']['template'])] = \
+        del_statements[DELETE_TMPLT.format(table=table, conditions=where_clauses['child']['template'])] = \
             where_clauses['child']['values']
     update_statements = {}
     idx = get_last_idx_from_path(path)
@@ -122,12 +119,12 @@ def gen_statements(schema, path, id):
         spath.append(str(ind))
         path_to_update = '.'.join(spath)
         udpate_where = get_where_templates(get_conditions_list(schema, path_to_update, id))
-        update_statements[UPDATE_TMPL.format(table=target_table, statement='idx=' + str(ind - 1),
-                                             condition=udpate_where['target']['template'])] = udpate_where['target'][
+        update_statements[UPDATE_TMPLT.format(table=target_table, statements='idx=' + str(ind - 1),
+                                             conditions=udpate_where['target']['template'])] = udpate_where['target'][
             'values']
 
         for table in tables_list:
-            update_statements[UPDATE_TMPL.format(table=table, statement=target_table + '_idx=' + str(ind - 1),
-                                                 condition=udpate_where['child']['template'])] = udpate_where['child'][
+            update_statements[UPDATE_TMPLT.format(table=table, statements=target_table + '_idx=' + str(ind - 1),
+                                                 conditions=udpate_where['child']['template'])] = udpate_where['child'][
                 'values']
     return {'del': del_statements, 'upd': update_statements}
