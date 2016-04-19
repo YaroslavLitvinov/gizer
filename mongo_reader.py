@@ -27,9 +27,9 @@ from gizer.opmultiprocessing import FastQueueProcessor
 
 
 CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
-ETL_PROCESS_NUMBER = 8
-ETL_QUEUE_SIZE = 8
-GET_QUEUE_SIZE = 8
+ETL_PROCESS_NUMBER = 10
+ETL_QUEUE_SIZE = 10
+GET_QUEUE_SIZE = 10
 
 # helpers
 
