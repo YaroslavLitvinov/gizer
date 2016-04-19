@@ -27,8 +27,9 @@ from gizer.opmultiprocessing import FastQueueProcessor
 
 
 CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
-PROCESS_NUMBER = 7
-QUEUE_SIZE = 7
+ETL_PROCESS_NUMBER = 8
+ETL_QUEUE_SIZE = 8
+GET_QUEUE_SIZE = 8
 
 # helpers
 
@@ -127,20 +128,14 @@ def get_tables_from_rec_async(fastqueue, records):
         if rec:
             fastqueue.put(rec)
     get_all = fastqueue.count() or fastqueue.poll() or fastqueue.is_any_working()
-    while fastqueue.count() or fastqueue.poll() or (not len(records) and get_all and not finish):
+    while fastqueue.count() >= ETL_QUEUE_SIZE or fastqueue.poll() \
+            or (not len(records) and get_all and not finish):
         res = fastqueue.get()
         if res:
             tables_list.append(res)
         else:
             finish = True
     return tables_list
-
-def handle_tables_data_async(fastqueue2, tables_list, all_written):
-    for tables_obj in tables_list:
-        fastqueue2.put(tables_obj)
-    while fastqueue2.count() >= QUEUE_SIZE or fastqueue2.poll():
-        all_written = merge_dicts(all_written, fastqueue2.get())
-    return all_written
 
 def handle_rest_tables_data_sync(tables_list, schema_name, 
                                  table_prefix, all_errors):
@@ -232,17 +227,18 @@ statements", type=argparse.FileType('w'), required=True)
     mongo_rec_multiprocessing \
         = FastQueueProcessor(worker_handle_mongo_record, 
                              schema, 
-                             PROCESS_NUMBER)
+                             ETL_PROCESS_NUMBER)
     c=0
     # form a queue for fast retrieving of data
-    for i in range(QUEUE_SIZE):
+    for i in range(GET_QUEUE_SIZE):
         pymongo_request_processing.put('foo')
     try:
         records = request_mongo_recs_async(pymongo_request_processing)
         while True:
-            # print "mongo_reader loop", len(records), finish
-            tables_list = get_tables_from_rec_async(mongo_rec_multiprocessing, 
+#            print "loop.a", len(records), pymongo_request_processing.count()
+            tables_list = get_tables_from_rec_async(mongo_rec_multiprocessing,
                                                     records)
+#            print "loop.b", len(tables_list), mongo_rec_multiprocessing.count()
             c+=len(records)
             for tables_obj in tables_list:
                 all_written = merge_dicts(all_written, 
