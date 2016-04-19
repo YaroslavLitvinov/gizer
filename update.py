@@ -26,9 +26,6 @@ LOOP
 END LOOP;
 """
 
-UPDATE_TMPLT = "UPDATE {table} SET {statements} WHERE {conditions}"
-INSERT_TMPLT = "INSERT INTO {TABLE} ({columns}) VALUES({VALUES})"
-
 
 def update_new (schema, oplog_data):
     doc_id = get_obj_id(oplog_data)
