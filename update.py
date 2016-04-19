@@ -54,14 +54,22 @@ def update_new (schema, oplog_data):
     else:
         # update nested element
         if type(u_data[k]) is dict:
+
             # insert statement should to be added  in case when updated record  does not exist
+            # we should execute only one of the insert or update statements
             target_table_name = get_table_name_from_list(upd_path)
             q_conditions = get_conditions_list(schema, '.'.join(upd_path), doc_id.itervalues().next())
             q_columns = get_query_columns_with_nested(schema, u_data[k], '', {})
             upd_statement_template = UPDATE_TMPLT.format( table=target_table_name, statements=', '.join(['{column}=%s'.format(column=col) for col in q_columns]), conditions=' and '.join(['{column}=%s'.format(column = col) for col in q_conditions['target']]))
             upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
             upd_stmnt[upd_statement_template] = upd_values
-            ins_stmnt = {INSERT_TMPLT:[]}
+            # scratch insert statements for single object
+            #TODO should be calculated idx number and placed into INSERT query
+            ins_statement_template = INSERT_TMPLT.format( table=target_table_name, columns=', '.join([col for col in q_columns]), values=', '.join(['%s' for col in q_columns]))
+            ins_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
+            #
+            upd_stmnt[upd_statement_template] = upd_values
+            ins_stmnt = {ins_statement_template:ins_values}
     ret_val = []
     #TODO need to be fixed. result of delete opertion should be just single dictionary, where: keys - SQL template, values - values for template (data, conditions, ids)
     for op in del_stmnt:
