@@ -3,6 +3,10 @@
 __author__ = 'Volodymyr Varchuk'
 __email__ = "vladimir.varchuk@rackspace.com"
 
+DELETE_TMPLT = 'DELETE FROM {table} WHERE {condition};'
+UPDATE_TMPLT = 'UPDATE {table} SET {statements} WHERE {conditions};'
+INSERT_TMPLT = "INSERT INTO {TABLE} ({columns}) VALUES({VALUES})"
+
 
 def get_field_name_without_underscore(field_name):
     for i in range(len(field_name)):
@@ -151,7 +155,8 @@ def get_table_struct_from_dict(schema, table, table_mappings, parent_tables_ids,
             get_tables_structure(schema[column], table[:-1] + '_' + parent_name + '_' + column, table_mappings,
                                  parent_tables_ids, 0)
         else:
-            table_mappings[table][parent_name + '_' + get_field_name_without_underscore(column)] = get_postgres_type(schema[column])
+            table_mappings[table][parent_name + '_' + get_field_name_without_underscore(column)] = get_postgres_type(
+                schema[column])
 
 
 def get_column_type(schema, table, field_name, collection_name):
