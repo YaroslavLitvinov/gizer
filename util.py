@@ -3,7 +3,7 @@
 __author__ = 'Volodymyr Varchuk'
 __email__ = "vladimir.varchuk@rackspace.com"
 
-DELETE_TMPLT = 'DELETE FROM {table} WHERE {condition};'
+DELETE_TMPLT = 'DELETE FROM {table} WHERE {conditions};'
 UPDATE_TMPLT = 'UPDATE {table} SET {statements} WHERE {conditions};'
 INSERT_TMPLT = "INSERT INTO {TABLE} ({columns}) VALUES({VALUES})"
 
