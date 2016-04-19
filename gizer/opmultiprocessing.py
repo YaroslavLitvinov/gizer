@@ -9,6 +9,7 @@ from multiprocessing import Pipe
 from collections import namedtuple
 from collections import deque
 
+_EOF = 'EOF'
 
 def _worker(pipes):
     pipe_work, pipe_main = pipes
@@ -21,7 +22,8 @@ def _worker(pipes):
                 worker_1st_arg = pipe_work.recv()
             else:
                 arg = pipe_work.recv()    # Read from the output pipe and do nothing
-                if arg == 'EOF':
+                # close pipe if 'EOF' received
+                if arg == _EOF:
                     pipe_work.close()
                     pipe_main.close()
                     break
@@ -55,8 +57,6 @@ class FastQueueProcessor:
         return procs
        
     def _consume_from_queue(self):
-        if not len(self.queue_data):
-            return
         for i in xrange(len(self.proc_statuses)):
             if not self.count():
                 break
@@ -74,7 +74,7 @@ class FastQueueProcessor:
 
     def __del__(self):
         for proc in self.procs:
-            proc.pipe_main.send('EOF')
+            proc.pipe_main.send(_EOF)
             proc.pipe_work.close()
             proc.pipe_main.close()
             proc.proc.join()
@@ -92,12 +92,13 @@ class FastQueueProcessor:
                 return True
         return False
 
+
     def get(self):
         """ @return result of calculation on data"""
         res = None
         while True:
-            if not self.is_any_working():
-                return None
+            if not len(self.queue_data) and not self.is_any_working():
+                break
             for i in xrange(len(self.procs)):
                 proc = self.procs[i]
                 if proc.pipe_main.poll():
@@ -106,5 +107,5 @@ class FastQueueProcessor:
                     break
             if res is not None:
                 break
-        self._consume_from_queue()
+            self._consume_from_queue()
         return res

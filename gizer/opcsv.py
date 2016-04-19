@@ -8,7 +8,6 @@ import os
 import csv
 import sys
 from subprocess import call
-from gizer.opexecutor import Executor
 
 NULLVAL = '\N'
 ESCAPECHAR = '\\'
@@ -25,6 +24,14 @@ def ensure_dir_empty(dirpath):
         if os.path.isfile(fpath):
             os.remove(fpath)
 
+def worker_csv_writer(csvwriter, data):
+    wrt = self.writers[name]
+    written_reccount = wrt.writer.write_csv(sqltable)
+    if wrt.writer.file.tell() >= self.chunk_size:
+        wrt.writer.close()
+    self.writers[name] = wrt
+    return written_reccount
+
 class CsvInfo:
     def __init__(self, writer, filepath, name, filec):
         self.writer = writer
@@ -33,31 +40,16 @@ class CsvInfo:
         self.file_counter = filec
 
 class CsvManager:
-    def __init__(self, names, csvs_path, hdfs_path, chunk_size):
+    def __init__(self, names, csvs_path, chunk_size):
         self.writers = {}
         self.csvs_path = csvs_path
-        self.hdfs_path = hdfs_path
         self.chunk_size = chunk_size
-        self.executor = Executor()
         self.cleandirs(names)
 
     def cleandirs(self, names):
         for name in names:
             dirpath = os.path.join(self.csvs_path, name)
             ensure_dir_empty(dirpath)
-            hdfsdir = os.path.join(self.hdfs_path, name)
-            rm_cmd = ['hdfs', 'dfs', '-rm', '-R', '-f', hdfsdir]
-            call(rm_cmd)
-            mkdir_cmd = ['hdfs', 'dfs', '-mkdir', '-p', hdfsdir]
-            call(mkdir_cmd)
-        
-
-    def put_to_hdfs(self, wrt):
-#ensure hdfs dirs exists
-        hdfsdir = os.path.join(self.hdfs_path, wrt.name)
-        cmd = ['hdfs', 'dfs', '-copyFromLocal', wrt.filepath, \
-                   os.path.join(hdfsdir, str(wrt.file_counter).zfill(5))]
-        self.executor.execute(cmd)
 
     def create_writer(self, name, fnumber):
         dirpath = os.path.join(self.csvs_path, name)
@@ -68,7 +60,7 @@ class CsvManager:
 
     def write_csv(self, sqltable):
         """
-        Write table records to csv file and place asynchronously to hdfs
+        Write table records to csv file
         @param sqltable data to write
         @return records count written
         """
@@ -83,15 +75,12 @@ class CsvManager:
         written_reccount = wrt.writer.write_csv(sqltable)
         if wrt.writer.file.tell() >= self.chunk_size:
             wrt.writer.close()
-            self.put_to_hdfs(wrt)
         self.writers[name] = wrt
         return written_reccount
     
     def finalize(self):
         for name, wrt in self.writers.iteritems():
             wrt.writer.close()
-            self.put_to_hdfs(wrt)
-        self.executor.wait_for_complete()
 
 class CsvWriter:
     def __init__(self, output_file, psql_copy, null_val = NULLVAL):

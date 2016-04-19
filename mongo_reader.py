@@ -14,8 +14,7 @@ import pstats  # profiling
 import sys
 import json
 import argparse
-import pymongo
-from pymongo.mongo_client import MongoClient
+from mongo_reader.reader import MongoReader
 # modules affected in data out
 import os
 from multiprocessing import Pool
@@ -29,71 +28,18 @@ from gizer.opmultiprocessing import FastQueueProcessor
 
 CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
 PROCESS_NUMBER = 7
-QUEUE_SIZE = PROCESS_NUMBER
+QUEUE_SIZE = 7
+
+# helpers
 
 def message(mes, cr='\n'):
     sys.stderr.write(mes + cr)
 
-
-class MongoReader:
-
-    def __init__(self, ssl, host, port, dbname, collection,
-                 user, passw, request):
-        self.ssl = ssl
-        self.host = host
-        self.port = int(port)
-        self.dbname = dbname
-        self.collection = collection
-        self.user = user
-        self.passw = passw
-        self.request = request
-        self.rec_i = 0
-        self.cursor = None
-        self.client = None
-        self.failed = False
-        self.attempts = 0
-
-    def connauthreq(self):
-        self.client = MongoClient(self.host, self.port, ssl=self.ssl)
-        if self.user and self.passw:
-            self.client[self.dbname].authenticate(self.user, self.passw)
-            message("Authenticated")
-        mongo_collection = self.client[self.dbname][self.collection]
-        self.cursor = mongo_collection.find(self.request)
-        self.cursor.batch_size(1000)
-        return self.cursor
-
-    def next(self):
-        if not self.cursor:
-            self.connauthreq()
-
-        self.attempts = 0
-        rec = None
-        while self.cursor.alive and self.failed is False:
-            try:
-                rec = self.cursor.next()
-                self.rec_i += 1
-            except pymongo.errors.AutoReconnect:
-                self.attempts += 1
-                if self.attempts <= 4:
-                    time.sleep(pow(2, self.attempts))
-                    message("Connect attempt #%d, %s" %
-                            (self.attempts, str(time.time())))
-                    continue
-                else:
-                    self.failed = True
-            except pymongo.errors.OperationFailure:
-                self.failed = True
-                message("Exception: pymongo.errors.OperationFailure")
-            break
-        return rec
-
-
-def create_table(sqltable, psql_schema_name, psql_table_name_prefix):
+def create_table(sqltable, psql_schema_name, table_prefix):
     drop = generate_drop_table_statement(sqltable, psql_schema_name,
-                                         psql_table_name_prefix)
+                                         table_prefix)
     create = generate_create_table_statement(sqltable, psql_schema_name,
-                                             psql_table_name_prefix)
+                                             table_prefix)
     return drop + '\n' + create + '\n'
 
 
@@ -106,7 +52,7 @@ def merge_dicts(store, append):
     return store
 
 
-def create_table_queries(sqltables, psql_schema_name, psql_table_name_prefix):
+def create_table_queries(sqltables, psql_schema_name, table_prefix):
     if not hasattr(create_table_queries, "created_tables"):
         create_table_queries.created_tables = {}
 
@@ -114,28 +60,82 @@ def create_table_queries(sqltables, psql_schema_name, psql_table_name_prefix):
         if tablename not in create_table_queries.created_tables:
             create_table_queries.created_tables[tablename] = \
                 create_table(sqltable, psql_schema_name,
-                             psql_table_name_prefix)
+                             table_prefix)
 
-
-def gen_insert_queries(tables_obj, csm):
-    if not hasattr(gen_insert_queries, "max_indexes"):
-        gen_insert_queries.max_indexes = {}
+def save_csvs(csm, tables_obj):
+    if not hasattr(save_csvs, "max_indexes"):
+        save_csvs.max_indexes = {}
 
     written = {}
     for name, table in tables_obj.tables.iteritems():
         reccount = csm.write_csv(table)
         written[name] = reccount
+# cache initial indexes
+    save_csvs.max_indexes = merge_dicts(save_csvs.max_indexes,
+                                        tables_obj.data_engine.indexes)
     return written
 
-# cache initial indexes
-    gen_insert_queries.max_indexes = \
-        merge_dicts(gen_insert_queries.max_indexes,
-                    tables_obj.data_engine.indexes)
+# Asynchronous workers
 
+def worker_retrieve_mongo_record(mongo_reader, foo):
+    rec = mongo_reader.next()
+    count = 0
+    if not hasattr(worker_retrieve_mongo_record, "mongo_count"):
+        worker_retrieve_mongo_record.mongo_count = mongo_reader.cursor.count()
+    count = worker_retrieve_mongo_record.mongo_count
+    if rec:
+        message(".", cr="")
+        if mongo_reader.rec_i % 1000 == 0:
+            message("\n%d of %d" % (mongo_reader.rec_i, \
+                                        count))
+    return rec
 
-def worker(schema, rec):
+def worker_handle_mongo_record(schema, rec):
     return schema_engine.create_tables_load_bson_data(schema, 
                                                       [rec])
+
+# Fast queue helpers
+
+def request_mongo_recs_async(fastqueue3):
+    records = []
+    rec = True
+    finish = False
+    # wait while queue size is not exceeded or if result available
+    while (fastqueue3.count() >= QUEUE_SIZE or fastqueue3.poll()\
+            or (finish and (fastqueue3.count() or fastqueue3.poll()))):
+        rec = fastqueue3.get()
+        records.append(rec)
+        if not rec:
+            finish = True
+    for i in xrange(len(records)):
+        fastqueue3.put('foo')
+    return records
+
+def get_tables_from_rec_async(fastqueue, mongo_rec, finish):
+    tables_list = []    
+    if mongo_rec:
+        fastqueue.put(mongo_rec)
+    while fastqueue.count() >= QUEUE_SIZE or fastqueue.poll()\
+            or (finish and (fastqueue.count() or fastqueue.poll())):
+        tables_list.append(fastqueue.get())
+    return tables_list
+
+def handle_tables_data_async(fastqueue2, tables_list, all_written):
+    for tables_obj in tables_list:
+        fastqueue2.put(tables_obj)
+    while fastqueue2.count() >= QUEUE_SIZE or fastqueue2.poll():
+        all_written = merge_dicts(all_written, fastqueue2.get())
+    return all_written
+
+def handle_rest_tables_data_sync(tables_list, schema_name, 
+                                 table_prefix, all_errors):
+    # rest of data handle synchronously
+    for tables_obj in tables_list:
+        create_table_queries(
+            tables_obj.tables, schema_name, table_prefix)
+        all_errors = merge_dicts(all_errors, tables_obj.errors)
+    return all_errors
+
 
 if __name__ == "__main__":
 
@@ -160,16 +160,10 @@ default=%s' % (default_request), type=str)
 statements", type=argparse.FileType('w'), required=True)
     parser.add_argument("-stats-file", help="File to write written record counts",
                         type=argparse.FileType('w'))
-    parser.add_argument("--hdfs-path", help="Hdfs path (at least 3 letters) to save \
-folders with csv files", type=str, required=True)
     parser.add_argument(
         "--csv-path", help="base path for results", type=str, required=True)
 
     args = parser.parse_args()
-
-    if len(args.hdfs_path) < 3:
-        message("--hdfs-path param should be at least tree chars length")
-        exit(1)
 
     split_name = args.collection_name.split('.')
     if len(split_name) != 2:
@@ -206,47 +200,46 @@ folders with csv files", type=str, required=True)
     if not args.psql_schema_name:
         psql_schema_name = ''
 
-    psql_table_name_prefix = args.psql_table_name_prefix
+    table_prefix = args.psql_table_name_prefix
     if not args.psql_table_name_prefix:
-        psql_table_name_prefix = ''
+        table_prefix = ''
 
     sqltables = schema_engine.create_tables_load_bson_data(schema, None).tables
     table_names = sqltables.keys()
 
-    csm = CsvManager(table_names, args.csv_path,
-                     args.hdfs_path, CSV_CHUNK_SIZE)
+    csm = CsvManager(table_names, args.csv_path, CSV_CHUNK_SIZE)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
     all_wrtitten_reccount = {}
-    count = None
-    rec = True
-    fast_queue = FastQueueProcessor(worker, schema, PROCESS_NUMBER)
+    # create pymongo retriever to be used as parallel process
+    pymongo_request_processing \
+        = FastQueueProcessor(worker_retrieve_mongo_record, mongo_reader, 1) 
+    mongo_rec_multiprocessing \
+        = FastQueueProcessor(worker_handle_mongo_record, 
+                             schema, 
+                             PROCESS_NUMBER)
+    records_available = True
+    records = []
+    for i in range(QUEUE_SIZE):
+        pymongo_request_processing.put('foo')
     try:
-        while rec:
-            rec = mongo_reader.next()
-            if count is None:
-                count = mongo_reader.cursor.count()
-            if rec:
-                fast_queue.put(rec)
-                message(".", cr="")
-                if mongo_reader.rec_i % 1000 == 0:
-                    message("\n%d of %d" % (mongo_reader.rec_i, count))
-            reslist = []
-            if fast_queue.poll() or fast_queue.count() >= QUEUE_SIZE:
-                reslist.append(fast_queue.get())
-            if not rec: # no more records
-                q = fast_queue.get()
-                while q:
-                    reslist.append(q)
-                    q = fast_queue.get()
-            for tables_obj in reslist:
-                create_table_queries(
-                    tables_obj.tables, psql_schema_name, psql_table_name_prefix)
-                written = gen_insert_queries(tables_obj, csm)
-                all_wrtitten_reccount = merge_dicts(
-                    all_wrtitten_reccount, written)
-                errors = merge_dicts(errors, tables_obj.errors)
-
+        while len(records) or records_available:
+            # print "mongo_reader loop", len(records), records_available
+            for rec in records:
+                if not rec:
+                    records_available = False
+                tables_list = get_tables_from_rec_async(\
+                    mongo_rec_multiprocessing, rec, not records_available)
+                for tables_obj in tables_list:
+                    all_wrtitten_reccount = merge_dicts(all_wrtitten_reccount, 
+                                                        save_csvs(csm, tables_obj))
+                errors = handle_rest_tables_data_sync(tables_list, 
+                                                      psql_schema_name,
+                                                      table_prefix,
+                                                      errors)
+            del records[:]
+            if records_available:
+                records = request_mongo_recs_async(pymongo_request_processing)
     except KeyboardInterrupt:
         mongo_reader.failed = True
 
@@ -267,5 +260,6 @@ folders with csv files", type=str, required=True)
         for name, value in all_wrtitten_reccount.iteritems():
             args.stats_file.write(name + " " + str(value) + "\n")
 
-    del(fast_queue)
+    del(pymongo_request_processing)
+    del(mongo_rec_multiprocessing)
     exit(mongo_reader.failed)
