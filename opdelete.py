@@ -3,7 +3,7 @@ import pprint
 __author__ = 'Volodymyr Varchuk'
 __email__ = "vladimir.varchuk@rackspace.com"
 
-from d_utils import *
+from util import *
 
 DELETE_TMPL = 'DELETE FROM {table} WHERE {condition};'
 UPDATE_TMPL = 'UPDATE {table} SET {statement} WHERE {condition};'
