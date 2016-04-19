@@ -5,7 +5,7 @@ __email__ = "vladimir.varchuk@rackspace.com"
 
 DELETE_TMPLT = 'DELETE FROM {table} WHERE {conditions};'
 UPDATE_TMPLT = 'UPDATE {table} SET {statements} WHERE {conditions};'
-INSERT_TMPLT = "INSERT INTO {TABLE} ({columns}) VALUES({VALUES})"
+INSERT_TMPLT = "INSERT INTO {table} ({columns}) VALUES({values})"
 
 
 def get_field_name_without_underscore(field_name):
