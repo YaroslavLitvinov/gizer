@@ -98,26 +98,41 @@ def worker_handle_mongo_record(schema, rec):
 
 def request_mongo_recs_async(fastqueue3):
     records = []
-    rec = True
-    finish = False
+    last_record = None
     # wait while queue size is not exceeded or if result available
-    while (fastqueue3.count() >= QUEUE_SIZE or fastqueue3.poll()\
-            or (finish and (fastqueue3.count() or fastqueue3.poll()))):
+    while fastqueue3.count() or fastqueue3.poll():
         rec = fastqueue3.get()
-        records.append(rec)
-        if not rec:
-            finish = True
-    for i in xrange(len(records)):
-        fastqueue3.put('foo')
+        if rec:
+            records.append(rec)
+        else:
+            last_record = True
+    if not last_record:
+        for i in xrange(len(records)):
+            if records[i]:
+                fastqueue3.put('foo')
+    get_all = fastqueue3.count() \
+        or fastqueue3.poll() or fastqueue3.is_any_working()
+    while last_record and get_all:
+        rec = fastqueue3.get()
+        if rec:
+            records.append(rec)
+        else:
+            break
     return records
 
-def get_tables_from_rec_async(fastqueue, mongo_rec, finish):
-    tables_list = []    
-    if mongo_rec:
-        fastqueue.put(mongo_rec)
-    while fastqueue.count() >= QUEUE_SIZE or fastqueue.poll()\
-            or (finish and (fastqueue.count() or fastqueue.poll())):
-        tables_list.append(fastqueue.get())
+def get_tables_from_rec_async(fastqueue, records):
+    finish = False
+    tables_list = []   
+    for rec in records:
+        if rec:
+            fastqueue.put(rec)
+    get_all = fastqueue.count() or fastqueue.poll() or fastqueue.is_any_working()
+    while fastqueue.count() or fastqueue.poll() or (not len(records) and get_all and not finish):
+        res = fastqueue.get()
+        if res:
+            tables_list.append(res)
+        else:
+            finish = True
     return tables_list
 
 def handle_tables_data_async(fastqueue2, tables_list, all_written):
@@ -210,7 +225,7 @@ statements", type=argparse.FileType('w'), required=True)
     csm = CsvManager(table_names, args.csv_path, CSV_CHUNK_SIZE)
     pp = pprint.PrettyPrinter(indent=4)
     errors = {}
-    all_wrtitten_reccount = {}
+    all_written = {}
     # create pymongo retriever to be used as parallel process
     pymongo_request_processing \
         = FastQueueProcessor(worker_retrieve_mongo_record, mongo_reader, 1) 
@@ -218,28 +233,29 @@ statements", type=argparse.FileType('w'), required=True)
         = FastQueueProcessor(worker_handle_mongo_record, 
                              schema, 
                              PROCESS_NUMBER)
-    records_available = True
-    records = []
+    c=0
+    # form a queue for fast retrieving of data
     for i in range(QUEUE_SIZE):
         pymongo_request_processing.put('foo')
     try:
-        while len(records) or records_available:
-            # print "mongo_reader loop", len(records), records_available
-            for rec in records:
-                if not rec:
-                    records_available = False
-                tables_list = get_tables_from_rec_async(\
-                    mongo_rec_multiprocessing, rec, not records_available)
-                for tables_obj in tables_list:
-                    all_wrtitten_reccount = merge_dicts(all_wrtitten_reccount, 
-                                                        save_csvs(csm, tables_obj))
-                errors = handle_rest_tables_data_sync(tables_list, 
-                                                      psql_schema_name,
-                                                      table_prefix,
-                                                      errors)
+        records = request_mongo_recs_async(pymongo_request_processing)
+        while True:
+            # print "mongo_reader loop", len(records), finish
+            tables_list = get_tables_from_rec_async(mongo_rec_multiprocessing, 
+                                                    records)
+            c+=len(records)
+            for tables_obj in tables_list:
+                all_written = merge_dicts(all_written, 
+                                          save_csvs(csm, tables_obj))
+            errors = handle_rest_tables_data_sync(tables_list, 
+                                                  psql_schema_name,
+                                                  table_prefix,
+                                                  errors)
+            if not len(records):
+                break
             del records[:]
-            if records_available:
-                records = request_mongo_recs_async(pymongo_request_processing)
+            records = request_mongo_recs_async(pymongo_request_processing)
+
     except KeyboardInterrupt:
         mongo_reader.failed = True
 
@@ -255,9 +271,10 @@ statements", type=argparse.FileType('w'), required=True)
     ps.print_stats()
 
     pp.pprint(errors)
-    pp.pprint(all_wrtitten_reccount)
+    pp.pprint(all_written)
+    print "Etl records count should be =", c
     if args.stats_file:
-        for name, value in all_wrtitten_reccount.iteritems():
+        for name, value in all_written.iteritems():
             args.stats_file.write(name + " " + str(value) + "\n")
 
     del(pymongo_request_processing)
