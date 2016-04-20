@@ -27,7 +27,7 @@ END LOOP;
 """
 
 
-def update_new (schema, oplog_data):
+def update (schema, oplog_data):
     doc_id = get_obj_id(oplog_data)
     u_data = oplog_data["o"]["$set"]
     root_table_name = oplog_data["ns"].split('.')[-1]
