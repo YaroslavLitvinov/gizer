@@ -101,7 +101,9 @@ def request_mongo_recs_async(fastqueue3):
     records = []
     last_record = None
     # wait while queue size is not exceeded or if result available
-    while fastqueue3.count() or fastqueue3.poll():
+    while fastqueue3.count() >= GET_QUEUE_SIZE \
+            or fastqueue3.poll() \
+            or (not len(records) and fastqueue3.count()):
         rec = fastqueue3.get()
         if rec:
             records.append(rec)
