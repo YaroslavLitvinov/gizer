@@ -18,11 +18,17 @@ from mongo_reader.reader import MongoReader
 # modules affected in data out
 import os
 from multiprocessing import Pool
+from collections import namedtuple
 from mongo_schema import schema_engine
+from mongo_schema.schema_engine import create_tables_load_bson_data
 from gizer.opcsv import CsvManager
+from gizer.opcsv import NULLVAL
 from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opinsert import generate_insert_queries
+from gizer.opinsert import table_rows_list
+from gizer.opinsert import index_columns_as_dict
+from gizer.opinsert import apply_indexes_to_table_rows
 from gizer.opmultiprocessing import FastQueueProcessor
 
 
@@ -30,6 +36,9 @@ CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
 ETL_PROCESS_NUMBER = 10
 ETL_QUEUE_SIZE = 10
 GET_QUEUE_SIZE = 30
+
+TablesToSave = namedtuple('TablesToSave', 
+                          ['rows', 'index_keys', 'indexes', 'errors'])
 
 # helpers
 
@@ -53,27 +62,27 @@ def merge_dicts(store, append):
     return store
 
 
-def create_table_queries(sqltables, psql_schema_name, table_prefix):
-    if not hasattr(create_table_queries, "created_tables"):
-        create_table_queries.created_tables = {}
-
+def create_table_queries(schema_engine, psql_schema_name, table_prefix):
+    res = {}
+    sqltables = create_tables_load_bson_data(schema_engine, None).tables
     for tablename, sqltable in sqltables.iteritems():
-        if tablename not in create_table_queries.created_tables:
-            create_table_queries.created_tables[tablename] = \
-                create_table(sqltable, psql_schema_name,
-                             table_prefix)
+        res[tablename] = create_table(sqltable, psql_schema_name,
+                                      table_prefix)
+    return res
 
-def save_csvs(csm, tables_obj):
+def save_csvs(csm, tables_to_save):
     if not hasattr(save_csvs, "max_indexes"):
         save_csvs.max_indexes = {}
 
     written = {}
-    for name, table in tables_obj.tables.iteritems():
-        reccount = csm.write_csv(table)
-        written[name] = reccount
+    for table_name in tables_to_save.rows:
+        rows = apply_indexes_to_table_rows(tables_to_save.rows[table_name],
+                                           tables_to_save.index_keys[table_name],
+                                           save_csvs.max_indexes)
+        written[table_name] = csm.write_csv(table_name, rows)
 # cache initial indexes
     save_csvs.max_indexes = merge_dicts(save_csvs.max_indexes,
-                                        tables_obj.data_engine.indexes)
+                                        tables_to_save.indexes)
     return written
 
 # Asynchronous workers
@@ -92,8 +101,17 @@ def worker_retrieve_mongo_record(mongo_reader, foo):
     return rec
 
 def worker_handle_mongo_record(schema, rec):
-    return schema_engine.create_tables_load_bson_data(schema, 
-                                                      [rec])
+    rows_as_dict = {}
+    index_keys = {}
+    tables_obj = create_tables_load_bson_data(schema, [rec])
+    for table_name, table in tables_obj.tables.iteritems():
+        rows = table_rows_list(table, False, null_value = NULLVAL)
+        rows_as_dict[table_name] = rows
+        index_keys[table_name] = index_columns_as_dict(table)
+    return TablesToSave(rows = rows_as_dict,
+                        index_keys = index_keys,
+                        indexes = tables_obj.data_engine.indexes,
+                        errors = tables_obj.errors)
 
 # Fast queue helpers
 
@@ -125,28 +143,19 @@ def request_mongo_recs_async(fastqueue3):
 
 def get_tables_from_rec_async(fastqueue, records):
     finish = False
-    tables_list = []   
+    res = []
     for rec in records:
         if rec:
             fastqueue.put(rec)
     get_all = fastqueue.count() or fastqueue.poll() or fastqueue.is_any_working()
     while fastqueue.count() >= ETL_QUEUE_SIZE or fastqueue.poll() \
             or (not len(records) and get_all and not finish):
-        res = fastqueue.get()
-        if res:
-            tables_list.append(res)
+        async_res = fastqueue.get()
+        if async_res:
+            res.append(async_res)
         else:
             finish = True
-    return tables_list
-
-def handle_rest_tables_data_sync(tables_list, schema_name, 
-                                 table_prefix, all_errors):
-    # rest of data handle synchronously
-    for tables_obj in tables_list:
-        create_table_queries(
-            tables_obj.tables, schema_name, table_prefix)
-        all_errors = merge_dicts(all_errors, tables_obj.errors)
-    return all_errors
+    return res
 
 
 if __name__ == "__main__":
@@ -216,7 +225,7 @@ statements", type=argparse.FileType('w'), required=True)
     if not args.psql_table_name_prefix:
         table_prefix = ''
 
-    sqltables = schema_engine.create_tables_load_bson_data(schema, None).tables
+    sqltables = create_tables_load_bson_data(schema, None).tables
     table_names = sqltables.keys()
 
     csm = CsvManager(table_names, args.csv_path, CSV_CHUNK_SIZE)
@@ -238,17 +247,16 @@ statements", type=argparse.FileType('w'), required=True)
         records = request_mongo_recs_async(pymongo_request_processing)
         while True:
 #            print "loop.a", len(records), pymongo_request_processing.count()
-            tables_list = get_tables_from_rec_async(mongo_rec_multiprocessing,
+            # tables_to_save is [TablesToSave]
+            tables_to_save = get_tables_from_rec_async(mongo_rec_multiprocessing,
                                                     records)
-#            print "loop.b", len(tables_list), mongo_rec_multiprocessing.count()
+#            print "loop.b", len(tables_to_save), mongo_rec_multiprocessing.count()
             c+=len(records)
-            for tables_obj in tables_list:
+            for table_to_save in tables_to_save:
                 all_written = merge_dicts(all_written, 
-                                          save_csvs(csm, tables_obj))
-            errors = handle_rest_tables_data_sync(tables_list, 
-                                                  psql_schema_name,
-                                                  table_prefix,
-                                                  errors)
+                                          save_csvs(csm, table_to_save))
+                errors = merge_dicts(errors, table_to_save.errors)
+
             if not len(records):
                 break
             del records[:]
@@ -258,9 +266,12 @@ statements", type=argparse.FileType('w'), required=True)
         mongo_reader.failed = True
 
 # save create table statements
-    for table_name, create_query in \
-            create_table_queries.created_tables.iteritems():
+    create_statements \
+        = create_table_queries(schema, psql_schema_name, table_prefix)
+    for table_name in create_statements:
+        create_query = create_statements[table_name]
         args.ddl_statements_file.write(create_query)
+
 # save csv files
     csm.finalize()
     message("")
