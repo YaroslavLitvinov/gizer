@@ -58,13 +58,12 @@ class CsvManager:
         wrt = CsvInfo(CsvWriter(f, True),  filepath, name, fnumber)
         return wrt
 
-    def write_csv(self, sqltable):
+    def write_csv(self, name, rows):
         """
         Write table records to csv file
         @param sqltable data to write
         @return records count written
         """
-        name = sqltable.table_name
         if name not in self.writers.keys():
             self.writers[name] = self.create_writer(name, 0)
         elif not self.writers[name].writer.file:
@@ -72,7 +71,7 @@ class CsvManager:
             self.writers[name] = self.create_writer(name, newfile_count)
 
         wrt = self.writers[name]
-        written_reccount = wrt.writer.write_csv(sqltable)
+        written_reccount = wrt.writer.write_csv(rows)
         if wrt.writer.file.tell() >= self.chunk_size:
             wrt.writer.close()
         self.writers[name] = wrt
@@ -98,38 +97,13 @@ class CsvWriter:
         self.file.close()
         self.file = None
 
-    def write_csv(self, sqltable):
+    def write_csv(self, rows):
         """ 
-        @param table object schema_engine.SqlTable
         @return records count was written
         """
-        def escape_val(val):
-            if type(val) is str or type(val) is unicode:
-                if self.psql_copy == False:
-                    return val.encode('unicode-escape').encode('utf-8')
-                else:
-                    return val.encode('utf-8')
-            else:
-                return val
-
-        def prepare_csv_data(current_idx, colnames, columns):
-            csvvals = []
-            for i in colnames:
-                val = columns[i].values[current_idx]
-                if val is not None:
-                    csvvals.append(escape_val(val))
-                else:
-                    csvvals.append(self.null_val)
-            return csvvals
-
-        firstcolname = sqltable.sql_column_names[0]
-        reccount = len(sqltable.sql_columns[firstcolname].values)
-        for val_i in xrange(reccount):
-            csvdata = prepare_csv_data(val_i, 
-                                       sqltable.sql_column_names, 
-                                       sqltable.sql_columns)
-            self.csvwriter.writerow(csvdata)
-        return reccount
+        for row in rows:
+            self.csvwriter.writerow(row)
+        return len(rows)
 
 
 ################
