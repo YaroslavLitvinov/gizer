@@ -87,12 +87,12 @@ def save_csvs(csm, tables_to_save):
 
 # Asynchronous workers
 
-def worker_retrieve_mongo_record(mongo_reader, foo):
+def retrieve_mongo_record(mongo_reader):
     rec = mongo_reader.next()
     count = 0
-    if not hasattr(worker_retrieve_mongo_record, "mongo_count"):
-        worker_retrieve_mongo_record.mongo_count = mongo_reader.cursor.count()
-    count = worker_retrieve_mongo_record.mongo_count
+    if not hasattr(retrieve_mongo_record, "mongo_count"):
+        retrieve_mongo_record.mongo_count = mongo_reader.cursor.count()
+    count = retrieve_mongo_record.mongo_count
     if rec:
         message(".", cr="")
         if mongo_reader.rec_i % 1000 == 0:
@@ -115,41 +115,14 @@ def worker_handle_mongo_record(schema, rec):
 
 # Fast queue helpers
 
-def request_mongo_recs_async(fastqueue3):
-    records = []
-    last_record = None
-    # wait while queue size is not exceeded or if result available
-    while fastqueue3.count() >= GET_QUEUE_SIZE \
-            or fastqueue3.poll() \
-            or (not len(records) and fastqueue3.count()):
-        rec = fastqueue3.get()
-        if rec:
-            records.append(rec)
-        else:
-            last_record = True
-    if not last_record:
-        for i in xrange(len(records)):
-            if records[i]:
-                fastqueue3.put('foo')
-    get_all = fastqueue3.count() \
-        or fastqueue3.poll() or fastqueue3.is_any_working()
-    while last_record and get_all:
-        rec = fastqueue3.get()
-        if rec:
-            records.append(rec)
-        else:
-            break
-    return records
-
-def get_tables_from_rec_async(fastqueue, records):
+def get_tables_from_rec_async(fastqueue, rec):
     finish = False
     res = []
-    for rec in records:
-        if rec:
-            fastqueue.put(rec)
+    if rec:
+        fastqueue.put(rec)
     get_all = fastqueue.count() or fastqueue.poll() or fastqueue.is_any_working()
     while fastqueue.count() >= ETL_QUEUE_SIZE or fastqueue.poll() \
-            or (not len(records) and get_all and not finish):
+            or (not rec and get_all and not finish):
         async_res = fastqueue.get()
         if async_res:
             res.append(async_res)
@@ -233,34 +206,27 @@ statements", type=argparse.FileType('w'), required=True)
     errors = {}
     all_written = {}
     # create pymongo retriever to be used as parallel process
-    pymongo_request_processing \
-        = FastQueueProcessor(worker_retrieve_mongo_record, mongo_reader, 1) 
     mongo_rec_multiprocessing \
         = FastQueueProcessor(worker_handle_mongo_record, 
                              schema, 
                              ETL_PROCESS_NUMBER)
     c=0
-    # form a queue for fast retrieving of data
-    for i in range(GET_QUEUE_SIZE):
-        pymongo_request_processing.put('foo')
     try:
-        records = request_mongo_recs_async(pymongo_request_processing)
+        record = retrieve_mongo_record(mongo_reader)
         while True:
-#            print "loop.a", len(records), pymongo_request_processing.count()
             # tables_to_save is [TablesToSave]
             tables_to_save = get_tables_from_rec_async(mongo_rec_multiprocessing,
-                                                    records)
+                                                    record)
 #            print "loop.b", len(tables_to_save), mongo_rec_multiprocessing.count()
-            c+=len(records)
             for table_to_save in tables_to_save:
                 all_written = merge_dicts(all_written, 
                                           save_csvs(csm, table_to_save))
                 errors = merge_dicts(errors, table_to_save.errors)
-
-            if not len(records):
+            if not record:
                 break
-            del records[:]
-            records = request_mongo_recs_async(pymongo_request_processing)
+            else:
+                c += 1
+            record = retrieve_mongo_record(mongo_reader)
 
     except KeyboardInterrupt:
         mongo_reader.failed = True
@@ -286,6 +252,5 @@ statements", type=argparse.FileType('w'), required=True)
         for name, value in all_written.iteritems():
             args.stats_file.write(name + " " + str(value) + "\n")
 
-    del(pymongo_request_processing)
     del(mongo_rec_multiprocessing)
     exit(mongo_reader.failed)
