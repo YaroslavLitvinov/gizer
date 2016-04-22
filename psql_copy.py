@@ -23,12 +23,14 @@ def message(mes, cr='\n'):
     sys.stderr.write( mes + cr)
 
 def copy_from_csv(dbreq, f, table_name):
+    """Fastest approach, need specific csv format"""
     #use two slashes as '\N' became '\\N' when writing escaping csv data
     dbreq.cursor.copy_from(f, table_name, null='\\\\N')
     dbreq.cursor.execute('COMMIT')
     message('Exported csv %s' % (f.name))
 
 def export_csv_file(dbreq, f, fmtstring):
+    """Slow approach, adding records one by one"""
     reader = CsvReader(f)
     dbreq.cursor.execute('BEGIN')
     
@@ -81,6 +83,7 @@ if __name__ == "__main__":
     create_table_stmt = \
         generate_create_table_statement(table, schema_name, table_prefix)
     dbreq.cursor.execute(create_table_stmt)
+    dbreq.cursor.execute('COMMIT')
 
     csv_files = [f for f in listdir(args.input_csv_dir) if isfile(join(args.input_csv_dir, f))]
     csv_files.sort()
@@ -93,4 +96,3 @@ if __name__ == "__main__":
             tname = '%s"%s%s"' % (schema_name_subst, table_prefix, args.psql_table_name)
             copy_from_csv(dbreq, f, tname)
             #export_csv_file(dbreq, f, fmtstring)
-
