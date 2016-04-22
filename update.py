@@ -64,13 +64,13 @@ def update (schema, oplog_data):
             target_table_name = get_table_name_from_list(upd_path)
             q_conditions = get_conditions_list(schema, '.'.join(upd_path), doc_id.itervalues().next())
             q_columns = get_query_columns_with_nested(schema, u_data[k], '', {})
-            q_statements_str = [('{column}=%s' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '{column}="%s"').format(column=col) for col in q_columns]
-            q_conditions_str = [('{column}=%s' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '{column}="%s"').format(column = col) for col in q_conditions['target']]
-            upd_statement_template = UPDATE_TMPLT.format( table=target_table_name, statements=', '.join(q_statements_str), conditions=' and '.join(q_conditions_str))
+            q_statements_str = ', '.join([('{column}=%s' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '{column}="%s"').format(column=col) for col in q_columns])
+            q_conditions_str = ' and '.join([('{column}=%s' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '{column}="%s"').format(column = col) for col in q_conditions['target']])
+            upd_statement_template = UPDATE_TMPLT.format( table=target_table_name, statements=q_statements_str, conditions=q_conditions_str)
             upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
             upd_stmnt[upd_statement_template] = upd_values
             # scratch insert statements for single object
-            #TODO should be calculated idx number and placed into INSERT query
+            #TODO should be calculated idx number and placed into INSERT query. OR just replace generating insert from opinsert module
             q_values_template = ['%s' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '"%s"'  for col in q_columns]
             ins_statement_template = INSERT_TMPLT.format( table=target_table_name, columns=', '.join([col for col in q_columns]), values=', '.join(q_values_template))
             ins_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
