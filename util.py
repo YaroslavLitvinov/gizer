@@ -5,8 +5,8 @@ __email__ = "vladimir.varchuk@rackspace.com"
 
 DELETE_TMPLT = 'DELETE FROM {table} WHERE {conditions};'
 UPDATE_TMPLT = 'UPDATE {table} SET {statements} WHERE {conditions};'
-INSERT_TMPLT = "INSERT INTO {table} ({columns}) VALUES({values})"
-
+INSERT_TMPLT = 'INSERT INTO {table} ({columns}) VALUES({values});'
+SELECT_TMPLT = 'SELECT MAX(idx) FROM {table} WHERE {conditions};'
 
 def get_field_name_without_underscore(field_name):
     for i in range(len(field_name)):
