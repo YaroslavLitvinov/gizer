@@ -51,6 +51,17 @@ def get_table_name_from_list(spath):
         return spathl[-1]
 
 
+def get_idx_column_name_from_list(spath):
+    spathl = spath[:]
+    for it in spathl:
+        if it.isdigit():
+            spathl.remove(it)
+    if len(spathl) > 1:
+        return '_'.join(['_'.join((el) for el in spathl[:-1]), spathl[-1]])
+    else:
+        return spathl[-1]
+
+
 def get_root_table_from_path(path):
     spath = path.split('.')
     collection_path = []
@@ -72,6 +83,22 @@ def get_indexes_dictionary(path):
     for i in iter_i:
         if spath[i].isdigit():
             table_name = get_table_name_from_list(spath)
+            index_dict[table_name] = spath[i]
+            del spath[i]
+            del spath[i - 1]
+            next(iter_i)
+        else:
+            del spath[i]
+    return index_dict
+
+
+def get_indexes_dictionary_idx(path):
+    index_dict = {}
+    spath = path.split('.')
+    iter_i = reversed(xrange(len(spath)))
+    for i in iter_i:
+        if spath[i].isdigit():
+            table_name = get_idx_column_name_from_list(spath)
             index_dict[table_name] = spath[i]
             del spath[i]
             del spath[i - 1]
