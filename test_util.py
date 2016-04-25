@@ -103,6 +103,40 @@ def test_get_indexes_dictionary():
 
     print('TEST', 'get_indexes_dictionary', 'PASSED')
 
+def test_get_indexes_dictionary_idx():
+    path = 'persons.relatives.2.contacts.3.phones.4'
+    model = {'persons_relatives_contacts_phones': '4', 'persons_relatives': '2', 'persons_relatives_contacts': '3'}
+    f_return = get_indexes_dictionary_idx(path)
+    assert model == f_return
+
+    path = 'persons.relatives.contacts.phones.4'
+    model = {'persons_relatives_contacts_phones': '4'}
+    f_return = get_indexes_dictionary_idx(path)
+    assert model == f_return
+
+    path = 'persons.1.relatives.2.contacts.3.phones.4'
+    model = {'persons_relatives_contacts_phones': '4', 'persons_relatives': '2', 'persons_relatives_contacts': '3',
+             'persons': '1'}
+    f_return = get_indexes_dictionary_idx(path)
+    assert model == f_return
+
+    path = 'persons.relatives.contacts.phones'
+    model = {}
+    f_return = get_indexes_dictionary_idx(path)
+    assert model == f_return
+
+    path = 'persons.1.relatives.2.contacts.3.phones'
+    model = {'persons_relatives_contacts': '3', 'persons': '1', 'persons_relatives': '2'}
+    f_return = get_indexes_dictionary_idx(path)
+    assert model == f_return
+
+    path = 'persons.1.relatives.contacts.3.phones.6.numbers'
+    model = {'persons_relatives_contacts': '3', 'persons': '1', 'persons_relatives_contacts_phones': '6'}
+    f_return = get_indexes_dictionary_idx(path)
+    assert model == f_return
+
+    print('TEST', 'get_indexes_dictionary', 'PASSED')
+
 
 def test_get_last_idx_from_path():
     path = 'persons.relatives.contacts.phones'
@@ -378,6 +412,7 @@ def run_tests_():
     test_get_table_name_from_list()
     test_get_root_table_from_path()
     test_get_indexes_dictionary()
+    test_get_indexes_dictionary_idx()
     test_get_last_idx_from_path()
     test_get_tables_structure()
     test_get_quotes_using()
@@ -387,3 +422,4 @@ def run_tests_():
 if __name__ == "__main__":
     run_tests_()
 
+run_tests_()
