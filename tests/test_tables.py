@@ -37,4 +37,10 @@ def test_tables():
                                     'a_insert_comment_slugs'])
     pp = pprint.PrettyPrinter()
     pp.pprint(tables.errors)
+    pp.pprint(tables.data_engine.indexes)
+    expected_indexes = {'a_inserts': 1,
+                        u'a_inserts_comments': 2,
+                        u'a_inserts_comments_items': 2,
+                        u'a_inserts_comments_slugs': 1}
+    assert(tables.data_engine.indexes == expected_indexes)
     return tables.tables

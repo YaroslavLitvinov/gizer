@@ -48,7 +48,7 @@ class OplogParser:
                 return self.cb_insert(ts_field, ns_field, schema, 
                                       [o_field])
             elif item["op"] == "u":
-                o2_id = str(item["o2"]['_id'])
+                o2_id = item["o2"]
                 return self.cb_update(ts_field, ns_field, schema, 
                                       o_field['$set'], o2_id)
             elif item["op"] == "d":

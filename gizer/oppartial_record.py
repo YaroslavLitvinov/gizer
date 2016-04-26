@@ -6,66 +6,82 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import bson
 from bson import json_util
+from collections import namedtuple
+from mongo_schema.schema_engine import Tables
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
+PComponent = namedtuple('PComponent', ['name', 'index'])
 
-def parse_name_and_path(name_and_path):
+def get_name_and_path_components(name_and_path):
     """ @return get dict of parsed components with values, value can be None"""
-    res = {}
+    res = []
     numerics = []
     names = []
     #collection_name = schema_engine.root_node.name
     name_components = name_and_path.split('.')
     for comp in name_components:
         if unicode(comp).isnumeric():
-            numerics.append(comp)
+            numerics.append(int(comp))
         else:
             names.append(comp)
     for i in xrange(len(names)):
         name = names[i]
         if i < len(numerics):
-            res[name] = numerics[i]
+            res.append(PComponent(name, numerics[i]))
         else:
-            res[name] = None
+            res.append(PComponent(name, None))
     return res
 
+def initial_indexes_from_components(schema_engine, components):
+    res = {}
+    locate_path = []
+    print "locate_path", locate_path
+    for comp_i in xrange(len(components)):
+        locate_path = [i.name for i in components[:comp_i+1]]
+        node = schema_engine.locate(locate_path)
+        res[node.long_alias()] = components[comp_i].index
+    return res
 
-def complete_partial_record(schema_engine, name_and_path, bson_data):
-    result = '%s'
-    components = parse_name_and_path(name_and_path)
-    if len(components.keys()) > 1:
-        node = schema_engine.locate(components.keys())
-        parents = node.all_parents()[2:] #skip collections array and struct
-        for parent in parents:
-            if parent.value == node.type_array:
-                result = result % '[%s]'
-            elif parent.value == node.type_struct:
-                result = result % '{%s}'
-            else:
-                # item
-                assert(0)
-        result = result % bson_data
-    else:
-        result = {unicode(name_and_path): bson_data}
-    return result
+def node_by_components(schema_engine, components):
+    locate_path = [i.name for i in components]
+    node = schema_engine.locate(locate_path)
+    last_index = components[-1].index
+    # if bson_data is considered as array item
+    if node.value is node.type_array and last_index:
+        node = node.children[0]
+    return node
 
-def get_tables_data_from_oplog_set_command(schema_engine, bson_data):
-    """ @return tables as dict """
+def get_tables_data_from_oplog_set_command(schema_engine, bson_data,
+                                           bson_object_id_name_value):
+    """ @return ttuple(tables as dict, initial_indexes) """
+    all_initial_indexes = {}
     tables = {}
-    print bson_data
+    print "bson_data", bson_data
     for name_and_path, bson_value in bson_data.iteritems():
-        # exclude parent tables as they have no data for inserts
-        components = parse_name_and_path(name_and_path)
-        node = schema_engine.locate(components.keys())
+        components = get_name_and_path_components(name_and_path)
+        initial_indexes = initial_indexes_from_components(schema_engine,
+                                                          components)
+        if initial_indexes:
+            all_initial_indexes = dict(all_initial_indexes.items() + 
+                                       initial_indexes.items())
+
+        obj_id_name = bson_object_id_name_value.keys()[0]
+        obj_id_val = bson_object_id_name_value.values()[0]
+        node = node_by_components(schema_engine, components)
+        whole_bson = node.json_inject_data(bson_value,
+                                           obj_id_name, obj_id_val)
+        print "node_by_components", node, node.name
+        table_obj = Tables(schema_engine, whole_bson)
+        table_obj.load_all()
+        # exclude parent tables if they have no data
         parent_tables_to_skip = [i.long_plural_alias()
                                  for i in node.all_parents() 
                                  if i.value == i.type_array][:-1]
-        bson_rec = complete_partial_record(schema_engine, name_and_path, bson_value)
-        table_obj = create_tables_load_bson_data(schema_engine, [bson_rec])
+        print "len(table_obj.tables)", len(table_obj.tables)
         for table_name, table in table_obj.tables.iteritems():
             # skip parent tables as they have no data
             if not table_name in parent_tables_to_skip:
                 tables[table_name] = table
             else:
                 print "skip table", table_name
-    return tables
+    return (tables, all_initial_indexes)

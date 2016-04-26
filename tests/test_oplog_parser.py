@@ -40,14 +40,22 @@ def test_oplog_parser():
               res.append(OplogQuery("i", generate_insert_queries(table, "", "")))
          return res
 
-    def test_cb_update(ts, ns, schema_engine, bson_data, parent_id):
-         if ts == '6249012828238249985': #or ts == '6249012068029038593':
+    def test_cb_update(ts, ns, schema_engine, bson_data, bson_parent_id):
+         # for set.name = "comments" don't neeed max indexes at all,
+         # just use default indexes to add data to parent (parent_id)
+         # for set.name = "comments.2" use provided index=2
+         if ts == '6249012828238249985' or ts == '6249012068029138593':
               # TODO 2016 apr 20: use index of parent record
               # overwrite (insert) compete array
-              tables = get_tables_data_from_oplog_set_command(schema_engine, bson_data)
+              print bson_data
+              tables, initial_indexes \
+                  = get_tables_data_from_oplog_set_command(schema_engine, 
+                                                           bson_data,
+                                                           bson_parent_id)
               res = []
               for name, table in tables.iteritems():
-                   res.append(OplogQuery("ui", generate_insert_queries(table, "", "")))
+                   res.append(OplogQuery("ui", \
+                        generate_insert_queries(table, "", "", initial_indexes)))
               assert(res!=[])
               return res
          else:
