@@ -31,8 +31,8 @@
     "title": "title3",
     "body": "body3",
     "user_id": "56b8d7caf9fcee1b00000001",
-    "updated_at": "2016-02-08T19:45:32.501Z",
-    "created_at": "2016-02-08T19:45:32.501Z"
+    "updated_at": { "$date" : "2016-02-08T19:45:32.501Z"},
+    "created_at": { "$date" : "2016-02-08T19:45:32.501Z"}
   }
 },
 {
@@ -119,9 +119,25 @@
     "$set": {
       "comments.2": {
         "_id": { "$oid": "56b8f35ef9fcee1b0000001a" },
-        "updated_at": "2016-02-08T19:58:22.847Z",
-        "created_at": "2016-02-08T19:58:22.847Z"
+        "updated_at": {"$date": "2016-02-08T19:58:22.847Z"},
+	"created_at": {"$date": "2016-02-08T19:58:22.847Z"}
       }
+    }
+  }
+},
+{
+  "ts": "6249012068029138593",
+  "t": 2,
+  "h": "8307152860560417908",
+  "v": 2,
+  "op": "u",
+  "ns": "rails4_mongoid_development.posts",
+  "o2": {
+    "_id": { "$oid": "56b8da59f9fcee1b00000007" }
+  },
+  "o": {
+    "$set": {
+	"comments.2.tests.1": [101]
     }
   }
 },
@@ -167,8 +183,8 @@
       "comments": [
         {
           "_id": { "$oid": "56b8f344f9fcee1b00000018" },
-          "updated_at": "2016-02-08T19:57:56.678Z",
-          "created_at": "2016-02-08T19:57:56.678Z"
+          "updated_at": {"$date": "2016-02-08T19:57:56.678Z"},
+	  "created_at": {"$date": "2016-02-08T19:57:56.678Z"}
         }
       ]
     }

@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 import json
 import bson
 from bson.json_util import loads
+from collections import namedtuple
 
 from all_schema_engines import get_schema_engines_as_dict
 
+OplogQuery = namedtuple('OplogQuery', ['op', 'query'])
 
 class OplogParser:
     
@@ -14,9 +20,6 @@ class OplogParser:
         self.cb_insert = cb_insert
         self.cb_update = cb_update
         self.cb_delete = cb_delete
-        self.insert_count = 0
-        self.update_count = 0
-        self.delete_count = 0
 
     def load_file(self, oplog_file):
         """ Use either load_file or load_data"""
@@ -33,6 +36,7 @@ class OplogParser:
         if self.oplog_index < len(self.oplog_data):
             item = self.oplog_data[self.oplog_index]
             self.oplog_index += 1
+            ts_field = item["ts"]
             ns_field = item["ns"]
             o_field = item["o"]
             db_and_collection = item["ns"].split('.')
@@ -41,13 +45,14 @@ class OplogParser:
             schema = self.schema_engines[schema_name]
             
             if item["op"] == "i":
-                self.insert_count += 1
-                return self.cb_insert(ns_field, schema, [o_field])
+                return self.cb_insert(ts_field, ns_field, schema, 
+                                      [o_field])
             elif item["op"] == "u":
-                self.update_count += 1
-                return self.cb_update(ns_field, schema, o_field, str(item["o2"]["_id"]))
+                o2_id = item["o2"]
+                return self.cb_update(ts_field, ns_field, schema, 
+                                      o_field['$set'], o2_id)
             elif item["op"] == "d":
-                self.delete_count += 1
-                return self.cb_delete(ns_field, schema, o_field)
+                return self.cb_delete(ts_field, ns_field, schema, 
+                                      o_field)
         else:
             return None

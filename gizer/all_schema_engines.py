@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-from mongo_to_hive_mapping import schema_engine
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
+from mongo_schema import schema_engine
 import os
 
 def get_schema_files(schemas_dirpath):

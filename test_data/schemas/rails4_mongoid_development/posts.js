@@ -6,7 +6,8 @@
         },
         "body": "STRING",
         "updated_at": "TIMESTAMP",
-        "created_at": "TIMESTAMP"
+        "created_at": "TIMESTAMP",
+        "tests" : [ "INT" ]
     }],
     "title": "STRING",
     "body": "STRING",
