@@ -31,10 +31,10 @@ def test_insert1():
 #test another table
     sqltable3 = tables[collection_name[:-1]+'_comment_items']
     create3 = generate_create_table_statement(sqltable3, "", "")
-    query3 = 'CREATE TABLE IF NOT EXISTS "a_insert_comment_items" ("a_inserts_comments_id_oid" TEXT, "a_inserts_id_oid" TEXT, "data" TEXT, "a_inserts_idx" BIGINT, "a_inserts_comments_idx" BIGINT, "idx" BIGINT);'
+    query3 = 'CREATE TABLE IF NOT EXISTS "a_insert_comment_items" ("a_inserts_id_oid" TEXT, "data" TEXT, "a_inserts_idx" BIGINT, "a_inserts_comments_idx" BIGINT, "idx" BIGINT);'
     assert(query3==create3)
 #test another table
     sqltable4 = tables[collection_name[:-1]+'_comment_slugs']
     create4 = generate_create_table_statement(sqltable4, "", "")
-    query4 = 'CREATE TABLE IF NOT EXISTS "a_insert_comment_slugs" ("a_inserts_comments_id_oid" TEXT, "a_inserts_id_oid" TEXT, "slugs" INTEGER, "a_inserts_idx" BIGINT, "a_inserts_comments_idx" BIGINT, "idx" BIGINT);'
+    query4 = 'CREATE TABLE IF NOT EXISTS "a_insert_comment_slugs" ("a_inserts_id_oid" TEXT, "slugs" INTEGER, "a_inserts_idx" BIGINT, "a_inserts_comments_idx" BIGINT, "idx" BIGINT);'
     assert(query4==create4)
