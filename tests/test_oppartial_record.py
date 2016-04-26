@@ -30,8 +30,11 @@ def test_complete_partial_record():
     
     bson_data = loads(array_bson_raw_data)
     object_id_bson_data = loads(object_id_bson_raw_data)
-    tables = get_tables_data_from_oplog_set_command(\
+    tables_tuple = get_tables_data_from_oplog_set_command(\
         schema_engine, bson_data, object_id_bson_data)
+    tables = tables_tuple[0]
+    assert(tables['post_comments'].sql_columns['posts_id_oid'].values[0]=="56b8da59f9fcee1b00000007")
+    assert(tables['post_comments'].sql_columns['id_oid'].values[0]=="56b8f344f9fcee1b00000018")
     assert(len(tables)==1)
 
 def test_complete_partial_record2():

@@ -47,7 +47,6 @@ def test_oplog_parser():
          if ts == '6249012828238249985' or ts == '6249012068029138593':
               # TODO 2016 apr 20: use index of parent record
               # overwrite (insert) compete array
-              print bson_data
               tables, initial_indexes \
                   = get_tables_data_from_oplog_set_command(schema_engine, 
                                                            bson_data,
@@ -100,7 +99,7 @@ def test_oplog_parser():
 
     assert(insert_count==1)
     assert(delete_count==1)
-    assert(update_count==8)
+    assert(update_count==9)
 
     dbreq.cursor.execute('COMMIT')
     
