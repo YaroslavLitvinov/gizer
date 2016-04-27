@@ -27,8 +27,6 @@ from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opinsert import generate_insert_queries
 from gizer.opinsert import table_rows_list
-from gizer.opinsert import index_columns_as_dict
-from gizer.opinsert import apply_indexes_to_table_rows
 from gizer.opmultiprocessing import FastQueueProcessor
 
 
@@ -38,7 +36,7 @@ ETL_QUEUE_SIZE = ETL_PROCESS_NUMBER*2
 GET_QUEUE_SIZE = ETL_PROCESS_NUMBER*2
 
 TablesToSave = namedtuple('TablesToSave', 
-                          ['rows', 'index_keys', 'indexes', 'errors'])
+                          ['rows', 'errors'])
 
 # helpers
 
@@ -71,18 +69,9 @@ def create_table_queries(schema_engine, psql_schema_name, table_prefix):
     return res
 
 def save_csvs(csm, tables_to_save):
-    if not hasattr(save_csvs, "max_indexes"):
-        save_csvs.max_indexes = {}
-
     written = {}
     for table_name in tables_to_save.rows:
-        rows = apply_indexes_to_table_rows(tables_to_save.rows[table_name],
-                                           tables_to_save.index_keys[table_name],
-                                           save_csvs.max_indexes)
-        written[table_name] = csm.write_csv(table_name, rows)
-# cache initial indexes
-    save_csvs.max_indexes = merge_dicts(save_csvs.max_indexes,
-                                        tables_to_save.indexes)
+        written[table_name] = csm.write_csv(table_name, tables_to_save.rows[table_name])
     return written
 
 # Asynchronous workers
@@ -107,10 +96,7 @@ def worker_handle_mongo_record(schema, rec):
     for table_name, table in tables_obj.tables.iteritems():
         rows = table_rows_list(table, False, null_value = NULLVAL)
         rows_as_dict[table_name] = rows
-        index_keys[table_name] = index_columns_as_dict(table)
     return TablesToSave(rows = rows_as_dict,
-                        index_keys = index_keys,
-                        indexes = tables_obj.data_engine.indexes,
                         errors = tables_obj.errors)
 
 # Fast queue helpers
