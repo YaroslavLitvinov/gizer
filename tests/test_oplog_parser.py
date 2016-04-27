@@ -33,8 +33,7 @@ def test_oplog_parser():
                                                  u'id_oid', 
                                                  u'title', 
                                                  u'updated_at', 
-                                                 u'user_id', 
-                                                 'idx'])
+                                                 u'user_id'])
          res = []
          for name, table in tables.tables.iteritems():
               res.append(OplogQuery("i", generate_insert_queries(table, "", "")))

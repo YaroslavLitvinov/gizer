@@ -44,14 +44,15 @@ def test_insert1():
     tz = inserts1[1][0][1].tzinfo
     expect(inserts1, \
                'INSERT INTO schema_name."prefix_a_inserts" \
-("body", "created_at", "id_bsontype", "id_oid", "title", "updated_at", "user_id", "idx") \
-VALUES(%s, %s, %s, %s, %s, %s, %s, %s);',
+("body", "created_at", "id_bsontype", "id_oid", "title", "updated_at", "user_id") \
+VALUES(%s, %s, %s, %s, %s, %s, %s);',
            [(u'body3"\tbody2\nbody1', 
              d('2016-02-08T19:45:32.501Z', tz), 
-             7, '56b8f05cf9fcee1b00000010', 
+             7, 
+             '56b8f05cf9fcee1b00000010', 
              u'title3', 
              d('2016-02-08T19:45:32.501Z', tz), 
-             u'56b8d7caf9fcee1b00000001', 1)])
+             u'56b8d7caf9fcee1b00000001')])
 
     sqltable2 = tables[collection_name[:-1]+'_comments']
     initial_indexes = { 'a_inserts': 50,
@@ -59,15 +60,15 @@ VALUES(%s, %s, %s, %s, %s, %s, %s, %s);',
 
     expect(generate_insert_queries(sqltable2, "", "", initial_indexes),
            'INSERT INTO "a_insert_comments" \
-("a_inserts_id_oid", "body", "created_at", "id_bsontype", "id_oid", "updated_at", "a_inserts_idx", "idx") \
-VALUES(%s, %s, %s, %s, %s, %s, %s, %s);',
+("a_inserts_id_oid", "body", "created_at", "id_bsontype", "id_oid", "updated_at", "idx") \
+VALUES(%s, %s, %s, %s, %s, %s, %s);',
            [
             ('56b8f05cf9fcee1b00000010', 
              None, 
              d('2016-02-08T19:45:32.501Z',tz), 
-             7, '56b8f05cf9fcee1b00000110', 
+             7, 
+             '56b8f05cf9fcee1b00000110', 
              d('2016-02-08T19:45:32.501Z',tz), 
-             initial_indexes['a_inserts']+1, 
              initial_indexes['a_inserts_comments']+1),
             ('56b8f05cf9fcee1b00000010', 
              u'body2', 
@@ -75,25 +76,24 @@ VALUES(%s, %s, %s, %s, %s, %s, %s, %s);',
              7, 
              '56b8f05cf9fcee1b00000011', 
              d('2016-02-08T19:45:33.501Z',tz), 
-             initial_indexes['a_inserts']+1, 
              initial_indexes['a_inserts_comments']+2)
             ])
 
     sqltable3 = tables[collection_name[:-1]+'_comment_items']
     expect(generate_insert_queries(sqltable3, "", ""),
            'INSERT INTO "a_insert_comment_items" \
-("a_inserts_id_oid", "data", "a_inserts_idx", "a_inserts_comments_idx", "idx") \
-VALUES(%s, %s, %s, %s, %s);',
+("a_inserts_id_oid", "data", "a_inserts_comments_idx", "idx") \
+VALUES(%s, %s, %s, %s);',
            [
-            ('56b8f05cf9fcee1b00000010', u'1', 1, 1, 1),
-            ('56b8f05cf9fcee1b00000010', u'2', 1, 2, 2)])
+            ('56b8f05cf9fcee1b00000010', u'1', 1, 1),
+            ('56b8f05cf9fcee1b00000010', u'2', 2, 2)])
    
     sqltable4 = tables[collection_name[:-1]+'_comment_slugs']
     expect(generate_insert_queries(sqltable4, "", ""),
            'INSERT INTO "a_insert_comment_slugs" \
-("a_inserts_id_oid", "slugs", "a_inserts_idx", "a_inserts_comments_idx", "idx") \
-VALUES(%s, %s, %s, %s, %s);',
-           [('56b8f05cf9fcee1b00000010', 22, 1, 1, 1)])
+("a_inserts_id_oid", "slugs", "a_inserts_comments_idx", "idx") \
+VALUES(%s, %s, %s, %s);',
+           [('56b8f05cf9fcee1b00000010', 22, 1, 1)])
 
 
 
