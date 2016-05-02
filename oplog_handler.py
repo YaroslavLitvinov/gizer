@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 from oplog_parser import OplogParser
-from mongo_to_hive_mapping import schema_engine
+from mongo_schema import schema_engine
 
 def default_cb_update(ns, schema, objdata, parent_id):
     return ["default update", parent_id, objdata]

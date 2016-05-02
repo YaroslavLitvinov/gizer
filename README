@@ -1,6 +1,5 @@
-1. 
-git submodule init
-git submodule update
+1. Add directory containing mongo_schema module to python path. 
+If module resided in git directory: export PYTHONPATH=~/git/
 
 2.Specify PSQLCONN env variable before running tests, for example:
   export PSQLCONN="dbname=zvm user=zvm"
@@ -9,5 +8,10 @@ git submodule update
 ./run_cov_tests.sh or py.test
 
 4. Load mongo push psql
-python mongo_to_hive_mapping/get_mongo_schema_as_json.py --host localhost:27017  -cn test.get_sql_query_tests > get_sql_query_tests.js
+python mongo_schema/get_mongo_schema_as_json.py --host localhost:27017  -cn test.get_sql_query_tests > get_sql_query_tests.js
 python mongo_reader.py --host localhost:27017  -cn test.get_sql_query_tests -ifs get_sql_query_tests.js
+
+more examples:
+time python mongo_reader.py --host $MONGO_URI_SSL -cn quote_management.quotes -user $MONGO_USER -passw $MONGO_PASS -ifs ~/schema/pregenerated/quotes_schema_verified.json -psql-schema-name quote_mgmt_ods -ssl --ddl-statements-file quotes.sql --csv-path tmp -psql-table-name-prefix 2016_04_11_ -stats-file quotes.stat
+
+time python psql_copy.py -cn migration_jobs -ifs ~/schema/pregenerated/migration_jobs.json --psql-table-prefix 2016_04_11_ --psql-table-name migration_job_arguments --input-csv-dir tmp/migration_job_arguments/

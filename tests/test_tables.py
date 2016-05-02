@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
+import sys
 import os
-from mongo_to_hive_mapping.test_schema_engine import get_schema_engine, get_schema_tables
-from gizer.opinsert import generate_insert_queries
-from mongo_to_hive_mapping import schema_engine
+import pprint
+from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_tables
+from mongo_schema import schema_engine
 
 files = {'a_inserts': ('../test_data/opinsert/json_schema2.txt',
                        '../test_data/opinsert/bson_data2.txt')}
@@ -30,4 +35,12 @@ def test_tables():
                                     'a_inserts',
                                     'a_insert_comments',
                                     'a_insert_comment_slugs'])
+    pp = pprint.PrettyPrinter()
+    pp.pprint(tables.errors)
+    pp.pprint(tables.data_engine.indexes)
+    expected_indexes = {'a_inserts': 1,
+                        u'a_inserts_comments': 2,
+                        u'a_inserts_comments_items': 2,
+                        u'a_inserts_comments_slugs': 1}
+    assert(tables.data_engine.indexes == expected_indexes)
     return tables.tables
