@@ -9,7 +9,7 @@ import os
 from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_tables
 from gizer.opinsert import generate_insert_queries
 from mongo_schema import schema_engine
-from test_tables import test_tables
+from test_tables import collection_tables
 from datetime import datetime
 
 def d(str_date, tzinfo):
@@ -33,7 +33,7 @@ def expect(generated, expected_query, expected_data):
 
 def test_insert1():
     collection_name = 'a_inserts'
-    tables = test_tables()
+    tables = collection_tables(collection_name).tables
     assert(tables.keys() == ['a_insert_comment_items',
                              'a_inserts',
                              'a_insert_comments',

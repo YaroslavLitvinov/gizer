@@ -13,7 +13,7 @@ from mongo_schema import schema_engine
 from gizer.opcsv import CsvWriter, CsvReader
 from gizer.opcsv import NULLVAL
 from gizer.opinsert import table_rows_list
-from test_tables import test_tables
+from test_tables import collection_tables
 
 def row_by_idx(sqltable, idx):
     csvvals = []
@@ -24,7 +24,7 @@ def row_by_idx(sqltable, idx):
 
 def test_csv1():
     collection_name = 'a_inserts'
-    tables = test_tables()
+    tables = collection_tables(collection_name).tables
     csvs = {}
     CsvStruct = collections.namedtuple('CsvStruct', ['output', 'writer'])
     for table_name, table in tables.iteritems():

@@ -9,11 +9,11 @@ import os
 from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_tables
 from gizer.opcreate import generate_create_table_statement
 from mongo_schema import schema_engine
-from test_tables import test_tables
+from test_tables import collection_tables
 
 def test_insert1():
     collection_name = 'a_inserts'
-    tables = test_tables()
+    tables = collection_tables(collection_name).tables
     assert(tables.keys() == ['a_insert_comment_items',
                              'a_inserts',
                              'a_insert_comments',

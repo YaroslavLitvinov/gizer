@@ -11,7 +11,9 @@ from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_
 from mongo_schema import schema_engine
 
 files = {'a_inserts': ('../test_data/opinsert/json_schema2.txt',
-                       '../test_data/opinsert/bson_data2.txt')}
+                       '../test_data/opinsert/bson_data2.txt'),
+         'a_somethings': ('../test_data/opinsert/json_schema3.txt',
+                          '../test_data/opinsert/bson_data3.txt')}
 
 def get_schema_engine(collection_name):
     dirpath=os.path.dirname(os.path.abspath(__file__))
@@ -27,10 +29,15 @@ def get_schema_tables(schema_engine_obj):
     return schema_engine.create_tables_load_file(schema_engine_obj, \
                                                  data_path)
 
-def test_tables():
-    collection_name = 'a_inserts'
+def collection_tables(collection_name):
     schema_engine = get_schema_engine(collection_name)
     tables = get_schema_tables(schema_engine)
+    return tables
+
+def test_tables():
+    """ Test collection with id of ObjectId type """
+    collection_name = "a_inserts"
+    tables = collection_tables(collection_name)
     assert(tables.tables.keys() == ['a_insert_comment_items',
                                     'a_inserts',
                                     'a_insert_comments',
@@ -43,4 +50,19 @@ def test_tables():
                         u'a_inserts_comments_items': 2,
                         u'a_inserts_comments_slugs': 1}
     assert(tables.data_engine.indexes == expected_indexes)
-    return tables.tables
+
+
+def test_tables2():
+    """ Test collection with id of INT type """
+    collection_name = 'a_somethings'
+    tables = collection_tables(collection_name)
+    root_t = tables.tables[collection_name]
+    assert('id' in root_t.sql_columns)
+    assert(root_t.sql_columns['id'].values[0] == 777)
+    comments_t = tables.tables['a_something_comments']
+    assert('a_somethings_id' in comments_t.sql_columns)
+    assert(comments_t.sql_columns['a_somethings_id'].values[0] == 777)
+    items_t = tables.tables['a_something_comment_items']
+    assert('a_somethings_id' in items_t.sql_columns)
+    
+
