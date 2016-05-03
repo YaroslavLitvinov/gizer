@@ -214,8 +214,10 @@ statements", type=argparse.FileType('w'), required=True)
                 c += 1
             record = retrieve_mongo_record(mongo_reader)
 
-    except KeyboardInterrupt:
+    except:
         mongo_reader.failed = True
+        del(mongo_rec_multiprocessing)
+        raise
 
 # save create table statements
     create_statements \
