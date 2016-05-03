@@ -31,7 +31,7 @@ def escape_val(val, escape):
         if escape is True:
             return val.encode('unicode-escape').encode('utf-8')
         else:
-            return val.encode('utf-8')
+            return val
     else:
         return val
 
