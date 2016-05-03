@@ -27,6 +27,7 @@ from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opinsert import generate_insert_queries
 from gizer.opinsert import table_rows_list
+from gizer.opinsert import ENCODE_ONLY
 from gizer.opmultiprocessing import FastQueueProcessor
 
 
@@ -94,7 +95,7 @@ def worker_handle_mongo_record(schema, rec):
     index_keys = {}
     tables_obj = create_tables_load_bson_data(schema, [rec])
     for table_name, table in tables_obj.tables.iteritems():
-        rows = table_rows_list(table, False, null_value = NULLVAL)
+        rows = table_rows_list(table, ENCODE_ONLY, null_value = NULLVAL)
         rows_as_dict[table_name] = rows
     return TablesToSave(rows = rows_as_dict,
                         errors = tables_obj.errors)

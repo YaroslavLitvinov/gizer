@@ -8,6 +8,10 @@ import json
 import bson
 from bson.json_util import loads
 
+ENCODE_ESCAPE = 1
+ENCODE_ONLY = 0
+NO_ENCODE_NO_ESCAPE = None
+
 def format_string_insert_query(table, psql_schema_name, table_prefix):
     """ format string to be used with execute
     @param table object schema_engine.SqlTable
@@ -28,9 +32,12 @@ def format_string_insert_query(table, psql_schema_name, table_prefix):
 def escape_val(val, escape):
     """ @param escape if True then escape special character"""
     if type(val) is str or type(val) is unicode:
-        if escape is True:
+        if escape == ENCODE_ESCAPE:
             return val.encode('unicode-escape').encode('utf-8')
+        elif escape == ENCODE_ONLY:
+            return val.encode('utf-8')
         else:
+            # NO_ENCODE_NO_ESCAPE
             return val
     else:
         return val
@@ -40,7 +47,10 @@ def prepare_csv_data(row, psql_copy = False):
     for row_i in xrange(len(row)):
         val = row[row_i]
         if val is not None:
-            val = escape_val(val, not psql_copy)
+            if psql_copy is True:
+                val = escape_val(val, ENCODE_ONLY)
+            else:
+                val = escape_val(val, ENCODE_ESCAPE)
         else:
             val = self.null_val
         row[row_i] = val
@@ -97,7 +107,7 @@ def generate_insert_queries(table, psql_schema_name, table_prefix,
     @param initial_indexes dict of indexes from db tables"""
     fmt_string = format_string_insert_query(table, psql_schema_name, table_prefix)
     index_keys = index_columns_as_dict(table)
-    rows = apply_indexes_to_table_rows(table_rows_list(table, False),
+    rows = apply_indexes_to_table_rows(table_rows_list(table, NO_ENCODE_NO_ESCAPE),
                                        index_keys, initial_indexes)
     queries = []
     for row in rows:

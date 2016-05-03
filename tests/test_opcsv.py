@@ -13,6 +13,7 @@ from mongo_schema import schema_engine
 from gizer.opcsv import CsvWriter, CsvReader
 from gizer.opcsv import NULLVAL
 from gizer.opinsert import table_rows_list
+from gizer.opinsert import ENCODE_ESCAPE, NO_ENCODE_NO_ESCAPE
 from test_tables import collection_tables
 
 def row_by_idx(sqltable, idx):
@@ -21,6 +22,23 @@ def row_by_idx(sqltable, idx):
         val = sqltable.sql_columns[i].values[idx]
         csvvals.append(val)
     return csvvals
+
+def test_csv_error():
+    table_name = collection_name = 'a_inserts'
+    tables = collection_tables(collection_name).tables
+    csvs = {}
+    CsvStruct = collections.namedtuple('CsvStruct', ['output', 'writer'])
+    table = tables[table_name]
+    output = BytesIO()
+    csvs[table_name] = CsvStruct(output = output, 
+                                 writer=CsvWriter(output, False))
+    rows = table_rows_list(table, NO_ENCODE_NO_ESCAPE, NULLVAL)
+    ok = False
+    try:
+        csvs[table_name].writer.write_csv(rows)
+    except UnicodeEncodeError:
+        ok = True
+    assert(ok == True)
 
 def test_csv1():
     collection_name = 'a_inserts'
@@ -32,7 +50,7 @@ def test_csv1():
         if table_name not in csvs.keys():
             csvs[table_name] = CsvStruct(output = output, 
                                          writer=CsvWriter(output, False))
-        rows = table_rows_list(table, True, NULLVAL)
+        rows = table_rows_list(table, ENCODE_ESCAPE, NULLVAL)
         csvs[table_name].writer.write_csv(rows)
         print "output", output.getvalue()
         csvs[table_name].output.seek(0)
