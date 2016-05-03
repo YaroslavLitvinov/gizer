@@ -2,7 +2,7 @@
 If module resided in git directory: export PYTHONPATH=~/git/
 
 2.Specify PSQLCONN env variable before running tests, for example:
-  export PSQLCONN="dbname=zvm user=zvm"
+  export TEST_PSQLCONN="dbname=zvm user=zvm"
 
 3. Test it
 ./run_cov_tests.sh or py.test
