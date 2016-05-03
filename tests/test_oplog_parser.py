@@ -66,7 +66,7 @@ def test_oplog_parser():
     delete_count = 0
     update_count = 0
 
-    connstr = os.environ['PSQLCONN']
+    connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
     p = OplogParser("./test_data/schemas/rails4_mongoid_development",

@@ -12,7 +12,7 @@ from gizer.opinsert import generate_insert_queries
 from test_tables import collection_tables
 
 def test_all():
-    connstr = os.environ['PSQLCONN']
+    connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
     tables = collection_tables("a_inserts").tables
     for table in tables:
