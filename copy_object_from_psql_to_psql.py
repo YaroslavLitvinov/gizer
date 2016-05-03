@@ -124,7 +124,7 @@ if __name__ == "__main__":
                         help="Mongo record id", type=str, required=True)
     args = parser.parse_args()
 
-    dst_table_prefix = 'tail_'
+    dst_table_prefix = ''
     dst_schema_name = src_schema_name = ""
     if args.src_psql_schema_name:
         src_schema_name = args.src_psql_schema_name
