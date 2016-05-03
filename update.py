@@ -4,9 +4,10 @@
 import itertools
 
 from gizer.opinsert import *
-from mongo_to_hive_mapping import schema_engine
+#from mongo_to_hive_mapping import schema_engine
+
 #from util import table_name_from, columns_from, tables_from, column_prefix_from
-from mongo_to_hive_mapping.schema_engine import *
+#from mongo_to_hive_mapping.schema_engine import *
 from opdelete import op_delete_stmts as delete, get_conditions_list
 from util import *
 import collections
@@ -97,8 +98,11 @@ def get_obj_id_recursive(data, name, value_id):
     if type(data) is dict:
         next_column = data.iterkeys().next()
     name.append(get_field_name_without_underscore(next_column))
+    if type(data[next_column]) == bson.objectid.ObjectId:
+        name.append('oid')
+        value_id.append(str(data[next_column]))
     if type(data[next_column]) is dict:
-        ret = get_obj_id_recursive(data[next_column], name, value_id)
+        get_obj_id_recursive(data[next_column], name, value_id)
     else:
         value_id.append(data[next_column])
     return {'_'.join(name):value_id[0]}
