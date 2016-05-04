@@ -6,6 +6,7 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import sys
 from pymongo.mongo_client import MongoClient
+from pymongo.cursor import CursorType
 
 def message(mes, cr='\n'):
     sys.stderr.write(mes + cr)
@@ -13,7 +14,7 @@ def message(mes, cr='\n'):
 class MongoReader:
 
     def __init__(self, ssl, host, port, dbname, collection,
-                 user, passw, request):
+                 user, passw, query, oplog = False):
         self.ssl = ssl
         self.host = host
         self.port = int(port)
@@ -21,20 +22,34 @@ class MongoReader:
         self.collection = collection
         self.user = user
         self.passw = passw
-        self.request = request
+        self.query = query
         self.rec_i = 0
         self.cursor = None
         self.client = None
         self.failed = False
         self.attempts = 0
+        if oplog:
+            cursor_type = CursorType.TAILABLE
+            oplog_replay = True
+            exhaust = False
+        else:
+            cursor_type = CursorType.NON_TAILABLE
+            oplog_replay = False
+            exhaust = True
 
     def connauthreq(self):
         self.client = MongoClient(self.host, self.port, ssl=self.ssl)
         if self.user and self.passw:
             self.client[self.dbname].authenticate(self.user, self.passw)
             message("Authenticated")
+        return self.make_new_request()
+
+    def make_new_request(query):
         mongo_collection = self.client[self.dbname][self.collection]
-        self.cursor = mongo_collection.find(self.request)
+        self.cursor = mongo_collection.find(self.query,
+                                            cursor_type = cursor_type,
+                                            oplog_replay = oplog_replay,
+                                            exhaust = exhaust)
         self.cursor.batch_size(1000)
         return self.cursor
 
@@ -62,4 +77,3 @@ class MongoReader:
                 message("Exception: pymongo.errors.OperationFailure")
             break
         return rec
-

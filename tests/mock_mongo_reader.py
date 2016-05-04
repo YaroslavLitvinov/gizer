@@ -8,7 +8,7 @@ import sys
 import bson
 from bson.json_util import loads
 
-class MockReader:
+class MongoReaderMock:
     """ Similiar interface to MongoReader. For test purposes. """
     def __init__(self, raw_bson_data, query = None):
         self.array_data = loads(raw_bson_data)
@@ -19,12 +19,12 @@ class MockReader:
     def connauthreq(self):
         return None
 
-    def make_new_request(query):
+    def make_new_request(self, query):
         self.query = query
 
     def next(self):
         rec = None
-        if query or len(query):
+        if self.query and len(self.query):
             for item in self.array_data:
                 if ('id' in item and str(item['id']) == str(self.query)) or \
                         ('_id' in item and str(item['_id']) == str(self.query)):
