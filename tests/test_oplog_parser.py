@@ -18,6 +18,7 @@ from gizer.opcreate import generate_create_table_statement
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 from gizer.psql_objects import load_single_rec_into_tables_obj
 from gizer.psql_objects import insert_rec_from_one_tables_set_to_another
+from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mock_mongo_reader import MongoReaderMock
 
@@ -154,10 +155,7 @@ def cb_after(ext_arg, schema_engine, item):
     return True
 
 
-def sync_oplog(test_ts):
-    connstr = os.environ['TEST_PSQLCONN']
-    dbreq = PsqlRequests(psycopg2.connect(connstr))
-
+def sync_oplog(dbreq, test_ts):
     #create test mongo reader
     mongo_reader = None
     with open('test_data/posts_data_target_oplog_sync.js') as opfile:
@@ -227,12 +225,26 @@ def sync_oplog(test_ts):
     
 
 def test_oplog_sync():
+    connstr = os.environ['TEST_PSQLCONN']
+    dbreq = PsqlRequests(psycopg2.connect(connstr))
+
+    # create skeleton or psql tables as initial load was not
+    # executed previously.
+    schemas_path = "./test_data/schemas/rails4_mongoid_development"
+    schema_engines = get_schema_engines_as_dict(schemas_path)
+    for schema_name, schema in schema_engines.iteritems():
+        tables_obj = create_tables_load_bson_data(schema,
+                                                  None)
+        for table_name, table in tables_obj.tables.iteritems():
+            query = generate_create_table_statement(table, '', '')
+            dbreq.cursor.execute(query)
+
     # oplog_ts_to_test is timestamp starting from which oplog records 
     # should be applied to psql tables to locate ts which corresponds to 
     # initially loaded psql data; 
     # None - means oplog records should be tested starting from beginning 
     oplog_ts_to_test = None
-    res = sync_oplog(oplog_ts_to_test)
+    res = sync_oplog(dbreq, oplog_ts_to_test)
     while True:
         print 'final res', res
         if res is None:
@@ -244,7 +256,7 @@ def test_oplog_sync():
             break
         else:
             oplog_ts_to_test = res
-        res = sync_oplog(oplog_ts_to_test)
+        res = sync_oplog(dbreq, oplog_ts_to_test)
          
 
 if __name__ == '__main__':
