@@ -9,12 +9,12 @@ import psycopg2
 from gizer.psql_requests import PsqlRequests
 from gizer.opcreate import generate_create_table_statement
 from gizer.opinsert import generate_insert_queries
-from test_tables import test_tables
+from test_tables import collection_tables
 
 def test_all():
-    connstr = os.environ['PSQLCONN']
+    connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
-    tables = test_tables()
+    tables = collection_tables("a_inserts").tables
     for table in tables:
         create_table = generate_create_table_statement(tables[table], "", "")
         print create_table

@@ -30,7 +30,7 @@ def generate_create_table_statement(table, psql_schema_name, table_name_prefix):
             typo = sqlcol.typo
         cols.append( '"%s" %s' % (sqlcol.name, \
                                 typo ) )
-    if len(psql_schema_name):
+    if len(psql_schema_name) and psql_schema_name.find('.') == -1:
         psql_schema_name += '.'
     query = 'CREATE TABLE IF NOT EXISTS %s"%s%s" (%s);' \
         % (psql_schema_name, table_name_prefix, table.table_name, ', '.join(cols))

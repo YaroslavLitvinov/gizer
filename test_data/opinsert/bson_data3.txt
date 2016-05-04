@@ -1,10 +1,10 @@
 [{
     "body": "body3\"\tbody2\nbody1",
     "user_id": "56b8d7caf9fcee1b00000001", 
-    "title": "title3（:", 
+    "title": "title3", 
     "created_at": { "$date" : "2016-02-08T19:45:32.501Z" }, 
     "updated_at": { "$date" : "2016-02-08T19:45:32.501Z" }, 
-    "_id": { "$oid": "56b8f05cf9fcee1b00000010" },
+    "_id": 777,
     "comments": [{
          "_id": { "$oid": "56b8f05cf9fcee1b00000110" },
         "created_at": { "$date" : "2016-02-08T19:45:32.501Z" }, 
