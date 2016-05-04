@@ -11,6 +11,8 @@ from gizer.opinsert import *
 from opdelete import op_delete_stmts as delete, get_conditions_list
 from util import *
 import collections
+import bson
+import datetime
 
 
 UPSERT_TMLPT = """\
@@ -115,6 +117,8 @@ def get_query_columns_with_nested (schema, u_data, parent_path, columns_list):
             column_name = get_field_name_without_underscore(k)
         if type(u_data[k]) is dict:
             get_query_columns_with_nested(schema, u_data[k], column_name, columns_list).copy()
+        if type(u_data[k]) == bson.objectid.ObjectId:
+            columns_list[column_name+'_oid'] = str(u_data[k])
         else:
             columns_list[column_name] = u_data[k]
     return columns_list
