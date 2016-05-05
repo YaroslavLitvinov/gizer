@@ -62,10 +62,9 @@ class OplogParser:
                                         [o_field])
             elif item["op"] == "u":
                 o2_id = item["o2"]
-                res = self.cb_update.cb(ts_field, ns_field, schema, 
-                                        o_field['$set'], o2_id)
+                res = self.cb_update.cb(schema, item)
             elif item["op"] == "d":
-                res = self.cb_delete.cb(ts_field, ns_field, schema, 
+                res = self.cb_delete.cb(ts_field, ns_field, schema,
                                         o_field)
 
             if self.cb_after:
