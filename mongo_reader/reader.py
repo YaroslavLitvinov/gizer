@@ -28,28 +28,27 @@ class MongoReader:
         self.client = None
         self.failed = False
         self.attempts = 0
-        if oplog:
-            cursor_type = CursorType.TAILABLE
-            oplog_replay = True
-            exhaust = False
-        else:
-            cursor_type = CursorType.NON_TAILABLE
-            oplog_replay = False
-            exhaust = True
+        self.oplog = oplog
 
     def connauthreq(self):
         self.client = MongoClient(self.host, self.port, ssl=self.ssl)
         if self.user and self.passw:
             self.client[self.dbname].authenticate(self.user, self.passw)
             message("Authenticated")
-        return self.make_new_request()
+        return self.make_new_request(self.query)
 
-    def make_new_request(query):
+    def make_new_request(self, query):
+        if self.oplog:
+            cursor_type = CursorType.TAILABLE
+            oplog_replay = True
+        else:
+            cursor_type = CursorType.NON_TAILABLE
+            oplog_replay = False
+
         mongo_collection = self.client[self.dbname][self.collection]
         self.cursor = mongo_collection.find(self.query,
                                             cursor_type = cursor_type,
-                                            oplog_replay = oplog_replay,
-                                            exhaust = exhaust)
+                                            oplog_replay = oplog_replay)
         self.cursor.batch_size(1000)
         return self.cursor
 
