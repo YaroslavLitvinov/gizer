@@ -20,6 +20,8 @@ from gizer.psql_objects import load_single_rec_into_tables_obj
 from gizer.psql_objects import insert_rec_from_one_tables_set_to_another
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mock_mongo_reader import MongoReaderMock
+from gizer.opdelete import op_delete_stmts
+from gizer.opupdate import update
 
 # THis schema must be precreated before running tests
 TMP_SCHEMA_NAME = 'operational'
@@ -29,12 +31,12 @@ def exec_insert(dbreq, oplog_query):
     fmt_string = query[0]
     for sqlparams in query[1]:
         dbreq.cursor.execute(fmt_string, sqlparams)
-        
+
 def cb_insert(ts, ns, schema_engine, bson_data):
     tables = create_tables_load_bson_data(schema_engine, bson_data)
     posts_table = tables.tables['posts']
     assert(posts_table)
-    assert(posts_table.sql_column_names == [u'body', 
+    assert(posts_table.sql_column_names == [u'body',
                                             u'created_at', 
                                             u'id_bsontype', 
                                             u'id_oid', 
@@ -46,15 +48,15 @@ def cb_insert(ts, ns, schema_engine, bson_data):
         res.append(OplogQuery("i", generate_insert_queries(table, "", "")))
     return res
 
-def cb_update(ts, ns, schema_engine, bson_data, bson_parent_id):
+def cb_update(schema_engine, bson_data):
     # for set.name = "comments" don't neeed max indexes at all,
     # just use default indexes to add data to parent (parent_id)
     # for set.name = "comments.2" use provided index=2
-    if ts == '6249012828238249985' or ts == '6249012068029138593':
+    if bson_data['ts'] == '6249012828238249985' or bson_data ['ts'] == '6249012068029138593':
         tables, initial_indexes \
             = get_tables_data_from_oplog_set_command(schema_engine, 
-                                                     bson_data,
-                                                     bson_parent_id)
+                                                     bson_data['o']['$set'],
+                                                     bson_data['o2'])
         res = []
         for name, table in tables.iteritems():
             res.append(OplogQuery("ui", \
@@ -62,10 +64,21 @@ def cb_update(ts, ns, schema_engine, bson_data, bson_parent_id):
         assert(res!=[])
         return res
     else:
-         return [OplogQuery("u", "query")]
+        res = []
+        cb_res = update(schema_engine.schema, bson_data)
+        for it in cb_res:
+            for op in it:
+                res.append(OplogQuery('u', (op, it[op])))
+        return res
      
 def cb_delete(ts, ns, schema, bson_data):
-    return [OplogQuery("d", "query")]
+    id_str = str(bson_data['_id'])
+    cb_res = op_delete_stmts(schema.schema,ns.split('.')[-1],id_str)
+    res = []
+    for op in cb_res:
+        for stmnt in cb_res[op]:
+            res.append(OplogQuery('d', (stmnt, [tuple(cb_res[op][stmnt])])))
+    return res
 
 def cb_before(dbreq, schema_engine, item):
     """ Needed for oplog syncing.
@@ -205,11 +218,11 @@ def sync_oplog(test_ts):
          for oplog_query in oplog_queries:
              print oplog_query
              if oplog_query.op == "u":
-                  pass
+                 exec_insert(dbreq, oplog_query)
              elif oplog_query.op == "d":
-                  pass
+                 exec_insert(dbreq, oplog_query)
              elif oplog_query.op == "i" or oplog_query.op == "ui":
-                  exec_insert(dbreq, oplog_query)
+                 exec_insert(dbreq, oplog_query)
          oplog_queries = parser.next()
          
     if parser.status is False:
