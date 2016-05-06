@@ -4,13 +4,12 @@
 import itertools
 
 from gizer.opinsert import *
-#from mongo_to_hive_mapping import schema_engine
+from gizer.oplog_parser import OplogQuery
+from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 
-#from util import table_name_from, columns_from, tables_from, column_prefix_from
-#from mongo_to_hive_mapping.schema_engine import *
 from opdelete import op_delete_stmts as delete, get_conditions_list
 from util import *
-import collections
+
 import bson
 import datetime
 
@@ -54,7 +53,16 @@ def update (schema_e, oplog_data):
         # delete old array (all elements linked to parent record) and insert new one (all elements listed in oplog query)
         if type(u_data[k]) is list:
             del_stmnt = delete(schema, upd_path_str, doc_id.itervalues().next())
-            ins_stmnt = {INSERT_TMPLT:[]}
+
+            tables, initial_indexes \
+                = get_tables_data_from_oplog_set_command(schema_e,
+                                                     oplog_data['o']['$set'],
+                                                     oplog_data['o2'])
+            res = []
+            for name, table in tables.iteritems():
+                rr = generate_insert_queries(table, "", "", initial_indexes)
+                res.append(OplogQuery("u", rr))
+                ins_stmnt[rr[0]] = list(rr[1][0])
         else:
             #update root object just simple update needed
             id_column = doc_id.iterkeys().next()
