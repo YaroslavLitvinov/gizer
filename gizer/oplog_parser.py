@@ -13,7 +13,10 @@ from all_schema_engines import get_schema_engines_as_dict
 
 OplogQuery = namedtuple('OplogQuery', ['op', 'query'])
 Callback = namedtuple('Callback', ['cb', 'ext_arg'])
-ItemInfo = namedtuple('ItemInfo', ['schema_engine', 'ts', 'rec_id'])
+ItemInfo = namedtuple('ItemInfo', ['schema_name', 
+                                   'schema_engine', 
+                                   'ts', 
+                                   'rec_id'])
 
 
 class OplogParser:
@@ -68,7 +71,10 @@ class OplogParser:
             schema_name = db_and_collection[1]
             schema = self.schema_engines[schema_name]
             # save rec_id
-            self.item_info = ItemInfo(schema, item['ts'], rec_id)
+            self.item_info = ItemInfo(schema_name, 
+                                      schema, 
+                                      item['ts'], 
+                                      rec_id)
             
             if self.cb_before:
                 self.cb_before.cb(self.cb_before.ext_arg,

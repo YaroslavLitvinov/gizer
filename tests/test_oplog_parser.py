@@ -58,7 +58,8 @@ def cb_update(psql_schema, schema_engine, bson_data):
     # for set.name = "comments" don't neeed max indexes at all,
     # just use default indexes to add data to parent (parent_id)
     # for set.name = "comments.2" use provided index=2
-    if bson_data['ts'] == '6249012828238249985' or bson_data ['ts'] == '6249012068029138593':
+    if bson_data['ts'] == '6249012828238249985' or \
+            bson_data ['ts'] == '6249012068029138593':
         tables, initial_indexes \
             = get_tables_data_from_oplog_set_command(schema_engine, 
                                                      bson_data['o']['$set'],
@@ -139,22 +140,9 @@ def cb_before(ext_arg, schema_engine, item):
             dbreq.cursor.execute(create_table)
     #dbreq.cursor.execute('COMMIT')
 
-
-def sync_result(stats):
-    """ Return sync status """
-    print stats
-    for rec_id in stats:
-        id_res = stats[rec_id]
-        ts = id_res[0]
-        res = id_res[1]
-        if res is False:
-            print "ts", ts, "res=", res
-            return False
-    return True
-
 def record_status(dbreq, mongo_reader, schema_engine, rec_id,
                   dst_schema_name):
-    """ Return tuple(rec_id, True/False)
+    """ Return True/False
     Compare actual mongo record with record's relational model 
     from operational tables."""
     res = None
@@ -164,7 +152,7 @@ def record_status(dbreq, mongo_reader, schema_engine, rec_id,
     mongo_reader.make_new_request(rec_id)
     rec = mongo_reader.next()
     if not rec:
-        res = (rec_id, False)
+        res = False
     else:
         mongo_tables_obj = create_tables_load_bson_data(schema_engine, 
                                                         [rec])
@@ -172,16 +160,17 @@ def record_status(dbreq, mongo_reader, schema_engine, rec_id,
                                                           schema_engine,
                                                           dst_schema_name,
                                                           rec_id)
-        print "comparing rec_id=", rec_id
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         # save result of comparison
-        res = (rec_id, compare_res)
+        res = compare_res
+        print "rec_id=", rec_id, "compare res=", res
     return res
 
 
 def sync_oplog(dbreq, test_ts):
     #create test mongo reader
     records_stats = {}
+    all_syncing_recs = {} # {collection: [rec list]}
     mongo_reader = None
     with open('test_data/posts_data_target_oplog_sync.js') as opfile:
          posts_data = opfile.read()
@@ -209,25 +198,38 @@ def sync_oplog(dbreq, test_ts):
     oplog_queries = parser.next()
     while oplog_queries != None:
         for oplog_query in oplog_queries:
-            print oplog_query
             if oplog_query.op == "u":
                 exec_insert(dbreq, oplog_query)
             elif oplog_query.op == "d":
                 exec_insert(dbreq, oplog_query)
             elif oplog_query.op == "i" or oplog_query.op == "ui":
                 exec_insert(dbreq, oplog_query)
-        rec_stat = record_status(dbreq, mongo_reader, 
-                                 parser.item_info.schema_engine, 
-                                 parser.item_info.rec_id, 
-                                 TMP_SCHEMA_NAME)
-        records_stats[rec_stat[0]] = (parser.item_info.ts, rec_stat[1])
+        collection_name = parser.item_info.schema_name
+        rec_id = parser.item_info.rec_id
+        if collection_name not in all_syncing_recs:
+            all_syncing_recs[collection_name] = []
+        if rec_id not in all_syncing_recs[collection_name]:
+            all_syncing_recs[collection_name].append(rec_id)
         oplog_queries = parser.next()
 
-    if sync_result(records_stats) and parser.first_handled_ts:
-        # sync succesfull
+    sync_ok = True
+    # compare mongo data & psql data with applied oplog records
+    for collection_name, recs in all_syncing_recs.iteritems():
+        schema_engine = parser.schema_engines[collection_name]
+        for rec_id in recs:
+            rec_stat = record_status(dbreq, mongo_reader, 
+                                     schema_engine, 
+                                     rec_id, 
+                                     TMP_SCHEMA_NAME)
+            if rec_stat == False:
+                sync_ok = False
+
+    if sync_ok and parser.first_handled_ts:
+        # sync succesfull if sync ok and was handled non null ts
         dbreq.cursor.execute('COMMIT')
         return True
     elif parser.first_handled_ts:
+        print "sync oplog failed, tried to do starting from ts=", test_ts
         # continue syncing
         # start test from next ts after test_ts
         return parser.first_handled_ts 
