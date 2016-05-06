@@ -19,6 +19,7 @@ def generate_create_table_statement(table, psql_schema_name, table_name_prefix):
     @param table object schema_engine.SqlTable"""
     override_types = {'INT': 'INTEGER',
                       'STRING': 'TEXT',
+                      'TIMESTAMP': 'TIMESTAMP WITH TIME ZONE',
                       'DOUBLE': 'FLOAT8',
                       'TINYINT': 'INT2'}
     cols = []
