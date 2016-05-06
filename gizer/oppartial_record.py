@@ -43,6 +43,8 @@ def initial_indexes_from_components(schema_engine, components):
             res[node.long_alias()] = 1
         else:
             res[node.long_alias()] = components[comp_i].index
+        # decrement initial indexes as gizer indexes starts from 0
+        res[node.long_alias()] = res[node.long_alias()] - 1
     return res
 
 def node_by_components(schema_engine, components):

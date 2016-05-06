@@ -58,6 +58,8 @@ def test_complete_partial_record2():
     print "initial_indexes", initial_indexes
     tests_t = tables['post_comment_tests']
     print "columns", tests_t.sql_column_names
-    assert(initial_indexes=={u'posts_comments_tests': 1, u'posts_comments': 2})
+    # initial indexes used in mongo_schema is starting from 0
+    # unless mongo oplog where indexes is starting from 1
+    assert(initial_indexes=={u'posts_comments_tests': 0, u'posts_comments': 1})
     assert(tests_t.sql_columns['tests'].values[0]==1000)
     assert(len(tables)==1)
