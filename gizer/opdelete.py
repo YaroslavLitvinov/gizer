@@ -50,30 +50,28 @@ def get_tables_list(schema, table):
 
 def get_conditions_list(schema, path, id):
     spath = path.split('.')
-    parental_tables_list = get_indexes_dictionary(path)
     parental_tables_idx_list = get_indexes_dictionary_idx(path)
     target_table = get_table_name_from_list(spath)
     target_table_idxname_for_child = get_idx_column_name_from_list(spath)
     params_target = {}
-    for it in parental_tables_idx_list:
-        if target_table_idxname_for_child <> it:
-            params_target[it + '_idx'] = parental_tables_idx_list[it]
-
-    ids = get_ids_list(schema)
-    root_id = ids.iterkeys().next()
+    params_child = {}
     root_table = get_root_table_from_path(path)
-
-    params_child = params_target.copy()
-
+    for it in parental_tables_idx_list:
+        if it <> root_table:
+            if target_table_idxname_for_child <> it:
+                params_target[it + '_idx'] = parental_tables_idx_list[it]
+                params_child[it + '_idx'] = parental_tables_idx_list[it]
+            else:
+                params_target['idx'] = parental_tables_idx_list[it]
+                params_child[it + '_idx'] = parental_tables_idx_list[it]
+    ids = get_ids_list(schema, 1)
+    root_id = ids.iterkeys().next()
     if root_table == target_table:
         params_target[root_id] = id
-        params_child[target_table_idxname_for_child + '_' + root_id] = id
     else:
-        params_target[root_table + '_' + root_id] = id
-        params_child[root_table + '_' + root_id] = id
-        if target_table_idxname_for_child in parental_tables_idx_list.keys():
-            params_target['idx'] = parental_tables_idx_list[target_table_idxname_for_child]
-            params_child[target_table_idxname_for_child + '_idx'] = parental_tables_idx_list[target_table_idxname_for_child]
+        params_target[root_table+'_'+root_id] = id
+
+    params_child[root_table+'_'+root_id] = id
     return {'target': params_target, 'child': params_child}
 
 
@@ -82,9 +80,9 @@ def get_where_templates(conditions_list):
     def condition_with_quotes(key):
         temp = ''
         if key.endswith('_idx') or key == 'idx':
-            temp = '({0}=%s)'.format(key)
+            temp = '({0}=(%s))'.format(key)
         else:
-            temp = '({0}="%s")'.format(key)
+            temp = '({0}=(%s))'.format(key)
         return temp
 
     where_list = {'target': {}, 'child': {}}
