@@ -21,12 +21,12 @@ def test_insert1():
 
     sqltable1 = tables[collection_name]
     create1 = generate_create_table_statement(sqltable1, "", "9999_12_31_")
-    query1 = 'CREATE TABLE IF NOT EXISTS "9999_12_31_a_inserts" ("body" TEXT, "created_at" TIMESTAMP, "id_bsontype" INTEGER, "id_oid" TEXT, "title" TEXT, "updated_at" TIMESTAMP, "user_id" TEXT);'
+    query1 = 'CREATE TABLE IF NOT EXISTS "9999_12_31_a_inserts" ("body" TEXT, "created_at" TIMESTAMP WITH TIME ZONE, "id_bsontype" INTEGER, "id_oid" TEXT, "title" TEXT, "updated_at" TIMESTAMP WITH TIME ZONE, "user_id" TEXT);'
     assert(query1==create1)
 #test another table
     sqltable2 = tables[collection_name[:-1]+'_comments']
     create2 = generate_create_table_statement(sqltable2, "", "")
-    query2 = 'CREATE TABLE IF NOT EXISTS "a_insert_comments" ("a_inserts_id_oid" TEXT, "body" TEXT, "created_at" TIMESTAMP, "id_bsontype" INTEGER, "id_oid" TEXT, "updated_at" TIMESTAMP, "idx" BIGINT);'
+    query2 = 'CREATE TABLE IF NOT EXISTS "a_insert_comments" ("a_inserts_id_oid" TEXT, "body" TEXT, "created_at" TIMESTAMP WITH TIME ZONE, "id_bsontype" INTEGER, "id_oid" TEXT, "updated_at" TIMESTAMP WITH TIME ZONE, "idx" BIGINT);'
     assert(query2==create2)
 #test another table
     sqltable3 = tables[collection_name[:-1]+'_comment_items']
