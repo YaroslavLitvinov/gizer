@@ -3,10 +3,26 @@
 __author__ = 'Volodymyr Varchuk'
 __email__ = "vladimir.varchuk@rackspace.com"
 
+import bson
+
 DELETE_TMPLT = 'DELETE FROM {table} WHERE {conditions};'
 UPDATE_TMPLT = 'UPDATE {table} SET {statements} WHERE {conditions};'
 INSERT_TMPLT = 'INSERT INTO {table} ({columns}) VALUES({values});'
 SELECT_TMPLT = 'SELECT MAX(idx) FROM {table} WHERE {conditions};'
+UPSERT_TMLPT = """\
+LOOP
+    {update}
+    IF found THEN
+        RETURN;
+    END IF;
+    BEGIN
+        {insert}
+        RETURN;
+    EXCEPTION WHEN unique_violation THEN
+    END;
+END LOOP;
+"""
+
 
 def get_field_name_without_underscore(field_name):
     for i in range(len(field_name)):
@@ -64,15 +80,10 @@ def get_idx_column_name_from_list(spath):
 
 def get_root_table_from_path(path):
     spath = path.split('.')
-    collection_path = []
-    remove_last = False
-    for it in spath:
-        if it.isdigit():
-            remove_last = True
-            break
-        collection_path.append(it)
-    if remove_last and 1 < len(collection_path):
-        del collection_path[len(collection_path) - 1]
+    if len(spath) == 0:
+        return path
+    else:
+        return spath[0]
     return get_table_name_from_list(collection_path)
 
 
@@ -116,17 +127,17 @@ def get_last_idx_from_path(path):
         return None
 
 
-def get_ids_list(lst):
+def get_ids_list(lst, is_root):
     if type(lst) is list:
         list_it = lst[0]
     else:
         list_it = lst
     ids_to_add = {}
     for it in list_it:
-        if isIdField(it):
+        if isIdField(it) and is_root:
             if type(list_it[it]) is dict:
                 for id_item in list_it[it]:
-                    if isIdField(id_item):
+                    if isIdField(id_item) and is_root:
                         ids_to_add[get_field_name_without_underscore(
                             it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(
                             list_it[it][id_item])
@@ -152,7 +163,7 @@ def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_
         table_mappings[table][u'idx'] = u'bigint'
         parent_tables_ids[table + u'_idx'] = u'bigint'
     else:
-        root_ids = get_ids_list(schema)
+        root_ids = get_ids_list(schema, 1)
         root_id_key = root_ids.iterkeys().next()
         parent_tables_ids[table + '_' + root_id_key] = root_ids[root_id_key].decode('utf-8')
     root_table = 0
