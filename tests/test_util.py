@@ -1,6 +1,6 @@
 __author__ = 'volodymyr'
 
-from util import *
+from gizer.util import *
 import json
 
 
@@ -61,9 +61,9 @@ def test_get_root_table_from_path():
     # assert get_root_table_from_path(path) == 'persons_relatives_contacts_phones'
     assert get_root_table_from_path(path) == 'persons'
     path = 'persons.relatives.contacts.3.phones.4'
-    assert get_root_table_from_path(path) == 'person_relatives'
+    assert get_root_table_from_path(path) == 'persons'
     path = 'persons.relatives.contacts.phones'
-    assert get_root_table_from_path(path) == 'person_relative_contact_phones'
+    assert get_root_table_from_path(path) == 'persons'
     path = 'persons.4.relatives.contacts.phones'
     assert get_root_table_from_path(path) == 'persons'
     print('TEST', 'get_root_table_from_path', 'PASSED')
@@ -151,7 +151,7 @@ def test_get_last_idx_from_path():
 
 
 def test_get_tables_structure():
-    schema = json.loads(open('test_data/test_schema5.txt').read())
+    schema = json.loads(open('../test_data/test_schema5.txt').read())
     collection_name = 'documents'
     result = get_tables_structure(schema, collection_name, {}, {}, 1)
     model = {
@@ -218,12 +218,12 @@ def test_get_tables_structure():
     }
     assert model == result
 
-    schema = json.loads(open('test_data/test_schema6.txt').read())
+    schema = json.loads(open('../test_data/test_schema6.txt').read())
     result = get_tables_structure(schema, collection_name, {}, {}, 1)
     model = {'documents': {}}
     assert model == result
 
-    schema = json.loads(open('test_data/test_schema4.txt').read())
+    schema = json.loads(open('../test_data/test_schema4.txt').read())
     result = get_tables_structure(schema, collection_name, {}, {}, 1)
     model = {
         'documents': {
@@ -282,7 +282,7 @@ def test_get_tables_structure():
     }
     assert model == result
 
-    schema = json.loads(open('test_data/test_schema.txt').read())
+    schema = json.loads(open('../test_data/test_schema.txt').read())
     result = get_tables_structure(schema, collection_name, {}, {}, 1)
     model = {
         'documents': {
@@ -334,7 +334,7 @@ def test_get_tables_structure():
 
 
 def test_get_quotes_using():
-    schema = json.loads(open('test_data/test_schema5.txt').read())
+    schema = json.loads(open('../test_data/test_schema5.txt').read())
     collection_name = 'documents'
 
     table = 'documents'
@@ -370,7 +370,7 @@ def test_get_quotes_using():
 
 
 def test_get_column_type():
-    schema = json.loads(open('test_data/test_schema4.txt').read())
+    schema = json.loads(open('../test_data/test_schema4.txt').read())
     collection_name = 'documents'
 
     table = 'document_relatives'
