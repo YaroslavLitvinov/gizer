@@ -1,24 +1,4 @@
-[{
-  "ts": "6249007992105074689",
-  "t": 2,
-  "h": "-4894171422577715544",
-  "v": 2,
-  "op": "u",
-  "ns": "rails4_mongoid_development.posts",
-  "o2": {
-    "_id": { "$oid": "56b8da51f9fcee1b00000006" }
-  },
-  "o": {
-    "$set": {
-      "comments.5": {
-        "_id": { "$oid": "56b8efa9f9fcee1b0000000f" },
-        "body": "comment6",
-        "updated_at": "2016-02-08T19:42:33.589Z",
-        "created_at": "2016-02-08T19:42:33.589Z"
-      }
-    }
-  }
-},
+[
 {
   "ts": "6249008760904220673",
   "t": 2,
@@ -36,11 +16,83 @@
   }
 },
 {
+  "ts": "6249012068029138000",
+  "t": 2,
+  "h": "6500669658301126550",
+  "v": 2,
+  "op": "i",
+  "ns": "rails4_mongoid_development.posts",
+  "o": {
+      "_id": { "$oid": "56b8da59f9fcee1b00000007" }
+  }
+},
+{
+  "ts": "6249012068029138593",
+  "t": 2,
+  "h": "6500669658302126550",
+  "v": 2,
+  "op": "u",
+  "ns": "rails4_mongoid_development.posts",
+  "o2": {
+    "_id": { "$oid": "56b8da59f9fcee1b00000007" }
+  },
+  "o": {
+    "$set": {
+      "comments": [
+        {
+          "_id": { "$oid": "56b8f344f9fcee1b00000018" },
+          "updated_at": {"$date": "2016-02-08T19:57:56.678Z"},
+	  "created_at": {"$date": "2016-02-08T19:57:56.678Z"}
+        },
+        {
+        }
+      ]
+    }
+  }
+},
+{
+  "ts": "6249012828238249985",
+  "t": 2,
+  "h": "8307152860560417908",
+  "v": 2,
+  "op": "u",
+  "ns": "rails4_mongoid_development.posts",
+  "o2": {
+    "_id": { "$oid": "56b8da59f9fcee1b00000007" }
+  },
+  "o": {
+    "$set": {
+	"comments.2.tests.1": 101
+    }
+  }
+},
+{
+  "ts": "6249007992105074689",
+  "t": 2,
+  "h": "-4894171422577715544",
+  "v": 2,
+  "op": "u--------",
+  "ns": "rails4_mongoid_development.posts",
+  "o2": {
+    "_id": { "$oid": "56b8da51f9fcee1b00000006" }
+  },
+  "o": {
+    "$set": {
+      "comments.5": {
+        "_id": { "$oid": "56b8efa9f9fcee1b0000000f" },
+        "body": "comment6",
+        "updated_at": "2016-02-08T19:42:33.589Z",
+        "created_at": "2016-02-08T19:42:33.589Z"
+      }
+    }
+  }
+},
+{
   "ts": "6249009615602712577",
   "t": 2,
   "h": "-3308614633402865095",
   "v": 2,
-  "op": "d",
+  "op": "d--------",
   "ns": "rails4_mongoid_development.posts",
   "o": {
     "_id": { "$oid": "56b8da51f9fcee1b00000006" }
@@ -51,7 +103,7 @@
   "t": 2,
   "h": "7673062055086646593",
   "v": 2,
-  "op": "u",
+  "op": "u--------",
   "ns": "rails4_mongoid_development.posts",
   "o2": {
     "_id": { "$oid": "56b8da59f9fcee1b00000007" }
@@ -67,7 +119,7 @@
   "t": 2,
   "h": "7863054063887715514",
   "v": 2,
-  "op": "u",
+  "op": "u---------",
   "ns": "rails4_mongoid_development.posts",
   "o2": {
     "_id": { "$oid": "56b8da59f9fcee1b00000007" }
@@ -89,7 +141,7 @@
   "t": 2,
   "h": "5531998682355049033",
   "v": 2,
-  "op": "u",
+  "op": "u---------",
   "ns": "rails4_mongoid_development.posts",
   "o2": {
     "_id": { "$oid": "56b8da59f9fcee1b00000007" }
@@ -110,7 +162,7 @@
   "t": 2,
   "h": "8307152860560416908",
   "v": 2,
-  "op": "u",
+  "op": "u-------",
   "ns": "rails4_mongoid_development.posts",
   "o2": {
     "_id": { "$oid": "56b8da59f9fcee1b00000007" }
@@ -126,27 +178,11 @@
   }
 },
 {
-  "ts": "6249012068029138593",
-  "t": 2,
-  "h": "8307152860560417908",
-  "v": 2,
-  "op": "u",
-  "ns": "rails4_mongoid_development.posts",
-  "o2": {
-    "_id": { "$oid": "56b8da59f9fcee1b00000007" }
-  },
-  "o": {
-    "$set": {
-	"comments.2.tests.1": [101]
-    }
-  }
-},
-{
   "ts": "6249012252712632321",
   "t": 2,
   "h": "1507724081854138926",
   "v": 2,
-  "op": "u",
+  "op": "u---------",
   "ns": "rails4_mongoid_development.posts",
   "o2": {
     "_id": { "$oid": "56b8da59f9fcee1b00000007" }
@@ -169,33 +205,11 @@
   }
 },
 {
-  "ts": "6249012828238249985",
-  "t": 2,
-  "h": "6500669658302126550",
-  "v": 2,
-  "op": "u",
-  "ns": "rails4_mongoid_development.posts",
-  "o2": {
-    "_id": { "$oid": "56b8da59f9fcee1b00000007" }
-  },
-  "o": {
-    "$set": {
-      "comments": [
-        {
-          "_id": { "$oid": "56b8f344f9fcee1b00000018" },
-          "updated_at": {"$date": "2016-02-08T19:57:56.678Z"},
-	  "created_at": {"$date": "2016-02-08T19:57:56.678Z"}
-        }
-      ]
-    }
-  }
-},
-{
   "ts": "6249013055871516673",
   "t": 2,
   "h": "-3907160829967975359",
   "v": 2,
-  "op": "u",
+  "op": "u--------",
   "ns": "rails4_mongoid_development.posts",
   "o2": {
     "_id": { "$oid": "56b8f05cf9fcee1b00000010" }

@@ -6,6 +6,8 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 from gizer.opcreate import generate_create_table_statement
 from gizer.opinsert import generate_insert_queries
+from gizer.opcreate import generate_drop_table_statement
+from gizer.opcreate import generate_create_table_statement
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
 def parent_id_name_and_quotes_for_table(sqltable):
@@ -116,3 +118,15 @@ SELECT * FROM {src_schema}{src_table} WHERE {id_name}={id_val};'
         dbreq.cursor.execute(insert_query)
     dbreq.cursor.execute('COMMIT')
 
+
+def create_psql_tables(tables_obj, dbreq, psql_schema, prefix, drop):
+    for table_name, table in tables_obj.tables.iteritems():
+        if drop:
+            query1 = generate_drop_table_statement(table, 
+                                                   psql_schema, 
+                                                   prefix)
+            dbreq.cursor.execute(query1)
+        query = generate_create_table_statement(table, 
+                                                psql_schema, 
+                                                prefix)
+        dbreq.cursor.execute(query)

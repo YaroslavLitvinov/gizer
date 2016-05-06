@@ -1,5 +1,5 @@
 1. Add directory containing mongo_schema module to python path. 
-If module resided in git directory: export PYTHONPATH=~/git/
+If module resided in git directory: export PYTHONPATH=~/git/:.
 
 2.Specify TEST_PSQLCONN env variable before running tests, for example:
   export TEST_PSQLCONN="dbname=zvm user=zvm"
