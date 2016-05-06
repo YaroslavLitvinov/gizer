@@ -35,7 +35,6 @@ def get_name_and_path_components(name_and_path):
 def initial_indexes_from_components(schema_engine, components):
     res = {}
     locate_path = []
-    print "locate_path", locate_path
     for comp_i in xrange(len(components)):
         locate_path = [i.name for i in components[:comp_i+1]]
         node = schema_engine.locate(locate_path)
