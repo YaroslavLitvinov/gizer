@@ -61,8 +61,7 @@ def update (schema_e, oplog_data):
             res = []
             for name, table in tables.iteritems():
                 rr = generate_insert_queries(table, "", "", initial_indexes)
-                res.append(OplogQuery("u", rr))
-                ins_stmnt[rr[0]] = list(rr[1][0])
+                ins_stmnt[rr[0]] = rr[1]
         else:
             #update root object just simple update needed
             id_column = doc_id.iterkeys().next()
@@ -95,15 +94,14 @@ def update (schema_e, oplog_data):
             ins_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
             #
             upd_stmnt[upd_statement_template] = upd_values
-            #ins_stmnt = {INSERT_TMPLT:[]}
     ret_val = []
     #TODO need to be fixed. result of delete opertion should be just single dictionary, where: keys - SQL template, values - values for template (data, conditions, ids)
     for op in del_stmnt:
         if type(del_stmnt[op]) is dict:
             for k in del_stmnt[op]:
-                ret_val.append({k:del_stmnt[op][k]})
+                ret_val.append({k:[tuple(del_stmnt[op][k])]})
     for op in upd_stmnt:
-        ret_val.append({op:upd_stmnt[op]})
+        ret_val.append({op:[tuple(upd_stmnt[op])]})
     for op in ins_stmnt:
         ret_val.append({op:ins_stmnt[op]})
     return ret_val
