@@ -9,19 +9,19 @@ TEST_INFO = 'TEST_OPDELETE'
 
 
 def test_get_ids_list():
-    schema = json.loads(open('../test_data/test_schema.txt').read())
+    schema = json.loads(open('test_data/test_schema.txt').read())
     model = {'idx': 'bigint'}
     assert get_ids_list(schema, 0) == model
 
-    schema = json.loads(open('../test_data/test_schema2.txt').read())
+    schema = json.loads(open('test_data/test_schema2.txt').read())
     model = {'id': 'text'}
     assert get_ids_list(schema, 1) == model
 
-    schema = json.loads(open('../test_data/test_schema3.txt').read())
+    schema = json.loads(open('test_data/test_schema3.txt').read())
     model = {'id_oid': 'text'}
     assert get_ids_list(schema, 1) == model
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     # print('list', get_ids_list(schema))
     # model = {'id_oid': 'text'}
     # assert check_dict(get_ids_list(schema), model)
@@ -35,25 +35,25 @@ def test_get_child_dict_item():
 
 def test_get_tables_list():
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     result = get_tables_list(schema, 'mains')
     model = ['mains', 'main_personal_inf_fl_nam_SSNs', 'main_relatives', 'main_relative_contacts',
              'main_relative_contact_phones', 'main_relative_jobs', 'main_indeces', 'main_dates']
     assert sorted(model) == sorted(result)
 
-    schema = json.loads(open('../test_data/test_schema4.txt').read())
+    schema = json.loads(open('test_data/test_schema4.txt').read())
     result = get_tables_list(schema, 'table1')
     model = ['table_personal_inf_full_nam_SSNs', 'table_relative_contact_phones', 'table_relative_contacts',
              'table_relatives', 'table1', 'table_indeces', 'table_dates']
     assert sorted(model) == sorted(result)
 
-    schema = json.loads(open('../test_data/test_schema3.txt').read())
+    schema = json.loads(open('test_data/test_schema3.txt').read())
     result = get_tables_list(schema, 'table1')
     model = ['table1', 'table_relative_contact_phones', 'table_relative_contacts', 'table_relatives',
              'table_indeces', 'table_dates']
     assert sorted(model) == sorted(result)
 
-    schema = json.loads(open('../test_data/test_schema6.txt').read())
+    schema = json.loads(open('test_data/test_schema6.txt').read())
     result = get_tables_list(schema, 'table1')
     model = ['table1']
     assert sorted(model) == sorted(result)
@@ -63,7 +63,7 @@ def test_get_tables_list():
 
 def test_get_conditions_list():
 
-    schema = json.loads(open('../test_data/test_schema.txt').read())
+    schema = json.loads(open('test_data/test_schema.txt').read())
     path = 'persons'
     id = '0123456789abcdef'
     model = {'target': {'idx': '0123456789abcdef'},
@@ -71,7 +71,7 @@ def test_get_conditions_list():
     result = get_conditions_list(schema, path, id)
     assert model == result
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.3.phones.4'
     id = '0123456789abcdef'
     model = {
@@ -83,7 +83,7 @@ def test_get_conditions_list():
     result = get_conditions_list(schema, path, id)
     assert model == result
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.3.phones'
     id = '0123456789abcdef'
     model = {
@@ -95,7 +95,7 @@ def test_get_conditions_list():
     result = get_conditions_list(schema, path, id)
     assert model == result
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789abcdef'
     model = {
@@ -106,7 +106,7 @@ def test_get_conditions_list():
     result = get_conditions_list(schema, path, id)
     assert model == result
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
     id = '0123456789abcdef'
     model = {
@@ -174,7 +174,7 @@ def test_get_where_templates():
 
 
 def test_gen_statements():
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
     id = '0123456789ABCDEF'
     result = gen_statements(schema, path, id)
@@ -193,7 +193,7 @@ def test_gen_statements():
     }
     assert model == result
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789ABCDEF'
     result = gen_statements(schema, path, id)
@@ -226,7 +226,7 @@ def test_gen_statements():
                 '0123456789ABCDEF', '5', '2']}}
     assert model == result
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2'
     id = '0123456789ABCDEF'
     result = gen_statements(schema, path, id)
@@ -296,7 +296,7 @@ def test_gen_statements():
             '0123456789ABCDEF', '2']}}
     assert model == result
 
-    schema = json.loads(open('../test_data/test_schema5.txt').read())
+    schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5.phones'
     id = '0123456789ABCDEF'
     result = gen_statements(schema, path, id)
