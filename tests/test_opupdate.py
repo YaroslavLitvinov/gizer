@@ -40,7 +40,7 @@ def d(str_date, tz_info):
 
 def test_update():
 
-    schemas_path = '../test_data/schemas/rails4_mongoid_development'
+    schemas_path = 'test_data/schemas/rails4_mongoid_development'
     schema_engine = get_schema_engines_as_dict(schemas_path)
 
     tz_info = loads(oplog_tz_info)['tzinfo_obj'].tzinfo
