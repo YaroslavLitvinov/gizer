@@ -66,10 +66,10 @@ def cb_update(schema_engine, bson_data):
         return res
     else:
         res = []
-        cb_res = update(schema_engine.schema, bson_data)
+        cb_res = update(schema_engine, bson_data)
         for it in cb_res:
             for op in it:
-                res.append(OplogQuery('u', (op, it[op])))
+                res.append(OplogQuery('u', (op, [tuple(it[op])])))
         return res
      
 def cb_delete(ts, ns, schema, bson_data):
