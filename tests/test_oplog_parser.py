@@ -198,15 +198,17 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog,
     else:
         return (None, False)
 
+def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
+    schema_engines = get_schema_engines_as_dict(schemas_path)
+    for schema_name, schema in schema_engines.iteritems():
+        tables_obj = create_tables_load_bson_data(schema, None)
+        drop = True
+        create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)
+
 def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path, psql_schema):
     # create/truncate psql operational tables
     # which are using during oplog tail lookup
-    schema_engines = get_schema_engines_as_dict(schemas_path)
-    for schema_name, schema in schema_engines.iteritems():
-        tables_obj = create_tables_load_bson_data(schema,
-                                                  None)
-        drop = True
-        create_psql_tables(tables_obj, dbreq, TMP_SCHEMA_NAME, '', drop)
+    create_truncate_psql_objects(dbreq, schemas_path, psql_schema)
     ts_sync = apply_oplog_recs_after_ts(test_ts, dbreq, mongo, oplog,
                                         schemas_path, psql_schema)
     if ts_sync[1] == True:
@@ -219,7 +221,9 @@ def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path, psql_schema):
         return ts_sync[0]
     else:
         return False
-    
+
+def initial_load(dbreq, schemas_path, psql_schema):
+    create_truncate_psql_objects(dbreq, schemas_path, psql_schema)    
 
 def check_oplog_sync(oplog_ts_to_test):
     connstr = os.environ['TEST_PSQLCONN']
@@ -245,6 +249,8 @@ def check_oplog_sync(oplog_ts_to_test):
     # None - means oplog records should be tested starting from beginning 
     schemas_path = "./test_data/schemas/rails4_mongoid_development"
     psql_schema = TMP_SCHEMA_NAME
+    initial_psql_schema = ''
+    initial_load(dbreq, schemas_path, initial_psql_schema)
     sync_res = sync_oplog(oplog_ts_to_test, 
                           dbreq, mongo_reader, oplog_reader,
                           schemas_path, psql_schema)
