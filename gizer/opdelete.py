@@ -10,8 +10,8 @@ from util import *
 # {"template":'UPDATE table SET idx=34 WHERE idx=%s;', "params":['45']}
 
 
-def op_delete_stmts(schema, path, id):
-    return gen_statements(schema, path, id)
+def op_delete_stmts(schema, path, id, schema_name, database_name):
+    return gen_statements(schema, path, id, schema_name, database_name)
 
 
 def get_max_id_in_array(path):
