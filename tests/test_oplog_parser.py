@@ -26,6 +26,7 @@ from gizer.opupdate import update
 
 # THis schema must be precreated before running tests
 TMP_SCHEMA_NAME = 'operational'
+MAIN_SCHEMA_NAME = ''
 
 def exec_insert(dbreq, oplog_query):
     # create new connection and cursor
@@ -146,8 +147,8 @@ def record_status(dbreq, mongo_reader, schema_engine, rec_id,
         print "rec_id=", rec_id, "compare res=", res
     return res
 
-def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog,
-                              schemas_path, psql_schema):
+def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path, 
+                              main_psql_schema, op_psql_schema):
     """
     @param start_ts Timestamp of record in oplog db which should be
     applied first or next available
@@ -155,17 +156,20 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog,
     @param mongo Mongo cursor wrappper
     @param oplog Mongo oplog cursor wrappper
     @param schemas_path Path with js schemas representing mongo collections
-    @param psql_schema schema name in psql db where psql tables are wating 
+    @param main_psql_schema schema where initially loaded data stored
+    @param op_psql_schema schema name in psql db where psql tables are wating 
     for oplog data to apply
     """
     handled_mongo_rec_ids = {} # {collection: [rec list]}
     # create oplog parser
     parser = OplogParser(oplog, start_ts, schemas_path,
                          Callback(cb_before, 
-                                  ext_arg = (psql, '', psql_schema)),
-                         Callback(cb_insert, ext_arg = psql_schema),
-                         Callback(cb_update, ext_arg = psql_schema),
-                         Callback(cb_delete, ext_arg = psql_schema))
+                                  ext_arg = (psql, 
+                                             main_psql_schema,
+                                             op_psql_schema)),
+                         Callback(cb_insert, ext_arg = op_psql_schema),
+                         Callback(cb_update, ext_arg = op_psql_schema),
+                         Callback(cb_delete, ext_arg = op_psql_schema))
     # go over oplog, and apply all oplog pacthes starting from start_ts
     oplog_queries = parser.next()
     while oplog_queries != None:
@@ -189,7 +193,7 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog,
         schema_engine = parser.schema_engines[collection_name]
         for rec_id in recs:
             rec_stat = record_status(psql, mongo, schema_engine, 
-                                     rec_id, psql_schema)
+                                     rec_id, op_psql_schema)
             if rec_stat == False:
                 sync_ok = False
                 break
@@ -205,12 +209,14 @@ def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
         drop = True
         create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)
 
-def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path, psql_schema):
+def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path, 
+               main_psql_schema, op_psql_schema):
     # create/truncate psql operational tables
     # which are using during oplog tail lookup
-    create_truncate_psql_objects(dbreq, schemas_path, psql_schema)
+    create_truncate_psql_objects(dbreq, schemas_path, op_psql_schema)
     ts_sync = apply_oplog_recs_after_ts(test_ts, dbreq, mongo, oplog,
-                                        schemas_path, psql_schema)
+                                        schemas_path, 
+                                        main_psql_schema, op_psql_schema)
     if ts_sync[1] == True:
         # sync succesfull if sync ok and was handled non null ts
         dbreq.cursor.execute('COMMIT')
@@ -248,20 +254,19 @@ def check_oplog_sync(oplog_ts_to_test):
     # initially loaded psql data; 
     # None - means oplog records should be tested starting from beginning 
     schemas_path = "./test_data/schemas/rails4_mongoid_development"
-    psql_schema = TMP_SCHEMA_NAME
-    initial_psql_schema = ''
-    initial_load(dbreq, schemas_path, initial_psql_schema)
-    sync_res = sync_oplog(oplog_ts_to_test, 
-                          dbreq, mongo_reader, oplog_reader,
-                          schemas_path, psql_schema)
+    op_psql_schema = TMP_SCHEMA_NAME
+    main_psql_schema = MAIN_SCHEMA_NAME
+    initial_load(dbreq, schemas_path, MAIN_SCHEMA_NAME)
+    sync_res = sync_oplog(oplog_ts_to_test, dbreq, mongo_reader, oplog_reader,
+                          schemas_path, main_psql_schema, op_psql_schema)
     while True:
         if sync_res is False or sync_res is True:
             break
         else:
             oplog_ts_to_test = sync_res
-        sync_res = sync_oplog(oplog_ts_to_test, 
-                          dbreq, mongo_reader, oplog_reader,
-                          schemas_path, psql_schema)
+        sync_res = sync_oplog(oplog_ts_to_test, dbreq, mongo_reader, 
+                              oplog_reader, schemas_path, 
+                              main_psql_schema, op_psql_schema)
     return sync_res
 
 def test_oplog_sync():
