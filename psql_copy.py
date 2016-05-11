@@ -28,9 +28,6 @@ def copy_from_csv(dbreq, input_f, table_name):
     dbreq.cursor.execute('COMMIT')
     message('Exported csv %s' % (input_f.name))
 
-if __name__ == "__main__":
-    main()
-
 def main():
     """ main """
     parser = argparse.ArgumentParser()
@@ -77,3 +74,6 @@ def main():
                                   table_prefix,
                                   args.psql_table_name)
             copy_from_csv(dbreq, csv_f, tname)
+
+if __name__ == "__main__":
+    main()
