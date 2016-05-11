@@ -31,7 +31,7 @@ def ensure_dir_empty(dirpath):
         if os.path.isfile(fpath):
             os.remove(fpath)
 
-CsvInfo = namedtuple('CsvInfo', ['writer', 'filepath', 'name', 'filec'])
+CsvInfo = namedtuple('CsvInfo', ['writer', 'filepath', 'name', 'file_counter'])
 
 class CsvWriteManager:
     """ Csv files manager, transparently spliting writing files to files
