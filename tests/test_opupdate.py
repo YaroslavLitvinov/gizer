@@ -2,8 +2,8 @@
 """Tests."""
 #from mongo_to_hive_mapping import schema_engine
 
-from update import *
-import textwrap
+# from update import *
+# import textwrap
 #from mongo_to_hive_mapping.schema_engine import *
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.opinsert import *
