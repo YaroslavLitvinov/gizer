@@ -1,19 +1,12 @@
 #!/usb/bin/env python
 """Tests."""
-#from mongo_to_hive_mapping import schema_engine
 
-# from update import *
-# import textwrap
-#from mongo_to_hive_mapping.schema_engine import *
 from gizer.all_schema_engines import get_schema_engines_as_dict
-from gizer.opinsert import *
 from gizer.opupdate import *
 from update_test_data import *
 import pprint
 from bson.json_util import loads
 import datetime
-from dateutil import tz
-import pytz
 
 TEST_INFO = 'TEST_OPUPDATE'
 
