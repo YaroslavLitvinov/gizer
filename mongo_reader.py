@@ -7,16 +7,16 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 import pprint
-# profiling
-from pstats import Stats
-from cProfile import Profile
-# modules used by data input functions
 import sys
 import json
 import argparse
-from mongo_reader.reader import MongoReader
-# modules used by data output functions
 from collections import namedtuple
+# profiling
+from pstats import Stats
+from cProfile import Profile
+# for data input
+from mongo_reader.reader import MongoReader
+# modules mostly used by data output functions
 from mongo_schema.schema_engine import SchemaEngine
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from gizer.opcsv import CsvManager
