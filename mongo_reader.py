@@ -19,7 +19,7 @@ from mongo_reader.reader import MongoReader
 # modules mostly used by data output functions
 from mongo_schema.schema_engine import SchemaEngine
 from mongo_schema.schema_engine import create_tables_load_bson_data
-from gizer.opcsv import CsvManager
+from gizer.opcsv import CsvWriteManager
 from gizer.opcsv import NULLVAL
 from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_drop_table_statement
@@ -232,7 +232,7 @@ def main():
                                args.user, args.passw,
                                mongo_args.request)
     table_names = create_tables_load_bson_data(schema, None).tables.keys()
-    csm = CsvManager(table_names, args.csv_path, CSV_CHUNK_SIZE)
+    csm = CsvWriteManager(table_names, args.csv_path, CSV_CHUNK_SIZE)
     mongo_rec_multiprocessing \
         = FastQueueProcessor(async_worker_handle_mongo_rec,
                              schema,
