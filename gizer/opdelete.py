@@ -10,8 +10,8 @@ from util import *
 # {"template":'UPDATE table SET idx=34 WHERE idx=%s;', "params":['45']}
 
 
-def op_delete_stmts(schema, path, id):
-    return gen_statements(schema, path, id)
+def op_delete_stmts(schema, path, id, schema_name, database_name):
+    return gen_statements(schema, path, id, schema_name, database_name)
 
 
 def get_max_id_in_array(path):
@@ -94,7 +94,7 @@ def get_where_templates(conditions_list):
     return where_list
 
 
-def gen_statements(schema, path, id):
+def gen_statements(schema, path, id, schema_name, database_name):
     where_clauses = get_where_templates(get_conditions_list(schema, path, id))
     all_tables_list = get_tables_list(schema, get_root_table_from_path(path))
     target_table = get_table_name_from_list(path.split('.'))
@@ -104,10 +104,10 @@ def gen_statements(schema, path, id):
         if str.startswith(str(table), target_table[:-1], 0, len(table)) and not table == target_table:
             tables_list.append(table)
     del_statements = {}
-    del_statements[DELETE_TMPLT.format(table=target_table, conditions=where_clauses['target']['template'])] = \
+    del_statements[DELETE_TMPLT.format(table=get_table_name_schema([database_name, schema_name, target_table]), conditions=where_clauses['target']['template'])] = \
         where_clauses['target']['values']
     for table in tables_list:
-        del_statements[DELETE_TMPLT.format(table=table, conditions=where_clauses['child']['template'])] = \
+        del_statements[DELETE_TMPLT.format(table=get_table_name_schema([database_name, schema_name, table]), conditions=where_clauses['child']['template'])] = \
             where_clauses['child']['values']
     update_statements = {}
     idx = get_last_idx_from_path(path)
@@ -121,12 +121,12 @@ def gen_statements(schema, path, id):
         spath.append(str(ind))
         path_to_update = '.'.join(spath)
         udpate_where = get_where_templates(get_conditions_list(schema, path_to_update, id))
-        update_statements[UPDATE_TMPLT.format(table=target_table, statements='idx=' + str(ind - 1),
+        update_statements[UPDATE_TMPLT.format(table=get_table_name_schema([database_name, schema_name, target_table]), statements='idx=' + str(ind - 1),
                                              conditions=udpate_where['target']['template'])] = udpate_where['target'][
             'values']
 
         for table in tables_list:
-            update_statements[UPDATE_TMPLT.format(table=table, statements=target_table_idx_name + '_idx=' + str(ind - 1),
+            update_statements[UPDATE_TMPLT.format(table=get_table_name_schema([database_name, schema_name, table]), statements=target_table_idx_name + '_idx=' + str(ind - 1),
                                                  conditions=udpate_where['child']['template'])] = udpate_where['child'][
                 'values']
     return {'del': del_statements, 'upd': update_statements}

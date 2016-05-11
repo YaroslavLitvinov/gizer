@@ -39,6 +39,10 @@ def isIdField(field_name):
         return False
 
 
+def get_table_name_schema(str_list):
+    return '.'.join(filter(None,str_list))
+
+
 def get_postgres_type(type_name):
     # TODO should be case insensitive
     # TODO should be replaced

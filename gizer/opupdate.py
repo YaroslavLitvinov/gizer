@@ -29,7 +29,7 @@ END LOOP;
 """
 
 
-def update (schema_e, oplog_data):
+def update (schema_e, oplog_data, schema_name, database_name):
     #compatibility with schema object for insert
     if type(schema_e) != dict:
         schema = schema_e.schema
@@ -52,7 +52,7 @@ def update (schema_e, oplog_data):
         # update array object.In that case we need to use two combine of two operations
         # delete old array (all elements linked to parent record) and insert new one (all elements listed in oplog query)
         if type(u_data[k]) is list:
-            del_stmnt = delete(schema, upd_path_str, doc_id.itervalues().next())
+            del_stmnt = delete(schema, upd_path_str, doc_id.itervalues().next(), schema_name, database_name)
 
             tables, initial_indexes \
                 = get_tables_data_from_oplog_set_command(schema_e,
@@ -68,7 +68,7 @@ def update (schema_e, oplog_data):
             q_columns = get_query_columns_with_nested(schema, u_data, '', {})
             q_statements_list = [ ('{column}=(%s)' if not get_quotes_using(schema,root_table_name,col,root_table_name) else '{column}=(%s)').format(column=col) for col in q_columns]
             q_conditions = ('{column}=(%s)' if not get_quotes_using(schema,root_table_name,id_column,root_table_name) else '{column}=(%s)').format(column = id_column)
-            upd_statement_template = UPDATE_TMPLT.format( table = root_table_name, statements = ', '.join(q_statements_list), conditions = q_conditions)
+            upd_statement_template = UPDATE_TMPLT.format( table = get_table_name_schema([database_name, schema_name,  root_table_name]), statements = ', '.join(q_statements_list), conditions = q_conditions)
             upd_values = [q_columns[col] for col in q_columns] + [doc_id.itervalues().next()]
             upd_stmnt[upd_statement_template] = upd_values
     else:
@@ -84,14 +84,14 @@ def update (schema_e, oplog_data):
             # q_conditions_str = ' and '.join([('{column}=(%s)' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '{column}=(%s)').format(column = col) for col in q_conditions['target']])
             q_statements_str = ', '.join(['{column}=(%s)'.format(column=col) for col in q_columns])
             q_conditions_str = ' and '.join(['{column}=(%s)'.format(column = col) for col in q_conditions['target']])
-            upd_statement_template = UPDATE_TMPLT.format( table=target_table_name, statements=q_statements_str, conditions=q_conditions_str)
+            upd_statement_template = UPDATE_TMPLT.format( table=get_table_name_schema([database_name, schema_name,  target_table_name]), statements=q_statements_str, conditions=q_conditions_str)
             upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
             upd_stmnt[upd_statement_template] = upd_values
             # scratch insert statements for single object
             #TODO should be calculated idx number and placed into INSERT query. OR just replace generating insert from opinsert module
-            q_values_template = ['%s' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '%s'  for col in q_columns]
-            ins_statement_template = INSERT_TMPLT.format( table=target_table_name, columns=', '.join([col for col in q_columns]), values=', '.join(q_values_template))
-            ins_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
+            #q_values_template = ['%s' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '%s'  for col in q_columns]
+            #ins_statement_template = INSERT_TMPLT.format( table=target_table_name, columns=', '.join([col for col in q_columns]), values=', '.join(q_values_template))
+            #ins_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
             #
             upd_stmnt[upd_statement_template] = upd_values
     ret_val = []
