@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+""" Implementation of asynchronous pipe that easy to use for parallel
+calculations.
+FastQueueProcessor -- implementation """
+
 __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
@@ -12,6 +16,8 @@ from collections import deque
 _EOF = 'EOF'
 
 def _worker(pipes):
+    """ worker wrapper to be used with FastQueueProcessor
+    pipes -- tuple with (read, write) pipes"""
     pipe_work, pipe_main = pipes
     worker_func = None
     worker_1st_arg = None
@@ -21,42 +27,51 @@ def _worker(pipes):
                 worker_func = pipe_work.recv()
                 worker_1st_arg = pipe_work.recv()
             else:
-                arg = pipe_work.recv()    # Read from the output pipe and do nothing
+                # Read from the output pipe and do nothing
+                arg = pipe_work.recv()
                 # close pipe if 'EOF' received
                 if arg == _EOF:
                     pipe_work.close()
                     pipe_main.close()
                     break
                 else:
-                    res = worker_func(worker_1st_arg, arg)
+                    res = worker_func(worker_1st_arg, arg) #pylint: disable=E1102
                     pipe_work.send(res)
         except EOFError:
             break
 
+def _create_worker_proccess(worker, worker_1st_arg):
+    """ Launch worker process and send via pipe a worker function 'worker'
+    and initial argument 'worker_1st_arg'. Return worker descriptor.
+    worker -- worker function is expected to have two arguments :
+    1st - initial data, 2nd - data object for processing.
+    It must return result of data processing.
+    worker_1st_arg -- initial arg to worker function"""
+    pipe_work, pipe_main = Pipe()
+    proc = Process(target=_worker, args=((pipe_work, pipe_main), ))
+    proc.start()
+    pipe_main.send(worker)
+    pipe_main.send(worker_1st_arg)
+    return FastQueueProcessor.FastProc(pipe_work=pipe_work,
+                                       pipe_main=pipe_main,
+                                       proc=proc)
 
 class FastQueueProcessor:
-
+    """ Implementation of asynchronous pipe that easy to use for parallel
+    calculations. Write data into pipe then read from pipe result of data
+    processeing. Supports multiple parallel workers which are competing for
+    data in queue. First read first serve."""
     FastProc = namedtuple('FastProc', ['pipe_work', 'pipe_main', 'proc'])
 
     def __init__(self, worker, worker_1st_arg, procn):
         self.queue_data = deque()
-        self.procs = self._create_procs(worker, worker_1st_arg, procn)
+        self.procs = [_create_worker_proccess(worker, worker_1st_arg) \
+                      for i in xrange(procn)]
         self.proc_statuses = [False for i in xrange(procn)]
 
-    def _create_procs(self, worker, worker_1st_arg, procn):
-        procs = []
-        for i in xrange(procn):
-            pipe_work, pipe_main = Pipe()
-            proc = Process(target = _worker, args = ((pipe_work, pipe_main), ))
-            proc.start()
-            pipe_main.send(worker)
-            pipe_main.send(worker_1st_arg)
-            procs.append(FastQueueProcessor.FastProc(pipe_work = pipe_work, 
-                                                     pipe_main = pipe_main, 
-                                                     proc = proc))
-        return procs
-       
     def _consume_from_queue(self):
+        """ try to consume data from queue by all available workers
+        which are ready to consume data """
         for i in xrange(len(self.proc_statuses)):
             if not self.count():
                 break
@@ -67,12 +82,15 @@ class FastQueueProcessor:
                 self.proc_statuses[i] = True
 
     def is_any_working(self):
+        """ return True if any worker is not yet finished data processing """
         for status in self.proc_statuses:
             if status:
                 return True
         return False
 
     def __del__(self):
+        """ Send EOF signal to all workers, close pipes and
+        wait while workers are done."""
         for proc in self.procs:
             proc.pipe_main.send(_EOF)
             proc.pipe_work.close()
@@ -80,13 +98,17 @@ class FastQueueProcessor:
             proc.proc.join()
 
     def count(self):
+        """ return data count in queue """
         return len(self.queue_data)
 
     def put(self, data):
+        """ Put data to queue, then try to consume datas from queue
+        by all available workers which are eager to data"""
         self.queue_data.append(data)
         self._consume_from_queue()
 
     def poll(self):
+        """ return True/False is it results available or not """
         for proc in self.procs:
             if proc.pipe_main.poll():
                 return True
@@ -94,7 +116,7 @@ class FastQueueProcessor:
 
 
     def get(self):
-        """ @return result of calculation on data"""
+        """ return result available in pipe """
         res = None
         while True:
             if not len(self.queue_data) and not self.is_any_working():
