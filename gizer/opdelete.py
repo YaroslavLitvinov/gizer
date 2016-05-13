@@ -4,22 +4,31 @@ __author__ = 'Volodymyr Varchuk'
 __email__ = "vladimir.varchuk@rackspace.com"
 
 from util import *
+from os import environ
+import psycopg2
 
 
 # UPDATE_TMPL2 = 'UPDATE %s SET %s WHERE (root_id="%s") and (idx=%s);'
 # {"template":'UPDATE table SET idx=34 WHERE idx=%s;', "params":['45']}
 
 
-def op_delete_stmts(schema, path, id, schema_name, database_name):
-    return gen_statements(schema, path, id, schema_name, database_name)
+def op_delete_stmts(dbreq, schema, path, id, database_name, schema_name):
+    return gen_statements(dbreq, schema, path, id, database_name, schema_name)
 
 
-def get_max_id_in_array(path):
-    # stub
-    #
-    # get max index of element in array corresponding for deleted record
-
-    return '10'
+def get_max_id_in_array(dbreq, table, condition_list, database_name, schema_name):
+    cond_list = {}
+    for column  in condition_list['target']:
+        if column <> 'idx':
+            cond_list[column] = condition_list['target'][column]
+    where = get_where_templates({'target':cond_list, 'child':{}})['target']
+    SQL_query = SELECT_TMPLT.format(table= '.'.join([database_name, schema_name, table]), conditions=where['template'])
+    curs = dbreq.cursor()
+    curs.execute(SQL_query, tuple(where ['values']))
+    idx = curs.fetchone()[0]
+    if idx is None:
+        idx = 0
+    return idx
 
 
 def get_child_dict_item(dict_items, table):
@@ -94,8 +103,9 @@ def get_where_templates(conditions_list):
     return where_list
 
 
-def gen_statements(schema, path, id, schema_name, database_name):
-    where_clauses = get_where_templates(get_conditions_list(schema, path, id))
+def gen_statements(dbreq, schema, path, id, database_name, schema_name):
+    conditions_list = get_conditions_list(schema, path, id)
+    where_clauses = get_where_templates(conditions_list)
     all_tables_list = get_tables_list(schema, get_root_table_from_path(path))
     target_table = get_table_name_from_list(path.split('.'))
     target_table_idx_name = get_idx_column_name_from_list (path.split('.'))
@@ -111,7 +121,9 @@ def gen_statements(schema, path, id, schema_name, database_name):
             where_clauses['child']['values']
     update_statements = {}
     idx = get_last_idx_from_path(path)
-    max_idx = get_max_id_in_array(path)
+    if idx == None:
+        return {'del': del_statements, 'upd': update_statements}
+    max_idx = get_max_id_in_array(dbreq, target_table, conditions_list, database_name, schema_name)
     if idx <= max_idx:
         return {'del': del_statements, 'upd': update_statements}
 
