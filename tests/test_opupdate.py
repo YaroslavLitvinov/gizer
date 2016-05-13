@@ -16,12 +16,12 @@ TEST_INFO = 'TEST_OPUPDATE'
 'update post_adresse_streets set name="STREETNAME" where post_id="aabbccddeeff" and post_adresses_idx=0, idx=7'
 
 
-def test_database_prepare():
+def database_prepare():
     connstr = environ['TEST_PSQLCONN']
     connector = psycopg2.connect(connstr)
     return connector
 
-def test_database_clear( connector ):
+def database_clear( connector ):
     return 0
 
 def test_get_obj_id():
@@ -45,9 +45,9 @@ def d(str_date, tz_info):
 
 def test_update():
 
-    dbreq = test_database_prepare()
+    dbreq = database_prepare()
 
-    schemas_path = '../test_data/schemas/rails4_mongoid_development'
+    schemas_path = 'test_data/schemas/rails4_mongoid_development'
     schema_engine = get_schema_engines_as_dict(schemas_path)
 
     tz_info = loads(oplog_tz_info)['tzinfo_obj'].tzinfo
