@@ -14,12 +14,23 @@ For succesfully running tests should to be created database test_db with schema 
 
 TEST_INFO = 'TEST_OPDELETE'
 
-def test_database_prepare():
+
+def database_clear(dbconnector):
+    curs = dbconnector.cursor()
+    SQL_DROP_person_relatives = "DROP TABLE IF EXISTS test_schema.person_relatives;"
+    SQL_DROP_person_relative_contacts = "DROP TABLE IF EXISTS test_schema.person_relative_contacts;"
+
+    curs.execute(SQL_DROP_person_relative_contacts)
+    curs.execute(SQL_DROP_person_relatives)
+    dbconnector.commit()
+
+
+def database_prepare():
     connstr = environ['TEST_PSQLCONN']
     connector = psycopg2.connect(connstr)
 
     curs = connector.cursor()
-    test_database_clear(connector)
+    database_clear(connector)
 
     #preparing test tables && records
     SQL_CREATE_person_relative_contacts = '\
@@ -56,15 +67,6 @@ def test_database_prepare():
     curs.execute(SQL_INSERT_max_id_person_relative_contacts)
     connector.commit()
     return connector
-
-def test_database_clear( connector ):
-    curs = connector.cursor()
-    SQL_DROP_person_relatives = "DROP TABLE IF EXISTS test_schema.person_relatives;"
-    SQL_DROP_person_relative_contacts = "DROP TABLE IF EXISTS test_schema.person_relative_contacts;"
-
-    curs.execute(SQL_DROP_person_relative_contacts)
-    curs.execute(SQL_DROP_person_relatives)
-    connector.commit()
 
 
 def test_get_ids_list():
@@ -233,7 +235,7 @@ def test_get_where_templates():
 
 
 def test_gen_statements():
-    dbreq = test_database_prepare()
+    dbreq = database_prepare()
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
     id = '0123456789ABCDEF'
@@ -420,7 +422,7 @@ def test_gen_statements():
             '0123456789ABCDEF', '5', '2']}}
     assert model == result
 
-    test_database_clear(dbreq)
+    database_clear(dbreq)
 
     print(TEST_INFO, 'gen_statements', 'PASSED')
 
