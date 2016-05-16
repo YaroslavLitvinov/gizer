@@ -6,7 +6,6 @@ import itertools
 
 import gizer.psql_requests
 from gizer.opinsert import *
-from gizer.oplog_parser import OplogQuery
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 
 from opdelete import op_delete_stmts as delete, get_conditions_list

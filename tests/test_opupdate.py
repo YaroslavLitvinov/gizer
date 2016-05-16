@@ -6,8 +6,6 @@ from update_test_data import *
 import pprint
 from bson.json_util import loads
 import datetime
-
-from os import environ
 import psycopg2
 
 
