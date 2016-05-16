@@ -7,6 +7,7 @@ import pprint
 from bson.json_util import loads
 import datetime
 import psycopg2
+from os import environ
 
 
 TEST_INFO = 'TEST_OPUPDATE'
@@ -60,7 +61,7 @@ def test_update():
     model = [
         {'UPDATE test_db.test_schema.post_comments SET body=(%s), created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);':
                   [('comment6', d('2016-02-08T19:42:33.589Z', tz_info), '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info), '56b8da51f9fcee1b00000006', '5',)]}]
-    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, 'test_schema', 'test_db')
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, 'test_db', 'test_schema')
     assert result == model
 
     oplog_data = loads(oplog_u_02)
