@@ -40,7 +40,7 @@ def cb_update(ext_arg, schema_engine, bson_data):
         return res
     else:
         res = []
-        cb_res = update(schema_engine, bson_data)
+        cb_res = update(dbreq, schema_engine, bson_data, '', psql_schema)
         for it in cb_res:
             for op in it:
                 res.append(OplogQuery('u', (op, it[op])))
@@ -51,7 +51,7 @@ def cb_delete(ext_arg, ts, ns, schema, bson_data):
     dbreq = ext_arg[0]
     psql_schema = ext_arg[1]
     id_str = str(bson_data['_id'])
-    cb_res = op_delete_stmts(schema.schema,ns.split('.')[-1],id_str)
+    cb_res = op_delete_stmts(dbreq, schema.schema,ns.split('.')[-1],id_str, '', psql_schema)
     res = []
     for oper in cb_res:
         for stmnt in cb_res[oper]:
