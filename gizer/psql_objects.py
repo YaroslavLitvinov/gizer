@@ -61,9 +61,9 @@ WHERE {id_name}={id_val};'
     return tables
 
 
-def insert_tables_data_into_dst_psql(dst_dbreq, 
+def insert_tables_data_into_dst_psql(dst_dbreq,
                                      tables_to_save,
-                                     dst_schema_name, 
+                                     dst_schema_name,
                                      dst_table_prefix):
     """ Do every insert as separate transaction, very slow approach """
     # insert fetched mongo rec into destination psql

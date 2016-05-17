@@ -205,7 +205,7 @@ def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
         drop = True
         create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)
 
-def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path,
+def apply_oplog_recs_after_ts(start_ts, psql, mongo_readers, oplog, schemas_path,
                               psql_schema_to_apply_ops,
                               psql_schema_initial_load):
     """ Read oplog operations starting from timestamp start_ts. Then do copy
@@ -264,7 +264,8 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path,
     for collection_name, recs in handled_mongo_rec_ids.iteritems():
         schema_engine = parser.schema_engines[collection_name]
         for rec_id in recs:
-            equal = compare_psql_and_mongo_records(psql, mongo,
+            equal = compare_psql_and_mongo_records(psql, 
+                                                   mongo_readers[collection_name],
                                                    schema_engine,
                                                    rec_id,
                                                    psql_schema_to_apply_ops)
@@ -276,7 +277,7 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path,
     else:
         return (None, False)
 
-def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path,
+def sync_oplog(test_ts, dbreq, mongo_readers, oplog, schemas_path,
                psql_schema_to_apply_ops, psql_schema_initial_load):
     """ Return True if able to locate and synchronize initially loaded data
     with oplog data. Find syncronization point in oplog for initially 
@@ -293,7 +294,10 @@ def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path,
     # create/truncate psql operational tables
     # which are using during oplog tail lookup
     create_truncate_psql_objects(dbreq, schemas_path, psql_schema_to_apply_ops)
-    ts_sync = apply_oplog_recs_after_ts(test_ts, dbreq, mongo, oplog,
+    ts_sync = apply_oplog_recs_after_ts(test_ts, 
+                                        dbreq, 
+                                        mongo_readers, 
+                                        oplog,
                                         schemas_path,
                                         psql_schema_to_apply_ops,
                                         psql_schema_initial_load)
