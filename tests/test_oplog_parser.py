@@ -13,7 +13,7 @@ from gizer.oplog_parser import sync_oplog
 from gizer.oplog_parser import compare_psql_and_mongo_records
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.psql_objects import insert_tables_data_into_dst_psql
-from mongo_schema.schema_engine import create_tables_load_bson_data
+from mongo_schema.schema_engine import create_tables_load_file
 from mock_mongo_reader import MongoReaderMock
 
 # THis schema must be precreated before running tests
@@ -21,9 +21,6 @@ TMP_SCHEMA_NAME = 'operational'
 MAIN_SCHEMA_NAME = ''
 
 OplogTest = namedtuple('OplogTest', ['ts', 'before', 'oplog', 'after'])
-
-def initial_load(dbreq, schemas_path, psql_schema):
-    create_truncate_psql_objects(dbreq, schemas_path, psql_schema)
 
 def mongo_reader_mock(mongo_data_path):
     mongo_reader = None
@@ -42,49 +39,54 @@ def oplog_reader_mock(oplog_data_path):
     return oplog_reader
 
 
-def load_mongo_data_to_psql(mongo_reader, psql, psql_schema):
-    rec = mongo_reader.next()
-    while rec:
-        tables = create_tables_load_bson_data(schema_engine, None)
-        tables.load_external_tables_data(rec)
-        insert_tables_data_into_dst_psql(psql, tables, psql_schema, '')
-        rec = mongo_reader.next()
-
+def load_mongo_data_to_psql(schema_engine, mongo_data_path, psql, psql_schema):
+    tables = create_tables_load_file(schema_engine, mongo_data_path)
+    insert_tables_data_into_dst_psql(psql, tables, psql_schema, '')
+    psql.cursor.execute('COMMIT')
 
 def check_oplog_sync(oplog_test):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
+    psql_schema_to_apply_ops = TMP_SCHEMA_NAME
+    psql_schema_initial_load = MAIN_SCHEMA_NAME
+
     schemas_path = "./test_data/schemas/rails4_mongoid_development"
+    schema_engines = get_schema_engines_as_dict(schemas_path)
     oplog_reader = oplog_reader_mock(oplog_test.oplog)
+
     # do initial load into main schema (not operational)
+    create_truncate_psql_objects(dbreq, schemas_path, psql_schema_initial_load)
     for name, mongo_data_path in oplog_test.before.iteritems():
-        mongo_reader_before_data = mongo_reader_mock(mongo_data_path)
-        load_mongo_data_to_psql(mongo_reader_before_data, dbreq, MAIN_SCHEMA_NAME)
-    mongo_readers = {}
+        load_mongo_data_to_psql(schema_engines[name],
+                                mongo_data_path,
+                                dbreq, psql_schema_initial_load)
+
+    mongo_readers_after = {}
     for name, mongo_data_path in oplog_test.after.iteritems():
-        mongo_readers[name] = mongo_reader_mock(mongo_data_path)
+        mongo_readers_after[name] = mongo_reader_mock(mongo_data_path)
     # oplog_ts_to_test is timestamp starting from which oplog records
     # should be applied to psql tables to locate ts which corresponds to
     # initially loaded psql data;
     # None - means oplog records should be tested starting from beginning
     oplog_ts_to_test = oplog_test.ts
-    psql_schema_to_apply_ops = TMP_SCHEMA_NAME
-    psql_schema_initial_load = MAIN_SCHEMA_NAME
-    initial_load(dbreq, schemas_path, MAIN_SCHEMA_NAME)
     sync_res = sync_oplog(oplog_ts_to_test, 
                           dbreq, 
-                          mongo_readers, 
+                          mongo_readers_after, 
                           oplog_reader,
-                          schemas_path, psql_schema_to_apply_ops,
+                          schemas_path, 
+                          psql_schema_to_apply_ops,
                           psql_schema_initial_load)
     while True:
         if sync_res is False or sync_res is True:
             break
         else:
             oplog_ts_to_test = sync_res
-        sync_res = sync_oplog(oplog_ts_to_test, dbreq, mongo_reader,
-                              oplog_reader, schemas_path,
+        sync_res = sync_oplog(oplog_ts_to_test, 
+                              dbreq, 
+                              mongo_readers_after,
+                              oplog_reader, 
+                              schemas_path,
                               psql_schema_to_apply_ops,
                               psql_schema_initial_load)
     return sync_res
@@ -92,9 +94,11 @@ def check_oplog_sync(oplog_test):
 def test_oplog_sync():
     oplog_test1 \
         = OplogTest(None, 
-                    {'posts': 'test_data/oplog1/before_collection_posts.js'},
+                    {'posts': 'test_data/oplog1/before_collection_posts.js',
+                     'guests': 'test_data/oplog1/before_collection_guests.js'},
                     'test_data/oplog1/oplog.js',
-                    {'posts': 'test_data/oplog1/after_collection_posts.js'})
+                    {'posts': 'test_data/oplog1/after_collection_posts.js',
+                     'guests': 'test_data/oplog1/after_collection_guests.js'})
     res = check_oplog_sync(oplog_test1)
     assert(res == True)
     # temporarily disabled tests
