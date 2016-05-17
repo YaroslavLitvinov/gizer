@@ -172,6 +172,7 @@ def compare_psql_and_mongo_records(dbreq, mongo_reader, schema_engine, rec_id,
                                                       schema_engine,
                                                       dst_schema_name,
                                                       rec_id)
+    mongo_tables_obj = None
     # retrieve actual mongo record and transform it to relational data
     mongo_reader.make_new_request(rec_id)
     rec = mongo_reader.next()
@@ -187,7 +188,13 @@ def compare_psql_and_mongo_records(dbreq, mongo_reader, schema_engine, rec_id,
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         # save result of comparison
         res = compare_res
-        print "rec_id=", rec_id, "compare res=", res
+    print "rec_id=", rec_id, "compare res=", res
+    if not res:
+        print "psql_tables_obj", psql_tables_obj.tables
+        try:
+            print "mongo_tables_obj", mongo_tables_obj.tables
+        except:
+            print "mongo_tables_obj", None
     return res
 
 def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
