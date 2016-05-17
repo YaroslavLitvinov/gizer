@@ -4,7 +4,7 @@ __email__ = "vladimir.varchuk@rackspace.com"
 from gizer.opdelete import *
 import json
 import pprint
-import re
+from test_util import sqls_to_dict
 
 
 """
@@ -434,54 +434,6 @@ def check_dict(list1, list2):
         if list1[it] <> list2[it]:
             return False
     return True
-
-
-def sqls_to_dict(sql_dict):
-    parsed_dict = {}
-    for model_item in sql_dict:
-        if model_item == 'upd':
-            if type(sql_dict[model_item]) == dict:
-                for sql in sql_dict[model_item]:
-                    r = re.compile('UPDATE (.*?)WHERE')
-                    ext_key = r.search(sql).group(1)
-                    parsed_dict[ext_key] = parse_upd({sql:sql_dict[model_item][sql]})
-        if model_item == 'del':
-            if type(sql_dict[model_item]) == dict:
-                for sql in sql_dict[model_item]:
-                    r = re.compile('DELETE FROM(.*?)WHERE')
-                    ext_key = r.search(sql).group(1)
-                    parsed_dict[ext_key] = parse_del({sql:sql_dict[model_item][sql]})
-    return parsed_dict
-
-
-def parse_upd(sql_upd):
-    if not type(sql_upd) is dict:
-        return {}
-    stmnt = sql_upd.iterkeys().next()
-    values = sql_upd.itervalues().next()
-    clauses = stmnt.split(' ')
-    updated_table = clauses [1]
-    set_value = clauses [3]
-    's'.replace(';', '')
-    where_clauses = [cl.replace(';', '') for cl in clauses [5:] if cl != 'and']
-    where_dict = {}
-    for i, cl in enumerate(where_clauses):
-        where_dict[cl] = values[i]
-    return {'table':updated_table, 'set_value':set_value, 'where_dict':where_dict}
-
-
-def parse_del(sql_upd):
-    if not type(sql_upd) is dict:
-        return {}
-    stmnt = sql_upd.iterkeys().next()
-    values = sql_upd.itervalues().next()
-    clauses = stmnt.split(' ')
-    updated_table = clauses [2]
-    where_clauses = [cl.replace(';', '') for cl in clauses [4:] if cl != 'and']
-    where_dict = {}
-    for i, cl in enumerate(where_clauses):
-        where_dict[cl] = values[i]
-    return {'table':updated_table, 'where_dict':where_dict}
 
 
 def UPDATE_compatator(model_upd, result_upd):
