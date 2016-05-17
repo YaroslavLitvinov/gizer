@@ -161,25 +161,29 @@ def exec_insert(dbreq, oplog_query):
 def compare_psql_and_mongo_records(dbreq, mongo_reader, schema_engine, rec_id,
                                    dst_schema_name):
     """ Return True/False. Compare actual mongo record with record's relational
-    model from operational tables.
+    model from operational tables. Comparison of non existing objects gets True.
     dbreq -- psql cursor wrapper
     mongo_reader - mongo cursor wrapper
     schema_engine -- 'SchemaEngine' object
     rec_id - record id to compare
     dst_schema_name -- psql schema name where psql tables store that record"""
     res = None
+    psql_tables_obj = load_single_rec_into_tables_obj(dbreq,
+                                                      schema_engine,
+                                                      dst_schema_name,
+                                                      rec_id)
     # retrieve actual mongo record and transform it to relational data
     mongo_reader.make_new_request(rec_id)
     rec = mongo_reader.next()
     if not rec:
-        res = False
+        if psql_tables_obj.is_empty():
+            # comparison of non existing objects gets True
+            res= True
+        else:
+            res = False
     else:
         mongo_tables_obj = create_tables_load_bson_data(schema_engine,
                                                         [rec])
-        psql_tables_obj = load_single_rec_into_tables_obj(dbreq,
-                                                          schema_engine,
-                                                          dst_schema_name,
-                                                          rec_id)
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         # save result of comparison
         res = compare_res
