@@ -201,8 +201,9 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path,
     of records mentioned in these oplog operations, from main psql schema
     to operational psql schema. Then apply oplog operations to psql data
     and compare results with latest data directly taken from mongo db.
-    Return True if oplog operations applied succesfully, or False if
-    verification failed. This function is using OplogParser itself.
+    Return tuple (ts, True) where ts is sync point is synced and verified True,
+    or return (ts, False) if not able to sync/verify specified start_ts.
+    This function is using OplogParser itself.
     params:
     start_ts -- Timestamp of record in oplog db which should be
     applied first or next available
@@ -267,9 +268,10 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path,
 
 def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path,
                psql_schema_to_apply_ops, psql_schema_initial_load):
-    """ Return True if able to locate and synchronize initially loaded data
-    with oplog data. Find syncronization point in oplog for initially 
-    loaded data. 
+    """ Find syncronization point of oplog and psql data
+    (which usually is initially loaded data.)
+    Return True if able to locate and synchronize initially loaded data
+    with oplog data, or return next ts candidate for syncing.
     start_ts -- Timestamp of oplog record to start sync tests
     dbreq -- Postgres cursor wrapper
     mongo -- Mongo cursor wrappper
