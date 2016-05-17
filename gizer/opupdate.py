@@ -15,29 +15,27 @@ import bson
 import datetime
 
 
-UPSERT_TMLPT = """\
-LOOP
-    {update}
-    IF found THEN
-        RETURN;
-    END IF;
-    BEGIN
-        {insert}
-        RETURN;
-    EXCEPTION WHEN unique_violation THEN
-    END;
-END LOOP;
-"""
+# UPSERT_TMLPT = """\
+# LOOP
+#     {update}
+#     IF found THEN
+#         RETURN;
+#     END IF;
+#     BEGIN
+#         {insert}
+#         RETURN;
+#     EXCEPTION WHEN unique_violation THEN
+#     END;
+# END LOOP;
+# """
 
 
 def update (dbreq, schema_e, oplog_data, database_name, schema_name):
-    print('call update', schema_name, database_name)
     #compatibility with schema object for insert
     if type(schema_e) != dict:
         schema = schema_e.schema
     else:
         schema = schema_e
-
     doc_id = get_obj_id(oplog_data)
     u_data = oplog_data["o"]["$set"]
     root_table_name = oplog_data["ns"].split('.')[-1]
@@ -62,7 +60,7 @@ def update (dbreq, schema_e, oplog_data, database_name, schema_name):
                                                      oplog_data['o2'])
             res = []
             for name, table in tables.iteritems():
-                rr = generate_insert_queries(table, "", "", initial_indexes)
+                rr = generate_insert_queries(table, schema_name, "", initial_indexes)
                 ins_stmnt[rr[0]] = rr[1]
         else:
             #update root object just simple update needed
@@ -88,14 +86,20 @@ def update (dbreq, schema_e, oplog_data, database_name, schema_name):
             q_conditions_str = ' and '.join(['{column}=(%s)'.format(column = col) for col in q_conditions['target']])
             upd_statement_template = UPDATE_TMPLT.format( table=get_table_name_schema([database_name, schema_name,  target_table_name]), statements=q_statements_str, conditions=q_conditions_str)
             upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
-            upd_stmnt[upd_statement_template] = upd_values
-            # scratch insert statements for single object
-            #TODO should be calculated idx number and placed into INSERT query. OR just replace generating insert from opinsert module
-            #q_values_template = ['%s' if not get_quotes_using(schema,target_table_name,col,root_table_name) else '%s'  for col in q_columns]
-            #ins_statement_template = INSERT_TMPLT.format( table=target_table_name, columns=', '.join([col for col in q_columns]), values=', '.join(q_values_template))
-            #ins_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
-            #
-            upd_stmnt[upd_statement_template] = upd_values
+            # INSERT
+            tables, initial_indexes \
+                = get_tables_data_from_oplog_set_command(schema_e,
+                                                     oplog_data['o']['$set'],
+                                                     oplog_data['o2'])
+            for name, table in tables.iteritems():
+                rr = generate_insert_queries(table, schema_name, "", initial_indexes)
+                ins_stmnt[rr[0]] = rr[1]
+            insert_statement_template = ins_stmnt.iterkeys().next()
+            upsert_statement_template = UPSERT_TMLPT.format(update=upd_statement_template, insert=insert_statement_template)
+            ins_values = list(ins_stmnt[insert_statement_template][0])
+            upsert_values = upd_values + ins_values
+            upd_stmnt[upsert_statement_template] = upsert_values
+            ins_stmnt = {}
     ret_val = []
     #TODO need to be fixed. result of delete opertion should be just single dictionary, where: keys - SQL template, values - values for template (data, conditions, ids)
     for op in del_stmnt:
