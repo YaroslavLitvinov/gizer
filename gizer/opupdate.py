@@ -3,6 +3,8 @@
 
 import itertools
 
+
+import gizer.psql_requests
 from gizer.opinsert import *
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 
@@ -28,7 +30,8 @@ END LOOP;
 """
 
 
-def update (schema_e, oplog_data, schema_name, database_name):
+def update (dbreq, schema_e, oplog_data, database_name, schema_name):
+    print('call update', schema_name, database_name)
     #compatibility with schema object for insert
     if type(schema_e) != dict:
         schema = schema_e.schema
@@ -51,7 +54,7 @@ def update (schema_e, oplog_data, schema_name, database_name):
         # update array object.In that case we need to use two combine of two operations
         # delete old array (all elements linked to parent record) and insert new one (all elements listed in oplog query)
         if type(u_data[k]) is list:
-            del_stmnt = delete(schema, upd_path_str, doc_id.itervalues().next(), schema_name, database_name)
+            del_stmnt = delete(dbreq, schema, upd_path_str, doc_id.itervalues().next(), database_name, schema_name)
 
             tables, initial_indexes \
                 = get_tables_data_from_oplog_set_command(schema_e,
