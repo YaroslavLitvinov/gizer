@@ -9,19 +9,34 @@ DELETE_TMPLT = 'DELETE FROM {table} WHERE {conditions};'
 UPDATE_TMPLT = 'UPDATE {table} SET {statements} WHERE {conditions};'
 INSERT_TMPLT = 'INSERT INTO {table} ({columns}) VALUES({values});'
 SELECT_TMPLT = 'SELECT MAX(idx) FROM {table} WHERE {conditions};'
-UPSERT_TMLPT = """\
-LOOP
-    {update}
-    IF found THEN
-        RETURN;
-    END IF;
-    BEGIN
-        {insert}
-        RETURN;
-    EXCEPTION WHEN unique_violation THEN
-    END;
-END LOOP;
-"""
+
+# UPSERT_TMLPT = """\
+# LOOP
+#     {update}
+#     IF found THEN
+#         RETURN;
+#     END IF;
+#     BEGIN
+#         {insert}
+#         RETURN;
+#     EXCEPTION WHEN unique_violation THEN
+#     END;
+# END LOOP;
+# """
+
+UPSERT_TMLPT = 'do $$\
+    begin\
+    {update}\
+    IF FOUND THEN\
+        RETURN;\
+    END IF;\
+    BEGIN\
+        {insert}\
+        RETURN;\
+    EXCEPTION WHEN unique_violation THEN\
+    END;\
+    end\
+    $$'
 
 
 def get_field_name_without_underscore(field_name):
