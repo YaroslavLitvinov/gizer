@@ -94,6 +94,7 @@ def update (dbreq, schema_e, oplog_data, database_name, schema_name):
             for name, table in tables.iteritems():
                 rr = generate_insert_queries(table, schema_name, "", initial_indexes)
                 ins_stmnt[rr[0]] = rr[1]
+            #TODO miltiple queries in case of enclosed objects
             insert_statement_template = ins_stmnt.iterkeys().next()
             upsert_statement_template = UPSERT_TMLPT.format(update=upd_statement_template, insert=insert_statement_template)
             ins_values = list(ins_stmnt[insert_statement_template][0])
