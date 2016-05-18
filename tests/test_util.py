@@ -413,13 +413,13 @@ def sqls_to_dict(sql_dict):
             if type(sql_dict[model_item]) == dict:
                 for sql in sql_dict[model_item]:
                     r = re.compile('UPDATE (.*?)WHERE')
-                    ext_key = r.search(sql).group(1)
+                    ext_key = str.strip(r.search(sql).group(1))
                     parsed_dict[ext_key] = parse_upd({sql:sql_dict[model_item][sql]})
         if model_item == 'del':
             if type(sql_dict[model_item]) == dict:
                 for sql in sql_dict[model_item]:
                     r = re.compile('DELETE FROM(.*?)WHERE')
-                    ext_key = r.search(sql).group(1)
+                    ext_key = str.strip(r.search(sql).group(1))
                     parsed_dict[ext_key] = parse_del({sql:sql_dict[model_item][sql]})
     return parsed_dict
 
@@ -471,5 +471,3 @@ def run_tests_():
 
 if __name__ == "__main__":
     run_tests_()
-
-run_tests_()
