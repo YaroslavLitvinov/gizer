@@ -13,6 +13,7 @@ def get_schema_files(schemas_dirpath):
     for fname in os.listdir(schemas_dirpath):
         if fname.endswith('json') or fname.endswith('js'):
             res.append(fname)
+    res.sort()
     return res
         
 def get_schema_engines_as_dict(schemas_dirpath):

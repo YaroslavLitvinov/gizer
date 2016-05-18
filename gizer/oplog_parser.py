@@ -161,29 +161,40 @@ def exec_insert(dbreq, oplog_query):
 def compare_psql_and_mongo_records(dbreq, mongo_reader, schema_engine, rec_id,
                                    dst_schema_name):
     """ Return True/False. Compare actual mongo record with record's relational
-    model from operational tables.
+    model from operational tables. Comparison of non existing objects gets True.
     dbreq -- psql cursor wrapper
     mongo_reader - mongo cursor wrapper
     schema_engine -- 'SchemaEngine' object
     rec_id - record id to compare
     dst_schema_name -- psql schema name where psql tables store that record"""
     res = None
+    psql_tables_obj = load_single_rec_into_tables_obj(dbreq,
+                                                      schema_engine,
+                                                      dst_schema_name,
+                                                      rec_id)
+    mongo_tables_obj = None
     # retrieve actual mongo record and transform it to relational data
     mongo_reader.make_new_request(rec_id)
     rec = mongo_reader.next()
     if not rec:
-        res = False
+        if psql_tables_obj.is_empty():
+            # comparison of non existing objects gets True
+            res= True
+        else:
+            res = False
     else:
         mongo_tables_obj = create_tables_load_bson_data(schema_engine,
                                                         [rec])
-        psql_tables_obj = load_single_rec_into_tables_obj(dbreq,
-                                                          schema_engine,
-                                                          dst_schema_name,
-                                                          rec_id)
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         # save result of comparison
         res = compare_res
-        print "rec_id=", rec_id, "compare res=", res
+    print "rec_id=", rec_id, "compare res=", res
+    if not res:
+        print "psql_tables_obj", psql_tables_obj.tables
+        try:
+            print "mongo_tables_obj", mongo_tables_obj.tables
+        except:
+            print "mongo_tables_obj", None
     return res
 
 def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
@@ -194,15 +205,16 @@ def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
         drop = True
         create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)
 
-def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path,
+def apply_oplog_recs_after_ts(start_ts, psql, mongo_readers, oplog, schemas_path,
                               psql_schema_to_apply_ops,
                               psql_schema_initial_load):
     """ Read oplog operations starting from timestamp start_ts. Then do copy
     of records mentioned in these oplog operations, from main psql schema
     to operational psql schema. Then apply oplog operations to psql data
     and compare results with latest data directly taken from mongo db.
-    Return True if oplog operations applied succesfully, or False if
-    verification failed. This function is using OplogParser itself.
+    Return tuple (ts, True) where ts is sync point is synced and verified True,
+    or return (ts, False) if not able to sync/verify specified start_ts.
+    This function is using OplogParser itself.
     params:
     start_ts -- Timestamp of record in oplog db which should be
     applied first or next available
@@ -253,7 +265,8 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path,
     for collection_name, recs in handled_mongo_rec_ids.iteritems():
         schema_engine = parser.schema_engines[collection_name]
         for rec_id in recs:
-            equal = compare_psql_and_mongo_records(psql, mongo,
+            equal = compare_psql_and_mongo_records(psql, 
+                                                   mongo_readers[collection_name],
                                                    schema_engine,
                                                    rec_id,
                                                    psql_schema_to_apply_ops)
@@ -265,11 +278,12 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo, oplog, schemas_path,
     else:
         return (None, False)
 
-def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path,
+def sync_oplog(test_ts, dbreq, mongo_readers, oplog, schemas_path,
                psql_schema_to_apply_ops, psql_schema_initial_load):
-    """ Return True if able to locate and synchronize initially loaded data
-    with oplog data. Find syncronization point in oplog for initially 
-    loaded data. 
+    """ Find syncronization point of oplog and psql data
+    (which usually is initially loaded data.)
+    Return True if able to locate and synchronize initially loaded data
+    with oplog data, or return next ts candidate for syncing.
     start_ts -- Timestamp of oplog record to start sync tests
     dbreq -- Postgres cursor wrapper
     mongo -- Mongo cursor wrappper
@@ -282,7 +296,10 @@ def sync_oplog(test_ts, dbreq, mongo, oplog, schemas_path,
     # create/truncate psql operational tables
     # which are using during oplog tail lookup
     create_truncate_psql_objects(dbreq, schemas_path, psql_schema_to_apply_ops)
-    ts_sync = apply_oplog_recs_after_ts(test_ts, dbreq, mongo, oplog,
+    ts_sync = apply_oplog_recs_after_ts(test_ts, 
+                                        dbreq, 
+                                        mongo_readers, 
+                                        oplog,
                                         schemas_path,
                                         psql_schema_to_apply_ops,
                                         psql_schema_initial_load)
