@@ -8,6 +8,7 @@ from bson.json_util import loads
 import datetime
 import psycopg2
 from os import environ
+from test_util import sqls_to_dict
 
 
 TEST_INFO = 'TEST_OPUPDATE'
@@ -52,15 +53,11 @@ def test_update():
     tz_info = loads(oplog_tz_info)['tzinfo_obj'].tzinfo
 
     oplog_data = loads(oplog_u_01)
-    model = [
-        {'UPDATE post_comments SET body=(%s), created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);':
-                  [('comment6', d('2016-02-08T19:42:33.589Z', tz_info), '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info), '56b8da51f9fcee1b00000006', '5',)]}]
+    model = [{'do $$    begin    UPDATE post_comments SET body=(%s), created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'comment6',  d("2016-02-08T19:42:33.589Z", tz_info), '56b8efa9f9fcee1b0000000f', d("2016-02-08T19:42:33.589Z", tz_info), '56b8da51f9fcee1b00000006', u'5', u'comment6', d("2016-02-08T19:42:33.589Z", tz_info), 7, '56b8efa9f9fcee1b0000000f', '56b8da51f9fcee1b00000006', d("2016-02-08T19:42:33.589Z", tz_info), 5)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
-    model = [
-        {'UPDATE test_db.test_schema.post_comments SET body=(%s), created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);':
-                  [('comment6', d('2016-02-08T19:42:33.589Z', tz_info), '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info), '56b8da51f9fcee1b00000006', '5',)]}]
+    model = [{'do $$    begin    UPDATE test_db.test_schema.post_comments SET body=(%s), created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO test_schema."post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'comment6', d('2016-02-08T19:42:33.589Z', tz_info), '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info), '56b8da51f9fcee1b00000006', u'5', u'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', '56b8da51f9fcee1b00000006', d('2016-02-08T19:42:33.589Z', tz_info), 5)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, 'test_db', 'test_schema')
     assert result == model
 
@@ -82,18 +79,19 @@ def test_update():
     model = [
         {'DELETE FROM database.schema.post_comments WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
         {'DELETE FROM database.schema.post_comment_tests WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
-        {u'INSERT INTO "post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
+        {u'INSERT INTO schema."post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
              [(None, d("2016-02-08T19:57:56.678Z", tz_info), 7, '56b8f344f9fcee1b00000018', '56b8da59f9fcee1b00000007', d("2016-02-08T19:57:56.678Z", tz_info), 1,)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, 'database', 'schema')
     assert result == model
 
     oplog_data = loads(oplog_u_04)
-    model = [{'UPDATE post_comments SET body=(%s), created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);': [('commments2222', d('2016-02-08T19:58:06.008Z', tz_info), '56b8f34ef9fcee1b00000019', d('2016-02-08T19:58:06.008Z', tz_info), '56b8da59f9fcee1b00000007', '1',)]}]
+    model = [{'do $$    begin    UPDATE post_comments SET body=(%s), created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'commments2222', d('2016-02-08T19:58:06.008Z', tz_info), '56b8f34ef9fcee1b00000019', d('2016-02-08T19:58:06.008Z', tz_info), '56b8da59f9fcee1b00000007', u'1', u'commments2222', d('2016-02-08T19:58:06.008Z', tz_info), 7, '56b8f34ef9fcee1b00000019', '56b8da59f9fcee1b00000007', d('2016-02-08T19:58:06.008Z', tz_info), 1)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
     oplog_data = loads(oplog_u_05)
-    model = [{'UPDATE post_comments SET created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);': [(d('2016-02-08T19:58:22.847Z', tz_info), '56b8f35ef9fcee1b0000001a', d('2016-02-08T19:58:22.847Z', tz_info), '56b8da59f9fcee1b00000007', '2',)]}]
+    model = [{'do $$    begin    UPDATE post_comments SET created_at=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$':
+                  [(d('2016-02-08T19:58:22.847Z', tz_info), '56b8f35ef9fcee1b0000001a', d('2016-02-08T19:58:22.847Z', tz_info), '56b8da59f9fcee1b00000007', u'2', None, d('2016-02-08T19:58:22.847Z', tz_info), 7, '56b8f35ef9fcee1b0000001a', '56b8da59f9fcee1b00000007', d('2016-02-08T19:58:22.847Z', tz_info), 2)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
@@ -109,7 +107,6 @@ def test_update():
     assert result == model
 
     oplog_data = loads(oplog_u_07)
-    model = [{'DELETE FROM post_comments WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]}, {'INSERT INTO {table} ({columns}) VALUES({values});': []}]
     model = [
         {'DELETE FROM post_comments WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
         {'DELETE FROM post_comment_tests WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
