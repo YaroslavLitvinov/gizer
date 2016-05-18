@@ -1,0 +1,4 @@
+{
+    "id": "INT",
+    "comment": "STRING"
+}
