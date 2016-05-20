@@ -21,8 +21,8 @@ SCHEMA_NAME = 'test_schema'
 
 def database_clear(dbconnector):
     curs = dbconnector.cursor()
-    SQL_DROP_person_relatives = "DROP TABLE IF EXISTS test_schema.person_relatives;"
-    SQL_DROP_person_relative_contacts = "DROP TABLE IF EXISTS test_schema.person_relative_contacts;"
+    SQL_DROP_person_relatives = "DROP TABLE IF EXISTS "+SCHEMA_NAME+".person_relatives;"
+    SQL_DROP_person_relative_contacts = "DROP TABLE IF EXISTS "+SCHEMA_NAME+".person_relative_contacts;"
 
     curs.execute(SQL_DROP_person_relative_contacts)
     curs.execute(SQL_DROP_person_relatives)
@@ -35,10 +35,10 @@ def database_prepare():
     connector = psycopg2.connect(connstr)
 
     curs = connector.cursor()
-    database_clear(connector)
     SQL_create_schema = """CREATE SCHEMA IF NOT EXISTS %s AUTHORIZATION %s;"""
     params = (AsIs(SCHEMA_NAME), AsIs(user_str))
     curs.execute(SQL_create_schema, params)
+    database_clear(connector)
 
     #preparing test tables && records
     SQL_CREATE_person_relative_contacts = '\
