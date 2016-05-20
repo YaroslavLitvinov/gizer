@@ -6,6 +6,7 @@ import json
 import pprint
 from test_util import *
 from psycopg2.extensions import AsIs
+from psycopg2 import ProgrammingError
 
 
 
@@ -24,8 +25,11 @@ def database_clear(dbconnector):
     SQL_DROP_person_relatives = "DROP TABLE IF EXISTS "+SCHEMA_NAME+".person_relatives;"
     SQL_DROP_person_relative_contacts = "DROP TABLE IF EXISTS "+SCHEMA_NAME+".person_relative_contacts;"
 
-    curs.execute(SQL_DROP_person_relative_contacts)
-    curs.execute(SQL_DROP_person_relatives)
+    try:
+        curs.execute(SQL_DROP_person_relative_contacts)
+        curs.execute(SQL_DROP_person_relatives)
+    except:
+        pass
     dbconnector.commit()
 
 
@@ -35,9 +39,12 @@ def database_prepare():
     connector = psycopg2.connect(connstr)
 
     curs = connector.cursor()
-    SQL_create_schema = """CREATE SCHEMA IF NOT EXISTS %s AUTHORIZATION %s;"""
+    SQL_create_schema = """CREATE SCHEMA %s AUTHORIZATION %s;"""
     params = (AsIs(SCHEMA_NAME), AsIs(user_str))
-    curs.execute(SQL_create_schema, params)
+    try:
+        curs.execute(SQL_create_schema, params)
+    except ProgrammingError:
+        pass
     database_clear(connector)
 
     #preparing test tables && records
