@@ -4,7 +4,9 @@ __email__ = "vladimir.varchuk@rackspace.com"
 from gizer.opdelete import *
 import json
 import pprint
-from test_util import sqls_to_dict
+from test_util import *
+from psycopg2.extensions import AsIs
+
 
 
 """
@@ -13,6 +15,8 @@ For succesfully running tests should to be created database test_db with schema 
 """
 
 TEST_INFO = 'TEST_OPDELETE'
+SCHEMA_NAME = 'test_schema'
+
 
 
 def database_clear(dbconnector):
@@ -27,10 +31,14 @@ def database_clear(dbconnector):
 
 def database_prepare():
     connstr = environ['TEST_PSQLCONN']
+    user_str = dict(re.findall(r'(\S+)=(".*?"|\S+)', connstr))['user']
     connector = psycopg2.connect(connstr)
 
     curs = connector.cursor()
     database_clear(connector)
+    SQL_create_schema = """CREATE SCHEMA IF NOT EXISTS %s AUTHORIZATION %s;"""
+    params = (AsIs(SCHEMA_NAME), AsIs(user_str))
+    curs.execute(SQL_create_schema, params)
 
     #preparing test tables && records
     SQL_CREATE_person_relative_contacts = '\
@@ -88,10 +96,6 @@ def test_get_ids_list():
     # assert check_dict(get_ids_list(schema), model)
     print(TEST_INFO, 'get_ids_list', 'PASSED')
 
-
-def test_get_child_dict_item():
-    print(TEST_INFO, 'get_child_dict_item', 'Not finished yet')
-    # print(TEST_INFO, 'get_child_dict_item', 'PASSED')
 
 
 def test_get_tables_list():
@@ -235,8 +239,9 @@ def test_get_where_templates():
 
 
 def test_gen_statements():
-    db_name = 'test_db'
-    schema_name = 'test_schema.'
+    connstr = environ['TEST_PSQLCONN']
+    db_name = dict(re.findall(r'(\S+)=(".*?"|\S+)', connstr))['dbname']
+    schema_name = SCHEMA_NAME+'.'
     dbreq = database_prepare()
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
@@ -261,7 +266,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, 'test_schema')
+    result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
     model = {
         'upd': {},
         'del': {
@@ -282,7 +287,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, 'test_schema')
+    result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
     model = {
         'upd': {
             'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=6 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
@@ -315,7 +320,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, 'test_schema')
+    result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
     model = {
         'upd': {
             'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=6 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
@@ -348,7 +353,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, 'test_schema')
+    result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
     model = {'upd': {
         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=6 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
             '0123456789ABCDEF', '7'],
@@ -449,7 +454,6 @@ def UPDATE_compatator(model_upd, result_upd):
 
 def run_tests():
     test_get_ids_list()
-    test_get_child_dict_item()
     test_get_tables_list()
     test_get_conditions_list()
     test_get_where_templates()
