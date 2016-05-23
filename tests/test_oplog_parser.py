@@ -55,8 +55,15 @@ def check_oplog_sync(oplog_test):
     schema_engines = get_schema_engines_as_dict(schemas_path)
     oplog_reader = oplog_reader_mock(oplog_test.oplog)
 
+    create_truncate_psql_objects(dbreq, schemas_path, psql_schema_to_apply_ops)
+    dbreq.cursor.execute('COMMIT')
+    for name, mongo_data_path in oplog_test.before.iteritems():
+        load_mongo_data_to_psql(schema_engines[name],
+                                mongo_data_path,
+                                dbreq, psql_schema_to_apply_ops)
     # do initial load into main schema (not operational)
     create_truncate_psql_objects(dbreq, schemas_path, psql_schema_initial_load)
+    dbreq.cursor.execute('COMMIT')
     for name, mongo_data_path in oplog_test.before.iteritems():
         load_mongo_data_to_psql(schema_engines[name],
                                 mongo_data_path,
@@ -70,7 +77,7 @@ def check_oplog_sync(oplog_test):
     # initially loaded psql data;
     # None - means oplog records should be tested starting from beginning
     oplog_ts_to_test = oplog_test.ts
-    sync_res = sync_oplog(oplog_ts_to_test, 
+    sync_res = sync_oplog(oplog_ts_to_test,
                           dbreq, 
                           mongo_readers_after, 
                           oplog_reader,
@@ -92,8 +99,9 @@ def check_oplog_sync(oplog_test):
     return sync_res
 
 def test_oplog_sync():
+
     oplog_test1 \
-        = OplogTest(None, 
+        = OplogTest(None,
                     {'posts': 'test_data/oplog1/before_collection_posts.js',
                      'guests': 'test_data/oplog1/before_collection_guests.js'},
                     'test_data/oplog1/oplog.js',
@@ -101,6 +109,28 @@ def test_oplog_sync():
                      'guests': 'test_data/oplog1/after_collection_guests.js'})
     res = check_oplog_sync(oplog_test1)
     assert(res == True)
+
+    oplog_test2 \
+        = OplogTest('6249008760904220673',
+                    {'posts': 'test_data/oplog2/before_collection_posts.js',
+                     'guests': 'test_data/oplog2/before_collection_guests.js'},
+                    'test_data/oplog2/oplog.js',
+                    {'posts': 'test_data/oplog2/after_collection_posts.js',
+                     'guests': 'test_data/oplog2/after_collection_guests.js'})
+    res = check_oplog_sync(oplog_test2)
+    assert(res == True)
+
+
+    # oplog_test2 \
+    #     = OplogTest('6249012068029138000',
+    #                 {'posts': 'test_data/oplog2/before_collection_posts.js',
+    #                  'guests': 'test_data/oplog2/before_collection_guests.js'},
+    #                 'test_data/oplog2/oplog.js',
+    #                 {'posts': 'test_data/oplog2/after_collection_posts.js',
+    #                  'guests': 'test_data/oplog2/after_collection_guests.js'})
+    # res = check_oplog_sync(oplog_test2)
+    # assert(res == True)
+
     # temporarily disabled tests
     #res = check_oplog_sync('6249008760904220673')
     #assert(res == True)
