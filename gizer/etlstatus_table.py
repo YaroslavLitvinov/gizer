@@ -16,7 +16,7 @@ from datetime import datetime
 
 STATUS_INITIAL_LOAD = 0
 STATUS_OPLOG_SYNC = 1
-STATUS_OPLOG_USE = 2
+STATUS_OPLOG_APPLY = 2
 
 class PsqlEtlStatusTable:
     Status = namedtuple('Status', ['comment', 'time_start', 'time_end',
@@ -85,7 +85,8 @@ desc limit 1;'
 
     def update_latest(self, time_end, ts, error):
         """ time_end, ts, error """
-        fmt1 = 'UPDATE {schema}qmetlstatus SET {values} WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
+        fmt1 = 'UPDATE {schema}qmetlstatus SET {values} \
+WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
         values = ''
         values = self.add_update_arg(values, 'time_end', time_end)
         values = self.add_update_arg(values, 'ts', ts)
@@ -121,16 +122,15 @@ class PsqlEtlStatusTableManager:
         status = PsqlEtlStatusTable.Status(comment='oplog sync',
                                            time_start=datetime.now(),
                                            time_end=None,
-                                           ts=ts,
+                                           ts=ts_candidate,
                                            status=STATUS_OPLOG_SYNC,
                                            error = None)
         self.status_table.save_new(status)
 
     def oplog_sync_finish(self, ts, is_error):
-        if error:
-            # do not update ts on error
-            ts = None
-        update_latest(self, time_end=datetime.now(), ts=ts, error=is_error)
+        self.status_table.update_latest(time_end=datetime.now(),
+                                        ts=ts,
+                                        error=is_error)
 
     def oplog_use_start(self, ts_latest_synced):
         """ ts_latest_synced -- lates succesfully handled ts """
@@ -138,11 +138,13 @@ class PsqlEtlStatusTableManager:
                                            time_start=datetime.now(),
                                            time_end=None,
                                            ts=ts_latest_synced,
-                                           status=STATUS_OPLOG_USE,
+                                           status=STATUS_OPLOG_APPLY,
                                            error = None)
         self.status_table.save_new(status)
 
     def oplog_use_finish(self, ts, is_error):
         # on error ts must be specified, on which fail is occured
-        update_latest(self, time_end=datetime.now(), ts=ts, error=is_error)
+        self.status_table.update_latest(time_end=datetime.now(), 
+                                        ts=ts, 
+                                        error=is_error)
 
