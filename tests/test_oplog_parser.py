@@ -10,7 +10,9 @@ from collections import namedtuple
 from gizer.psql_requests import PsqlRequests
 from gizer.oplog_parser import create_truncate_psql_objects
 from gizer.oplog_parser import sync_oplog
+from gizer.oplog_parser import do_oplog_sync
 from gizer.oplog_parser import compare_psql_and_mongo_records
+from gizer.oplog_parser import EMPTY_TS
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.psql_objects import insert_tables_data_into_dst_psql
 from mongo_schema.schema_engine import create_tables_load_file
@@ -65,31 +67,37 @@ def check_oplog_sync(oplog_test):
     mongo_readers_after = {}
     for name, mongo_data_path in oplog_test.after.iteritems():
         mongo_readers_after[name] = mongo_reader_mock(mongo_data_path)
-    # oplog_ts_to_test is timestamp starting from which oplog records
-    # should be applied to psql tables to locate ts which corresponds to
-    # initially loaded psql data;
-    # None - means oplog records should be tested starting from beginning
-    oplog_ts_to_test = oplog_test.ts
-    sync_res = sync_oplog(oplog_ts_to_test, 
-                          dbreq, 
-                          mongo_readers_after, 
-                          oplog_reader,
-                          schemas_path, 
-                          psql_schema_to_apply_ops,
-                          psql_schema_initial_load)
-    while True:
-        if sync_res is False or sync_res is True:
-            break
-        else:
-            oplog_ts_to_test = sync_res
-        sync_res = sync_oplog(oplog_ts_to_test, 
-                              dbreq, 
-                              mongo_readers_after,
-                              oplog_reader, 
-                              schemas_path,
-                              psql_schema_to_apply_ops,
-                              psql_schema_initial_load)
-    return sync_res
+
+    return do_oplog_sync(oplog_test.ts, dbreq, 
+                  psql_schema_to_apply_ops, 
+                  psql_schema_initial_load,
+                  oplog_reader, mongo_readers_after, schemas_path)
+
+    # # oplog_ts_to_test is timestamp starting from which oplog records
+    # # should be applied to psql tables to locate ts which corresponds to
+    # # initially loaded psql data;
+    # # None - means oplog records should be tested starting from beginning
+    # oplog_ts_to_test = oplog_test.ts
+    # sync_res = sync_oplog(oplog_ts_to_test, 
+    #                       dbreq, 
+    #                       mongo_readers_after, 
+    #                       oplog_reader,
+    #                       schemas_path, 
+    #                       psql_schema_to_apply_ops,
+    #                       psql_schema_initial_load)
+    # while True:
+    #     if sync_res is False or sync_res is True:
+    #         break
+    #     else:
+    #         oplog_ts_to_test = sync_res
+    #     sync_res = sync_oplog(oplog_ts_to_test, 
+    #                           dbreq, 
+    #                           mongo_readers_after,
+    #                           oplog_reader, 
+    #                           schemas_path,
+    #                           psql_schema_to_apply_ops,
+    #                           psql_schema_initial_load)
+    # return sync_res
 
 def test_oplog_sync():
     oplog_test1 \
