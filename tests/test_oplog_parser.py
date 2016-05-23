@@ -46,7 +46,7 @@ def load_mongo_data_to_psql(schema_engine, mongo_data_path, psql, psql_schema):
     insert_tables_data_into_dst_psql(psql, tables, psql_schema, '')
     psql.cursor.execute('COMMIT')
 
-def check_oplog_sync(oplog_test):
+def check_oplog_sync_point(oplog_test):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
@@ -57,8 +57,15 @@ def check_oplog_sync(oplog_test):
     schema_engines = get_schema_engines_as_dict(schemas_path)
     oplog_reader = oplog_reader_mock(oplog_test.oplog)
 
+    create_truncate_psql_objects(dbreq, schemas_path, psql_schema_to_apply_ops)
+    dbreq.cursor.execute('COMMIT')
+    for name, mongo_data_path in oplog_test.before.iteritems():
+        load_mongo_data_to_psql(schema_engines[name],
+                                mongo_data_path,
+                                dbreq, psql_schema_to_apply_ops)
     # do initial load into main schema (not operational)
     create_truncate_psql_objects(dbreq, schemas_path, psql_schema_initial_load)
+    dbreq.cursor.execute('COMMIT')
     for name, mongo_data_path in oplog_test.before.iteritems():
         load_mongo_data_to_psql(schema_engines[name],
                                 mongo_data_path,
@@ -68,51 +75,52 @@ def check_oplog_sync(oplog_test):
     for name, mongo_data_path in oplog_test.after.iteritems():
         mongo_readers_after[name] = mongo_reader_mock(mongo_data_path)
 
-    return do_oplog_sync(oplog_test.ts, dbreq, 
-                  psql_schema_to_apply_ops, 
-                  psql_schema_initial_load,
-                  oplog_reader, mongo_readers_after, schemas_path)
-
-    # # oplog_ts_to_test is timestamp starting from which oplog records
-    # # should be applied to psql tables to locate ts which corresponds to
-    # # initially loaded psql data;
-    # # None - means oplog records should be tested starting from beginning
-    # oplog_ts_to_test = oplog_test.ts
-    # sync_res = sync_oplog(oplog_ts_to_test, 
-    #                       dbreq, 
-    #                       mongo_readers_after, 
-    #                       oplog_reader,
-    #                       schemas_path, 
-    #                       psql_schema_to_apply_ops,
-    #                       psql_schema_initial_load)
-    # while True:
-    #     if sync_res is False or sync_res is True:
-    #         break
-    #     else:
-    #         oplog_ts_to_test = sync_res
-    #     sync_res = sync_oplog(oplog_ts_to_test, 
-    #                           dbreq, 
-    #                           mongo_readers_after,
-    #                           oplog_reader, 
-    #                           schemas_path,
-    #                           psql_schema_to_apply_ops,
-    #                           psql_schema_initial_load)
-    # return sync_res
+    res = do_oplog_sync(oplog_test.ts, dbreq, 
+                        psql_schema_to_apply_ops, 
+                        psql_schema_initial_load,
+                        oplog_reader, mongo_readers_after, schemas_path)
+    if res:
+        return True
+    else:
+        return False
 
 def test_oplog_sync():
+
     oplog_test1 \
-        = OplogTest(None, 
+        = OplogTest(None,
                     {'posts': 'test_data/oplog1/before_collection_posts.js',
                      'guests': 'test_data/oplog1/before_collection_guests.js'},
                     'test_data/oplog1/oplog.js',
                     {'posts': 'test_data/oplog1/after_collection_posts.js',
                      'guests': 'test_data/oplog1/after_collection_guests.js'})
-    res = check_oplog_sync(oplog_test1)
+    res = check_oplog_sync_point(oplog_test1)
     assert(res == True)
+
+    oplog_test2 \
+        = OplogTest('6249008760904220673',
+                    {'posts': 'test_data/oplog2/before_collection_posts.js',
+                     'guests': 'test_data/oplog2/before_collection_guests.js'},
+                    'test_data/oplog2/oplog.js',
+                    {'posts': 'test_data/oplog2/after_collection_posts.js',
+                     'guests': 'test_data/oplog2/after_collection_guests.js'})
+    res = check_oplog_sync_point(oplog_test2)
+    assert(res == True)
+
+
+    # oplog_test2 \
+    #     = OplogTest('6249012068029138000',
+    #                 {'posts': 'test_data/oplog2/before_collection_posts.js',
+    #                  'guests': 'test_data/oplog2/before_collection_guests.js'},
+    #                 'test_data/oplog2/oplog.js',
+    #                 {'posts': 'test_data/oplog2/after_collection_posts.js',
+    #                  'guests': 'test_data/oplog2/after_collection_guests.js'})
+    # res = check_oplog_sync_point(oplog_test2)
+    # assert(res == True)
+
     # temporarily disabled tests
-    #res = check_oplog_sync('6249008760904220673')
+    #res = check_oplog_sync_point('6249008760904220673')
     #assert(res == True)
-    #res = check_oplog_sync('6249012068029138000')
+    #res = check_oplog_sync_point('6249012068029138000')
     #assert(res == False)
 
 def test_compare_empty_compare_psql_and_mongo_records():

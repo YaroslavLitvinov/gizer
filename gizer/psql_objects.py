@@ -80,7 +80,11 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
             print "insert", table_name
             dst_dbreq.cursor.execute(insert_query[0],
                                      insert_data)
-    # commit 
+            if '56b8f05cf9fcee1b00000010' in insert_data:
+                dst_dbreq.cursor.execute('select * from operational.posts')
+                print(dst_dbreq.cursor.fetchall())
+                print(insert_query[0], insert_data)
+    # commit
     dst_dbreq.cursor.execute('COMMIT')
 
 

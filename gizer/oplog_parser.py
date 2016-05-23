@@ -160,6 +160,10 @@ def exec_insert(dbreq, oplog_query):
     fmt_string = query[0]
     for sqlparams in query[1]:
         dbreq.cursor.execute(fmt_string, sqlparams)
+        # if '56b8f05cf9fcee1b00000010' in sqlparams:
+        #     print(fmt_string, sqlparams)
+        #     dbreq.cursor.execute("SELECT * FROM operational.posts")
+        #     print (dbreq.cursor.fetchall())
 
 def compare_psql_and_mongo_records(dbreq, mongo_reader, schema_engine, rec_id,
                                    dst_schema_name):
@@ -207,6 +211,7 @@ def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
         tables_obj = create_tables_load_bson_data(schema, None)
         drop = True
         create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)
+        dbreq.cursor.execute("COMMIT")
 
 def apply_oplog_recs_after_ts(start_ts, psql, mongo_readers, oplog, schemas_path,
                               psql_schema_to_apply_ops,
@@ -236,6 +241,9 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo_readers, oplog, schemas_path
     if psql_schema_initial_load is None:
         callback_before = None
     else:
+        # fix bug when OplogParser creating multiple times at one session
+        if hasattr(cb_before, "ids"):
+            cb_before.ids = []
         callback_before = cb_before
     # create oplog parser
     parser = OplogParser(oplog, start_ts, schemas_path, \
@@ -371,7 +379,7 @@ def do_oplog_sync(ts, psql, psql_tmp_schema, psql_schema,
                               psql_schema_initial_load)
     if sync_res:
         # if oplog sync point is located at None, 
-        # so all TSs must be applied starting from first ever
+        # so all oplog ops must be applied starting from first ever ts
         if not oplog_ts_to_test:
             return True;
         else:
