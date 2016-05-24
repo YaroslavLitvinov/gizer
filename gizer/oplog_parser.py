@@ -260,18 +260,17 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo_readers, oplog, schemas_path
     oplog_queries = parser.next()
     while oplog_queries != None:
         for oplog_query in oplog_queries:
-            if oplog_query.op == "u":
+            if oplog_query.op == "u" or \
+               oplog_query.op == "d" or \
+               oplog_query.op == "i" or oplog_query.op == "ui":
+                # add rec_id only if query executed
                 exec_insert(psql, oplog_query)
-            elif oplog_query.op == "d":
-                exec_insert(psql, oplog_query)
-            elif oplog_query.op == "i" or oplog_query.op == "ui":
-                exec_insert(psql, oplog_query)
-        collection_name = parser.item_info.schema_name
-        rec_id = parser.item_info.rec_id
-        if collection_name not in handled_mongo_rec_ids:
-            handled_mongo_rec_ids[collection_name] = []
-        if rec_id not in handled_mongo_rec_ids[collection_name]:
-            handled_mongo_rec_ids[collection_name].append(rec_id)
+                collection_name = parser.item_info.schema_name
+                rec_id = parser.item_info.rec_id
+                if collection_name not in handled_mongo_rec_ids:
+                    handled_mongo_rec_ids[collection_name] = []
+                if rec_id not in handled_mongo_rec_ids[collection_name]:
+                    handled_mongo_rec_ids[collection_name].append(rec_id)
         oplog_queries = parser.next()
     sync_res = True
     # compare mongo data & psql data after oplog records applied
