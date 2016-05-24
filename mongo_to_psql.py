@@ -17,11 +17,11 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 from os import system
-import configparser
 import psycopg2
+import argparse
+import configparser
 from collections import namedtuple
 from mongo_reader.reader import MongoReader
-from gizerp.psql_requests import PsqlRequests
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.etlstatus_table import STATUS_INITIAL_LOAD
 from gizer.etlstatus_table import STATUS_OPLOG_SYNC
@@ -30,30 +30,75 @@ from gizer.etlstatus_table import PsqlEtlStatusTable
 from gizer.etlstatus_table import PsqlEtlStatusTableManager
 from gizer.oplog_sync import do_oplog_sync
 from gizer.oplog_parser import apply_oplog_recs_after_ts
+from gizer.psql_requests import PsqlRequests
+
+MongoSettings = namedtuple('MongoSettings',
+                           ['ssl', 'host', 'port', 'dbname',
+                            'user', 'passw'])
+PsqlSettings = namedtuple('PsqlSettings',
+                          ['host', 'port', 'dbname',
+                           'user', 'passw', 
+                           'schema', 'operational_schema'])
+
+
+class SectionKey:
+    def __init__(self, section_name):
+        self.section_name = section_name
+    def key(self, base_key_name):
+        return "%s-%s" % (self.section_name, base_key_name)
+
+def sectkey(section_name, base_key_name):
+    """ Return key config value. Key name in file must be concatenation 
+    of both params divided by hyphen """
+    return "%s-%s".format(section_name, base_key_name)
+
+def mongo_settings_from_config(config, section_name):
+    mongo = SectionKey(section_name)
+    conf = config[section_name]
+    return MongoSettings(ssl=conf[mongo.key('ssl')],
+                         host=conf[mongo.key('host')],
+                         port=conf[mongo.key('port')],
+                         dbname=conf[mongo.key('dbname')],
+                         user=conf[mongo.key('user')],
+                         passw=conf[mongo.key('pass')])
+
+def psql_settings_from_config(config, section_name):
+    psql = SectionKey(section_name)
+    conf = config[section_name]
+    return PsqlSettings(host=conf[psql.key('host')],
+                        port=conf[psql.key('port')],
+                        dbname=conf[psql.key('dbname')],
+                        user=conf[psql.key('user')],
+                        passw=conf[psql.key('pass')],
+                        schema=conf[psql.key('schema-name')],
+                        operational_schema\
+                        =conf[psql.key('operational-schema-name')])
+
+def psql_conn(settings):
+    psql_fmt = "host={host} port={port} "
+    psql_fmt += "dbname={dbname} user={user} password={passw}"
+    psql_str = psql_fmt.format(host=settings.host,
+                               port=settings.port,
+                               dbname=settings.dbname,
+                               user=settings.user,
+                               passw=settings.passw)
+    return psycopg2.connect()
+
+
+def mongo_reader(settings, collection_name, request):
+    return MongoReader(settings.ssl,
+                       settings.host,
+                       settings.port,
+                       settings.dbname,
+                       collection_name,
+                       settings.user,
+                       settings.passw,
+                       request)
 
 def getargs():
     """ get args from cmdline """
     default_request = '{}'
     parser = argparse.ArgumentParser()
-
-    parser.add_argument("--schemas_path", action="store",
-                        help="Path with js schemas of mongodb",
-                        required=True)
-    parser.add_argument("-js-request",
-                        help='Mongo db search request in json format. \
-default=%s' % (default_request),
-                        type=str)
-    parser.add_argument("-psql-schema-name", help="", type=str)
-    parser.add_argument("-psql-table-name-prefix", help="", type=str)
-    parser.add_argument("--ddl-statements-file",
-                        help="File to save create table statements",
-                        type=argparse.FileType('w'), required=True)
-    parser.add_argument("-stats-file",
-                        help="File to write written record counts",
-                        type=argparse.FileType('w'))
-    parser.add_argument("--csv-path",
-                        help="base path for results",
-                        type=str, required=True)
 
     args = parser.parse_args()
     if args.js_request is None:
@@ -62,88 +107,33 @@ default=%s' % (default_request),
     return args
 
 
-class SectionKey:
-    def __init__(self, section_name):
-        self.section_name = section_name
-    def key(self, base_key_name):
-        return "%s-%s".format(self.section_name, base_key_name)
-
-def sectkey(section_name, base_key_name):
-    """ Return key config value. Key name in file must be concatenation 
-    of both params divided by hyphen """
-    return "%s-%s".format(section_name, base_key_name)
-
-def mongo_config(config, section_name):
-    mongo = SectionKey(section_name)
-    mongo_config = config[section_name]
-    psql_str = psql_fmt.format(host=conf[psql.key('host')],
-                               port=conf[psql.key('port')],
-                               dbname=conf[psql.key('dbname')],
-                               user=conf[psql.key('user')],
-                               pass=conf[psql.key('pass')])
-
-
-def psql_conn(config, section_name):
-    conf = config[self.section_name]
-    psql = SectionKey(section_name)
-    psql_fmt = "host={host} port={port} "
-    psql_fmt += "dbname={dbanme} user={user} password={pass}"
-    psql_str = psql_fmt.format(host=conf[psql.key('host')],
-                               port=conf[psql.key('port')],
-                               dbname=conf[psql.key('dbname')],
-                               user=conf[psql.key('user')],
-                               pass=conf[psql.key('pass')])
-    conn = psycopg2.connect()
-
-def mongo_reader(config, section_name, collection_name, request):
-    conf = config[section_name]
-    mongo = SectionKey(section_name)
-    return MongoReader(conf.getboolean(mongo.key('ssl')),
-                       conf[mongo.key('host')],
-                       conf[mongo.key('port')],
-                       mongo['mongo-dbname'],
-                       collection_name,
-                       conf[mongo.key('user')],
-                       conf[mongo.key('pass')],
-                       request)
-    
-
-def run_initial_load(config, collection_name):
-    conf = config[section_name]
-    mongo = SectionKey(section_name)
-    fmt = 'python mongo_reader.py --host {host} -cn {dbname}.{collection_name} -user {user} -passw {pass} -ifs {schema_file}.json -psql-schema-name {schema_name} --ddl-statements-file {collection_name}.sql --csv-path {tmp_dir} -psql-table-name-prefix 2016_04_11_ -stats-file quotes.stat'
-    cmd = fmt.format(host=conf[mongo.key('host')],
-                     dbname=conf[mongo.key('dbname')],
-                     collection_name=collection_name,
-                     user=conf[mongo.key('user')],
-                     pass=conf[mongo.key('pass')],
-                     schema_file={schemas-dir}/{collection_name}
-                     schema_name=os.path.join(config['misc']['schemas-dir'],
-                                              collection_name),
-                     tmp_dir=config['misc']['tmp-dir'],
-                     
-                      
-            ))
-    if conf[mongo.key('ssl')].getboolean():
-        cmd += ' --ssl'
-
 def main():
     """ main """
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config-file", action="store",
+                        help="Config file with settings",
+                        type=file, required=True)
+    args = parser.parse_args()
+    
     config = configparser.ConfigParser()
-    config.read_file(open('config.ini'))
+    config.read_file(args.config_file)
 
-    args = getargs()
+    #parser = argparse.ArgumentParser()
+    mongo_settings = mongo_settings_from_config(config, 'mongo')
+    psql_settings = psql_settings_from_config(config, 'psql')
+    tmp_psql_settings = psql_settings_from_config(config, 'tmp-psql')
 
     mongo_readers = {}
-    schema_engines = get_schema_engines_as_dict(args.schemas_path)
+    schema_engines = get_schema_engines_as_dict(config['misc']['schemas-dir'])
     for collection_name in schema_engines:
-        reader = mongo_reader(config, 'mongo', collection_name, '{}')
+        reader = mongo_reader(mongo_settings, collection_name, '{}')
         mongo_readers[collection_name] = reader
-    oplog_reader = mongo_reader(config, 'mongo', 'oplog.rs', '{}')
+    oplog_reader = mongo_reader(mongo_settings, 'oplog.rs', '{}')
 
-    psql_main = PsqlRequests(psql_conn(config, 'psql'))
-    psql_op = PsqlRequests(psql_conn(config, 'operational-psql'))
+    print psql_settings
+    psql_main = PsqlRequests(psql_conn(psql_settings))
+    psql_op = PsqlRequests(psql_conn(tmp_psql_settings))
 
     status_table = PsqlEtlTable(psql_main.cursor, 
                                 config['psql']['psql-schema-name'])
@@ -157,7 +147,9 @@ def main():
     if status:
         if status.status == STATUS_INITIAL_LOAD \
            and status.time_end and not status.error:
-            # intial load done, now do oplog sync
+            # intial load done, now do oplog sync, in this stage will be used
+            # temporary psql instance as result of operation is not a data
+            # commited to DB, but only single timestamp from oplog.
             # save oplog sync status
             status_manager.oplog_sync_start(status.ts)
             ts = do_oplog_sync(status.ts, psql_op, tmp_schema, main_schema,
@@ -169,10 +161,10 @@ def main():
                 status_manager.oplog_sync_finish(None, True)
                 res = -1
 
-        elif (status.status == STATUS_OPLOG_SYNC \
-              or status.status == STATUS_OPLOG_USE) \
-            and status.time_end and not status.error)):
-            # sync done, now do oplog pacthes apply
+        elif (status.status == STATUS_OPLOG_SYNC or \
+              status.status == STATUS_OPLOG_USE) \
+            and status.time_end and not status.error:
+            # sync done, now apply oplog pacthes to main psql
             # save oplog sync status
             status_manager.oplog_use_start(status.ts)
             ts_res = apply_oplog_recs_after_ts(status.ts, 
@@ -192,15 +184,5 @@ def main():
 
     return res
 
-    elif status and status.status == STATUS_INITIAL_LOAD:
-        # it's can't use oplog as initial load is not performed
-        # ts was saved previously, so already prepared to start initial load
-        return -1
-    else:
-        # it's can't use oplog as initial load is not performed
-        # and ts was not saved yet (step just before initial load)
-        status = PsqlEtlTable.Status()
-        status_table.save_status(status)
-        return -1
 if __name__ == "__main__":
     main()
