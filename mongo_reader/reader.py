@@ -11,6 +11,16 @@ from pymongo.cursor import CursorType
 def message(mes, cr='\n'):
     sys.stderr.write(mes + cr)
 
+def mongo_reader_from_settings(settings, collection_name, request):
+    return MongoReader(settings.ssl,
+                       settings.host,
+                       settings.port,
+                       settings.dbname,
+                       collection_name,
+                       settings.user,
+                       settings.passw,
+                       request)
+
 class MongoReader:
 
     def __init__(self, ssl, host, port, dbname, collection,
