@@ -75,23 +75,23 @@ def main():
     mongo_readers = {}
     schema_engines = get_schema_engines_as_dict(config['misc']['schemas-dir'])
     for collection_name in schema_engines:
-        reader = mongo_reader(mongo_settings, collection_name, '{}')
+        reader = mongo_reader_from_settings(mongo_settings, collection_name, '{}')
         mongo_readers[collection_name] = reader
-    oplog_reader = mongo_reader(mongo_settings, 'oplog.rs', '{}')
+    oplog_reader = mongo_reader_from_settings(mongo_settings, 'oplog.rs', '{}')
 
     print psql_settings
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_op = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 
-    status_table = PsqlEtlTable(psql_main.cursor, 
-                                config['psql']['psql-schema-name'])
+    status_table = PsqlEtlStatusTable(psql_main.cursor, 
+                                      config['psql']['psql-schema-name'])
     status_manager = PsqlEtlStatusTableManager(status_table)
 
-    tmp_schema = config['operational-psql']['operational-psql-schema']
-    main_schema = config['psql']['psql-schema']
+    tmp_schema = config['tmp-psql']['tmp-psql-operational-schema-name']
+    main_schema = config['psql']['psql-schema-name']
     
     res = 0
-    status = status_table.get_recent_status()
+    status = status_table.get_recent()
     if status:
         if status.status == STATUS_INITIAL_LOAD \
            and status.time_end and not status.error:
@@ -129,6 +129,9 @@ def main():
             # initial load is not performed 
             # or not time_end for any other state, or error, do exit
             res = -1
+    else:
+        # initial load is not performed 
+        res = -1
 
     return res
 
