@@ -48,6 +48,7 @@ def update (dbreq, schema_e, oplog_data, database_name, schema_name):
     ins_stmnt = {}
     del_stmnt = {}
     upd_stmnt = {}
+    tables_mappings = get_tables_structure(schema,root_table_name,{},{},'')
     if not updating_obj[-1].isdigit():
         # update array object.In that case we need to use two combine of two operations
         # delete old array (all elements linked to parent record) and insert new one (all elements listed in oplog query)
@@ -65,7 +66,11 @@ def update (dbreq, schema_e, oplog_data, database_name, schema_name):
         else:
             #update root object just simple update needed
             id_column = doc_id.iterkeys().next()
-            q_columns = get_query_columns_with_nested(schema, u_data, '', {})
+            unfiltered_q_columns = get_query_columns_with_nested(schema, u_data, '', {})
+            q_columns = {}
+            for column in unfiltered_q_columns:
+                if column in tables_mappings[root_table_name].keys():
+                    q_columns[column] = unfiltered_q_columns[column]
             q_statements_list = [ ('{column}=(%s)' if not get_quotes_using(schema,root_table_name,col,root_table_name) else '{column}=(%s)').format(column=col) for col in q_columns]
             q_conditions = ('{column}=(%s)' if not get_quotes_using(schema,root_table_name,id_column,root_table_name) else '{column}=(%s)').format(column = id_column)
             upd_statement_template = UPDATE_TMPLT.format( table = get_table_name_schema([database_name, schema_name,  root_table_name]), statements = ', '.join(q_statements_list), conditions = q_conditions)

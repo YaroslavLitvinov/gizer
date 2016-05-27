@@ -40,9 +40,9 @@
     "$set": {
       "comments": [
         {
-			"_id": { "$oid": "56b8f344f9fcee1b00000018" },
-        	"updated_at": {"$date": "2016-02-08T19:57:56.678Z"},
-		  	"created_at": {"$date": "2016-02-08T19:57:56.678Z"}
+          "_id": { "$oid": "56b8f344f9fcee1b00000018" },
+          "updated_at": {"$date": "2016-02-08T19:57:56.678Z"},
+	 	  "created_at": {"$date": "2016-02-08T19:57:56.678Z"}
         },
         {
         }
@@ -63,6 +63,22 @@
   "o": {
     "$set": {
 	"comments.2.tests.1": 101
+    }
+  }
+},
+{
+  "ts": "6249012828238249986",
+  "t": 2,
+  "h": "8307152860560417908",
+  "v": 2,
+  "op": "u",
+  "ns": "rails4_mongoid_development.posts2",
+  "o2": {
+    "_id": { "$oid": "56b8f05cf9fcee1b00001111" }
+  },
+  "o": {
+    "$set": {
+	"body": "body4"
     }
   }
 },
@@ -218,6 +234,90 @@
     "$set": {
       "title": "sada",
       "updated_at": { "$date" : "2016-02-08T20:02:12.985Z"}
+    }
+  }
+},
+{
+  "ts": "6249013055871516674",
+  "t": 2,
+  "h": "-3907160829967975359",
+  "v": 2,
+  "op": "u",
+  "ns": "rails4_mongoid_development.rated_posts",
+  "o2": {
+    "_id": { "$oid": "56b8f05cf9fcee1b00001000" }
+  },
+  "o": {
+    "$set": {
+	    "title": "The Gaslo!",
+	    "updated_at": { "$date" : "2016-02-08T21:01:00.985Z"}
+    }
+  }
+},
+{
+  "ts": "6249013055871516675",
+  "t": 2,
+  "h": "-3907160829967975359",
+  "v": 2,
+  "op": "u",
+  "ns": "rails4_mongoid_development.rated_posts",
+  "o2": {"_id": { "$oid": "56b8f05cf9fcee1b00001000" } },
+  "o": {
+    "$set": {
+	    "comments": [
+			{
+				"_id": { "$oid": "56b8f05cf9fcee1b00002000" },
+				"user_id" : "56b8d7caf9fcee1b00000002",
+		        "body": "Good post!",
+			    "updated_at": { "$date" : "2016-02-08T21:00:00.985Z"},
+			    "created_at": { "$date" : "2016-02-08T21:00:00.985Z"},
+		        "tests" : [ 1,2,3 ],
+				"rates" : [
+					{
+						"_id": { "$oid": "56b8f05cf9fcee1b00003000" ,"bsontype": 3},
+						"user_id" : "56b8d7caf9fcee1b00000003",
+						"rate" : 10,
+					    "updated_at": { "$date" : "2016-02-08T21:00:00.985Z"},
+					    "created_at": { "$date" : "2016-02-08T21:00:00.985Z"}
+					}
+				]
+    		},
+			{
+				"_id": { "$oid": "56b8f05cf9fcee1b00002001" },
+				"user_id" : "56b8d7caf9fcee1b00000004",
+		        "body": "Glory for Heroes!",
+			    "updated_at": { "$date" : "2016-02-08T21:02:00.985Z"},
+			    "created_at": { "$date" : "2016-02-08T21:02:00.985Z"},
+		        "tests" : [ 1,2,3 ],
+				"additional_filed":"OTAKE!",
+				"rates" : [
+					{
+						"_id": { "$oid": "56b8f05cf9fcee1b00003000" ,"bsontype": 3},
+						"user_id" : "56b8d7caf9fcee1b00000004",
+						"rate" : 100,
+					    "updated_at": { "$date" : "2016-02-08T21:00:00.985Z"},
+					    "created_at": { "$date" : "2016-02-08T21:00:00.985Z"}
+					}
+				]
+	    	}
+		]
+    }
+  }
+},
+{
+  "ts": "6249013055871516676",
+  "t": 2,
+  "h": "-3907160829967975359",
+  "v": 2,
+  "op": "u",
+  "ns": "rails4_mongoid_development.rated_posts",
+  "o2": {
+    "_id": { "$oid": "56b8f05cf9fcee1b00001000" }
+  },
+  "o": {
+    "$set": {
+		"additional_field":"OTAKE!",
+	    "updated_at": { "$date" : "2016-02-08T21:01:00.985Z"}
     }
   }
 }
