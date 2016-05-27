@@ -289,6 +289,7 @@
 			    "updated_at": { "$date" : "2016-02-08T21:02:00.985Z"},
 			    "created_at": { "$date" : "2016-02-08T21:02:00.985Z"},
 		        "tests" : [ 1,2,3 ],
+				"additional_filed":"OTAKE!",
 				"rates" : [
 					{
 						"_id": { "$oid": "56b8f05cf9fcee1b00003000" ,"bsontype": 3},
@@ -300,6 +301,23 @@
 				]
 	    	}
 		]
+    }
+  }
+},
+{
+  "ts": "6249013055871516676",
+  "t": 2,
+  "h": "-3907160829967975359",
+  "v": 2,
+  "op": "u",
+  "ns": "rails4_mongoid_development.rated_posts",
+  "o2": {
+    "_id": { "$oid": "56b8f05cf9fcee1b00001000" }
+  },
+  "o": {
+    "$set": {
+		"additional_field":"OTAKE!",
+	    "updated_at": { "$date" : "2016-02-08T21:01:00.985Z"}
     }
   }
 }
