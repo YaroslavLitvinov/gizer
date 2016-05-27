@@ -22,78 +22,27 @@ import argparse
 import configparser
 from collections import namedtuple
 from mongo_reader.reader import MongoReader
+from mongo_reader.reader import mongo_reader_from_settings
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.etlstatus_table import STATUS_INITIAL_LOAD
 from gizer.etlstatus_table import STATUS_OPLOG_SYNC
 from gizer.etlstatus_table import STATUS_OPLOG_APPLY
 from gizer.etlstatus_table import PsqlEtlStatusTable
 from gizer.etlstatus_table import PsqlEtlStatusTableManager
-from gizer.oplog_sync import do_oplog_sync
+from gizer.oplog_parser import do_oplog_sync
 from gizer.oplog_parser import apply_oplog_recs_after_ts
 from gizer.psql_requests import PsqlRequests
+from gizer.psql_requests import psql_conn_from_settings
+from gizer.opconfig import MongoSettings
+from gizer.opconfig import PsqlSettings
+from gizer.opconfig import psql_settings_from_config
+from gizer.opconfig import mongo_settings_from_config
 
-MongoSettings = namedtuple('MongoSettings',
-                           ['ssl', 'host', 'port', 'dbname',
-                            'user', 'passw'])
-PsqlSettings = namedtuple('PsqlSettings',
-                          ['host', 'port', 'dbname',
-                           'user', 'passw', 
-                           'schema', 'operational_schema'])
-
-
-class SectionKey:
-    def __init__(self, section_name):
-        self.section_name = section_name
-    def key(self, base_key_name):
-        return "%s-%s" % (self.section_name, base_key_name)
 
 def sectkey(section_name, base_key_name):
     """ Return key config value. Key name in file must be concatenation 
     of both params divided by hyphen """
     return "%s-%s".format(section_name, base_key_name)
-
-def mongo_settings_from_config(config, section_name):
-    mongo = SectionKey(section_name)
-    conf = config[section_name]
-    return MongoSettings(ssl=conf[mongo.key('ssl')],
-                         host=conf[mongo.key('host')],
-                         port=conf[mongo.key('port')],
-                         dbname=conf[mongo.key('dbname')],
-                         user=conf[mongo.key('user')],
-                         passw=conf[mongo.key('pass')])
-
-def psql_settings_from_config(config, section_name):
-    psql = SectionKey(section_name)
-    conf = config[section_name]
-    return PsqlSettings(host=conf[psql.key('host')],
-                        port=conf[psql.key('port')],
-                        dbname=conf[psql.key('dbname')],
-                        user=conf[psql.key('user')],
-                        passw=conf[psql.key('pass')],
-                        schema=conf[psql.key('schema-name')],
-                        operational_schema\
-                        =conf[psql.key('operational-schema-name')])
-
-def psql_conn(settings):
-    psql_fmt = "host={host} port={port} "
-    psql_fmt += "dbname={dbname} user={user} password={passw}"
-    psql_str = psql_fmt.format(host=settings.host,
-                               port=settings.port,
-                               dbname=settings.dbname,
-                               user=settings.user,
-                               passw=settings.passw)
-    return psycopg2.connect()
-
-
-def mongo_reader(settings, collection_name, request):
-    return MongoReader(settings.ssl,
-                       settings.host,
-                       settings.port,
-                       settings.dbname,
-                       collection_name,
-                       settings.user,
-                       settings.passw,
-                       request)
 
 def getargs():
     """ get args from cmdline """
@@ -119,7 +68,6 @@ def main():
     config = configparser.ConfigParser()
     config.read_file(args.config_file)
 
-    #parser = argparse.ArgumentParser()
     mongo_settings = mongo_settings_from_config(config, 'mongo')
     psql_settings = psql_settings_from_config(config, 'psql')
     tmp_psql_settings = psql_settings_from_config(config, 'tmp-psql')
@@ -132,8 +80,8 @@ def main():
     oplog_reader = mongo_reader(mongo_settings, 'oplog.rs', '{}')
 
     print psql_settings
-    psql_main = PsqlRequests(psql_conn(psql_settings))
-    psql_op = PsqlRequests(psql_conn(tmp_psql_settings))
+    psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
+    psql_op = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 
     status_table = PsqlEtlTable(psql_main.cursor, 
                                 config['psql']['psql-schema-name'])
