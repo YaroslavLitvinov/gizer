@@ -6,6 +6,7 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 from collections import namedtuple
 from datetime import datetime
+from bson.json_util import loads
 
 # initial load completed --init-load-save-ts ts, status=1
 # init load fail --init-load-fail, status=0
@@ -18,9 +19,26 @@ STATUS_INITIAL_LOAD = 0
 STATUS_OPLOG_SYNC = 1
 STATUS_OPLOG_APPLY = 2
 
+def timestamp_str_to_object(timestamp_str):
+    """ Return bson Timestamp object
+    timestamp_str -- str like 'Timestamp(1464278289, 1)' """
+    if timestamp_str and len(timestamp_str):
+        spl = timestamp_str.split(',')
+        tmstmp = spl[0].split('(')[1].strip()
+        increm = spl[1].split(')')[0].strip()
+        fmt = '{"$timestamp": {"t": %s, "i": %s}}'
+        res_str = fmt % (tmstmp, increm)
+        return loads(res_str)
+    else:
+        return None
+
 class PsqlEtlStatusTable:
     Status = namedtuple('Status', ['comment', 'time_start', 'time_end',
                                    'ts', 'status', 'error'])
+    # Status.ts - is a bson.BSON.Timestamp() python object, but in db will 
+    # be saved as string, for example: "Timestamp(1464278289, 1)"
+    # bson object can be loaded from: {"$timestamp": {"t": 1464278289, "i": 1}}
+
     def __init__(self, cursor, schema_name, recreate=False):
         self.cursor = cursor
         if len(schema_name):
@@ -55,8 +73,13 @@ desc limit 1;'
         self.cursor.execute( fmt.format(schema=self.schema_name) )
         rec = self.cursor.fetchone()
         if rec is not None:
-            return PsqlEtlStatusTable.Status(rec[0], rec[1], rec[2], 
-                                             rec[3], rec[4], rec[5])
+            tmstmp = timestamp_str_to_object(rec[3])
+            return PsqlEtlStatusTable.Status(comment=rec[0], 
+                                             time_start=rec[1], 
+                                             time_end=rec[2], 
+                                             ts=tmstmp,
+                                             status=rec[4], 
+                                             error=rec[5])
         else:
             return None
         
@@ -68,7 +91,7 @@ desc limit 1;'
                              (status.comment, 
                               status.time_start,
                               status.time_end,
-                              status.ts,
+                              str(status.ts),
                               status.status,
                               status.error) )
         self.cursor.execute('COMMIT;')
@@ -79,7 +102,7 @@ desc limit 1;'
             if len(values_str):
                 values_str += ', '
             if type(value) is str or type(value) is datetime:
-                value = "'" + str(value) + "'"
+                value = "'" + (str(value)) + "'"
             values_str += fmt.format(name=name, value=value)
         return values_str
 
@@ -89,7 +112,8 @@ desc limit 1;'
 WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
         values = ''
         values = self.add_update_arg(values, 'time_end', time_end)
-        values = self.add_update_arg(values, 'ts', ts)
+        if ts:
+            values = self.add_update_arg(values, 'ts', str(ts))
         values = self.add_update_arg(values, 'error', error)
         res = fmt1.format(schema=self.schema_name, 
                           values=values)

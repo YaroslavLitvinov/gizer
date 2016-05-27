@@ -6,11 +6,12 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import os
 import psycopg2
+from bson.json_util import loads
 from gizer.etlstatus_table import *
 
 def check_start(obj, status, error, ts):
     assert(obj.status == status)
-    assert(obj.ts == ts)
+    assert(str(obj.ts) == ts)
     assert(obj.time_start != None)
     assert(obj.time_end == None)
     assert(obj.error == error)
@@ -18,7 +19,7 @@ def check_start(obj, status, error, ts):
 def check_end(obj, status, error, ts):
     assert(obj.status == status)
     assert(obj.time_end != None)
-    assert(obj.ts == ts)
+    assert(str(obj.ts) == ts)
     assert(obj.error == error)
 
 def test_psql_etl_status_table():
@@ -30,47 +31,50 @@ def test_psql_etl_status_table():
     recent_status = status_table.get_recent()
     assert(recent_status == None)
 
-    status_manager.init_load_start("1111")
+    ts1 = 'Timestamp(1464278289, 1)'
+    status_manager.init_load_start(ts1)
     # check init_load is in progress
     recent_status = status_table.get_recent()
-    check_start(recent_status, STATUS_INITIAL_LOAD, None, "1111")
+    check_start(recent_status, STATUS_INITIAL_LOAD, None, ts1)
 
     status_manager.init_load_finish(is_error=False)
     # check init_load is finished successfully
     recent_status = status_table.get_recent()
-    check_end(recent_status, STATUS_INITIAL_LOAD, False, "1111")
+    check_end(recent_status, STATUS_INITIAL_LOAD, False, ts1)
 
     status_manager.init_load_finish(is_error=True)
     # check init_load is finished unsuccessfully
     recent_status = status_table.get_recent()
-    check_end(recent_status, STATUS_INITIAL_LOAD, True, "1111")
+    check_end(recent_status, STATUS_INITIAL_LOAD, True, ts1)
 
-    status_manager.oplog_sync_start("111111")
+    ts2 = 'Timestamp(1464279389, 1)'
+    status_manager.oplog_sync_start(ts2)
     # check oplog_sync_start is in progress
     recent_status = status_table.get_recent()
-    check_start(recent_status, STATUS_OPLOG_SYNC, None, "111111")
+    check_start(recent_status, STATUS_OPLOG_SYNC, None, ts2)
 
-    status_manager.oplog_sync_finish("222222", is_error=False)
+    status_manager.oplog_sync_finish(ts2, is_error=False)
     # check oplog_sync is finished successfully
     recent_status = status_table.get_recent()
-    check_end(recent_status, STATUS_OPLOG_SYNC, False, "222222")
+    check_end(recent_status, STATUS_OPLOG_SYNC, False, ts2)
 
-    status_manager.oplog_sync_finish("222222", is_error=True)
+    status_manager.oplog_sync_finish(ts2, is_error=True)
     # check oplog_sync is finished unsuccessfully
     recent_status = status_table.get_recent()
-    check_end(recent_status, STATUS_OPLOG_SYNC, True, "222222")
+    check_end(recent_status, STATUS_OPLOG_SYNC, True, ts2)
 
-    status_manager.oplog_use_start("1234")
+    ts3 = 'Timestamp(1464289389, 1)'
+    status_manager.oplog_use_start(ts3)
     # check oplog_sync_apply is in progress
     recent_status = status_table.get_recent()
-    check_start(recent_status, STATUS_OPLOG_APPLY, None, "1234")
+    check_start(recent_status, STATUS_OPLOG_APPLY, None, ts3)
 
-    status_manager.oplog_use_finish("1234", True)
+    status_manager.oplog_use_finish(ts3, True)
     # check oplog_sync_apply is finished unsuccessfully
     recent_status = status_table.get_recent()
-    check_end(recent_status, STATUS_OPLOG_APPLY, True, "1234")
+    check_end(recent_status, STATUS_OPLOG_APPLY, True, ts3)
 
-    status_manager.oplog_use_finish("1234", False)
+    status_manager.oplog_use_finish(ts3, False)
     # check oplog_sync_apply is finished successfully
     recent_status = status_table.get_recent()
-    check_end(recent_status, STATUS_OPLOG_APPLY, False, "1234")
+    check_end(recent_status, STATUS_OPLOG_APPLY, False, ts3)
