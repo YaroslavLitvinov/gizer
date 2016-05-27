@@ -26,25 +26,12 @@ def cb_update(ext_arg, schema_engine, bson_data):
     # for set.name = "comments.2" use provided index=2
     dbreq = ext_arg[0]
     psql_schema = ext_arg[1]
-    if bson_data['ts'] == '6249012828238249985' or \
-            bson_data['ts'] == '6249012068029138593':
-        tables, initial_indexes \
-            = get_tables_data_from_oplog_set_command(schema_engine, 
-                                                     bson_data['o']['$set'],
-                                                     bson_data['o2'])
-        res = []
-        for name, table in tables.iteritems():
-            res.append(OplogQuery("ui", \
-                generate_insert_queries(table, psql_schema, 
-                                        "", initial_indexes)))
-        return res
-    else:
-        res = []
-        cb_res = update(dbreq, schema_engine, bson_data, '', psql_schema)
-        for it in cb_res:
-            for op in it:
-                res.append(OplogQuery('u', (op, it[op])))
-        return res
+    res = []
+    cb_res = update(dbreq, schema_engine, bson_data, '', psql_schema)
+    for it in cb_res:
+        for op in it:
+            res.append(OplogQuery('u', (op, it[op])))
+    return res
 
 
 def cb_delete(ext_arg, ts, ns, schema, bson_data):
