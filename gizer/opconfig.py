@@ -7,8 +7,8 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 from collections import namedtuple
 
 MongoSettings = namedtuple('MongoSettings',
-                           ['ssl', 'host', 'port', 'dbname',
-                            'user', 'passw'])
+                           ['ssl', 'host', 'port', 'params',
+                            'dbname', 'user', 'passw'])
 PsqlSettings = namedtuple('PsqlSettings',
                           ['host', 'port', 'dbname',
                            'user', 'passw', 
@@ -24,9 +24,10 @@ class SectionKey:
 def mongo_settings_from_config(config, section_name):
     mongo = SectionKey(section_name)
     conf = config[section_name]
-    return MongoSettings(ssl=conf[mongo.key('ssl')],
+    return MongoSettings(ssl=conf.getboolean(mongo.key('ssl')),
                          host=conf[mongo.key('host')],
                          port=conf[mongo.key('port')],
+                         params=conf[mongo.key('params')],
                          dbname=conf[mongo.key('dbname')],
                          user=conf[mongo.key('user')],
                          passw=conf[mongo.key('pass')])

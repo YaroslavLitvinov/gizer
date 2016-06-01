@@ -5,6 +5,8 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 import sys
+import time
+import pymongo
 from pymongo.mongo_client import MongoClient
 from pymongo.cursor import CursorType
 
@@ -12,6 +14,7 @@ def message(mes, cr='\n'):
     sys.stderr.write(mes + cr)
 
 def mongo_reader_from_settings(settings, collection_name, request):
+    print settings
     return MongoReader(settings.ssl,
                        settings.host,
                        settings.port,
@@ -43,7 +46,11 @@ class MongoReader:
     def connauthreq(self):
         self.client = MongoClient(self.host, self.port, ssl=self.ssl)
         if self.user and self.passw:
-            self.client[self.dbname].authenticate(self.user, self.passw)
+            source = None
+            if self.oplog:
+                source = 'admin'
+            self.client[self.dbname].authenticate(self.user, self.passw,
+                                                  source=source)
             message("Authenticated")
         return self.make_new_request(self.query)
 
@@ -56,7 +63,7 @@ class MongoReader:
             oplog_replay = False
 
         mongo_collection = self.client[self.dbname][self.collection]
-        self.cursor = mongo_collection.find(self.query,
+        self.cursor = mongo_collection.find(query,
                                             cursor_type = cursor_type,
                                             oplog_replay = oplog_replay)
         self.cursor.batch_size(1000)
@@ -68,11 +75,13 @@ class MongoReader:
 
         self.attempts = 0
         rec = None
-        while self.cursor.alive and self.failed is False:
+        while self.cursor.alive and not self.failed:
+        #while not self.failed:
             try:
                 rec = self.cursor.next()
                 self.rec_i += 1
-            except pymongo.errors.AutoReconnect:
+            except (pymongo.errors.AutoReconnect,
+                    StopIteration):
                 self.attempts += 1
                 if self.attempts <= 4:
                     time.sleep(pow(2, self.attempts))

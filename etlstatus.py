@@ -42,7 +42,7 @@ def main():
                         type=file, required=True)
     parser.add_argument("-init-load-status", action="store_true",
                         help="will get exit status=0 if init load not needed,\
-                        or status=-1 if otherwise")
+or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
     parser.add_argument("-init-load-start-save-ts",
                         help='Save timestamp param into psql db', type=str)
     parser.add_argument("-init-load-finish",
@@ -66,14 +66,21 @@ def main():
                 status.status == STATUS_OPLOG_APPLY or \
                 status.status == STATUS_INITIAL_LOAD) and not status.error:
                 delta = datetime.now() - status.time_start
-                # if operation is running to much time
+                # if operation is running to long
                 if delta.total_seconds() < 21600: # < 6 hours
                     res = 0
+                    if not status.time_end:
+                        print 1
+                    else:
+                        print 0
                 else:
-                    res = 0
+                    # takes to much time -> do init load
+                    res = -1
             else:
+                # error status -> do init load
                 res = -1
         else:
+            # empty status table -> do init load
             res = -1
     elif args.init_load_start_save_ts:
         status_manager = PsqlEtlStatusTableManager(status_table)
