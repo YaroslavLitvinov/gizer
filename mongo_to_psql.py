@@ -33,8 +33,6 @@ from gizer.oplog_parser import do_oplog_sync
 from gizer.oplog_parser import apply_oplog_recs_after_ts
 from gizer.psql_requests import PsqlRequests
 from gizer.psql_requests import psql_conn_from_settings
-from gizer.opconfig import MongoSettings
-from gizer.opconfig import PsqlSettings
 from gizer.opconfig import psql_settings_from_config
 from gizer.opconfig import mongo_settings_from_config
 
@@ -81,9 +79,7 @@ def main():
         reader = mongo_reader_from_settings(mongo_settings, collection_name, {})
         mongo_readers[collection_name] = reader
     oplog_reader = mongo_reader_from_settings(oplog_settings, 'oplog.rs', {})
-    print "oplog_reader", mongo_settings
 
-    #print psql_settings
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_op = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 

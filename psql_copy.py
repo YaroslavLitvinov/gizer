@@ -6,16 +6,19 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
+import sys
 import argparse
 import psycopg2
-import sys
+import configparser
 from os import listdir, environ
 from os.path import isfile, join
 from json import load
-from gizer.psql_requests import PsqlRequests
-from gizer.psql_objects import create_psql_table
 from mongo_schema.schema_engine import SchemaEngine
 from mongo_schema.schema_engine import create_tables_load_bson_data
+from gizer.psql_requests import PsqlRequests
+from gizer.psql_objects import create_psql_table
+from gizer.psql_requests import psql_conn_from_settings
+from gizer.opconfig import psql_settings_from_config
 
 def message(mes, crret='\n'):
     """ write mes to stderr """
@@ -31,31 +34,35 @@ def copy_from_csv(dbreq, input_f, table_name):
 def main():
     """ main """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-cn", "--collection-name",
-                        help="Mongo collection name",
+    parser.add_argument("--config-file", action="store",
+                        help="Settings file", type=file, required=True)
+    parser.add_argument("--psql-section", help="Psql section name from config",
                         type=str, required=True)
-    parser.add_argument("-ifs", "--input-file-schema", action="store",
-                        help="Input file with json schema",
-                        type=file, required=True)
+    parser.add_argument("-cn", "--collection-name", help="Mongo collection name",
+                        type=str, required=True)
     parser.add_argument("--psql-table-name", type=str, required=True)
-    parser.add_argument("--psql-schema-name", type=str, required=False)
-    parser.add_argument("--psql-table-prefix", type=str, required=False)
+    parser.add_argument("-psql-table-prefix", type=str, required=False)
     parser.add_argument("--input-csv-dir", type=str, required=True)
     args = parser.parse_args()
 
-    schema_name = ""
-    if args.psql_schema_name:
-        schema_name = args.psql_schema_name
+    config = configparser.ConfigParser()
+    config.read_file(args.config_file)
+
+    schema_name = config['psql']['psql-schema-name']
+    schemas_dir = config['misc']['schemas-dir']
+    schema_path = join(schemas_dir, args.collection_name + '.json')
+    schema_file = open(schema_path, 'r')
+
+    psql_settings = psql_settings_from_config(config, args.psql_section)
 
     table_prefix = ""
     if args.psql_table_prefix:
         table_prefix = args.psql_table_prefix
 
-    schema = SchemaEngine(args.collection_name,
-                          [load(args.input_file_schema)])
+    schema = SchemaEngine(args.collection_name, [load(schema_file)])
     table = create_tables_load_bson_data(schema, None)\
         .tables[args.psql_table_name]
-    dbreq = PsqlRequests(psycopg2.connect(environ['PSQLCONN']))
+    dbreq = PsqlRequests(psql_conn_from_settings(psql_settings))
 
     create_psql_table(table, dbreq, schema_name, table_prefix, drop=True)
     dbreq.cursor.execute('COMMIT')

@@ -1,25 +1,28 @@
-1. Add directory containing mongo_schema module to python path. 
-If module resided in git directory: export PYTHONPATH=~/git/:.
+1. Environment
+1.1. Add directory containing mongo_schema module to python path. 
+     If module resided in git directory: export PYTHONPATH=~/git/:.
+1.2. Specify TEST_PSQLCONN env variable before running tests, for example:
+     export TEST_PSQLCONN="dbname=zvm user=zvm"
+1.3. Test it
+     ./run_cov_tests.sh or py.test
 
-2.Specify TEST_PSQLCONN env variable before running tests, for example:
-  export TEST_PSQLCONN="dbname=zvm user=zvm"
+2. Config file. Connection settings, etc.
+   See config-sample.ini for example.
 
-3. Test it
-./run_cov_tests.sh or py.test
-
-4. Tools.
-4.1. mongo_reader.py
+3. Tools.
+3.1. mongo_reader.py - 1st part of initial load.
      It's creates relational model of data for specific collection and then saves all collection's data into csv files.
-4.2. psql_copy.py
+3.2. psql_copy.py - 2nd part of initial load.
      Export scv files previously created by mongo_reader.py into postgres tables.
-4.3. copy_object_from_psql_to_psql.py
+3.3. copy_object_from_psql_to_psql.py - useless application.
      Copy tables rows related to specific mongo record data to the same or to another psql DB. Copying into same DB is much faster than copying to different DB instance as using different approaches.
+3.4. etlstatus.py - application managing etl status by external application;
+3.5. config_value.py - external config reader, one value per execution;
+3.6. mongo_to_psql.py - application for syncing, handling oplog.
 
-5. Examples
+4. Examples
 python mongo_schema/get_mongo_schema_as_json.py --host localhost:27017  -cn test.get_sql_query_tests > get_sql_query_tests.js
-python mongo_reader.py --host localhost:27017  -cn test.get_sql_query_tests -ifs get_sql_query_tests.js
-more examples:
-time python mongo_reader.py --host $MONGO_URI_SSL -cn quote_management.quotes -user $MONGO_USER -passw $MONGO_PASS -ifs ~/schema/pregenerated/quotes_schema_verified.json -psql-schema-name quote_mgmt_ods -ssl --ddl-statements-file quotes.sql --csv-path tmp -psql-table-name-prefix 2016_04_11_ -stats-file quotes.stat
-time python psql_copy.py -cn migration_jobs -ifs ~/schema/pregenerated/migration_jobs.json --psql-table-prefix 2016_04_11_ --psql-table-name migration_job_arguments --input-csv-dir tmp/migration_job_arguments/
+python mongo_reader.py --config-file ../gizer-config.ini -cn submit_feedbacks --ddl-statements-file submit_feedbacks.sql --csv-path tmp -psql-table-prefix 2016_04_11_ -stats-file submit_feedbacks.stat
+python psql_copy.py --config-file ../gizer-config.ini -cn submit_feedbacks --psql-table-name submit_feedbacks --input-csv-dir tmp/submit_feedbacks/ -psql-table-prefix 2016_04_11_
 time python copy_object_from_psql_to_psql.py -cn quotes -ifs ~/schema/pregenerated/quotes_schema_verified.json --src-psql-schema-name quote_mgmt_ods --rec-id 504983
 
