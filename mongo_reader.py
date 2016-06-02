@@ -151,7 +151,6 @@ def getargs():
     parser.add_argument("-js-request",
                         help='Mongo db search request in json format. \
 default=%s' % (default_request), type=str)
-    parser.add_argument("-psql-schema-name", help="", type=str)
     parser.add_argument("-psql-table-prefix", help="", type=str)
     parser.add_argument("--ddl-statements-file",
                         help="File to save create table statements",
