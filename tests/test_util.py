@@ -32,7 +32,7 @@ def test_get_postgres_type():
     assert get_postgres_type(type_name) == 'text'
     type_name = 'INT'
     assert get_postgres_type(type_name) == 'integer'
-    type_name = 'BOOL'
+    type_name = 'BOOLean'
     assert get_postgres_type(type_name) == 'boolean'
     type_name = 'LONG'
     assert get_postgres_type(type_name) == 'bigint'
