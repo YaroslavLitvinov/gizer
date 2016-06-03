@@ -11,6 +11,7 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 import bson
+from bson.json_util import loads
 from collections import namedtuple
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 from gizer.psql_objects import load_single_rec_into_tables_obj
@@ -19,6 +20,7 @@ from gizer.psql_objects import create_psql_tables
 from gizer.oplog_handlers import cb_insert
 from gizer.oplog_handlers import cb_update
 from gizer.oplog_handlers import cb_delete
+from gizer.etlstatus_table import timestamp_str_to_object
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
@@ -37,7 +39,7 @@ class OplogParser:
     def __init__(self, reader, start_after_ts, schemas_path,
                  cb_bef, cb_ins, cb_upd, cb_del):
         self.reader = reader
-        self.start_after_ts = start_after_ts
+        self.start_after_ts = timestamp_str_to_object(start_after_ts)
         self.first_handled_ts = None
         self.schema_engines = get_schema_engines_as_dict(schemas_path)
         self.item_info = None
@@ -51,7 +53,7 @@ class OplogParser:
         item = self.reader.next()
         while item:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
-                if item and item['ts'] > self.start_after_ts:
+                if item['ts'] > self.start_after_ts:
                     return item
             item = self.reader.next()
         return None
@@ -260,6 +262,7 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo_readers, oplog, schemas_path
     oplog_queries = parser.next()
     while oplog_queries != None:
         for oplog_query in oplog_queries:
+            print oplog_query
             if oplog_query.op == "u" or \
                oplog_query.op == "d" or \
                oplog_query.op == "i" or oplog_query.op == "ui":
