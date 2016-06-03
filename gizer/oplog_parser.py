@@ -22,6 +22,7 @@ from gizer.oplog_handlers import cb_update
 from gizer.oplog_handlers import cb_delete
 from gizer.etlstatus_table import timestamp_str_to_object
 from gizer.all_schema_engines import get_schema_engines_as_dict
+from mongo_reader.prepare_mongo_request import prepare_mongo_request
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
 EMPTY_TS = 'empty_ts'
@@ -186,7 +187,8 @@ def compare_psql_and_mongo_records(dbreq, mongo_reader, schema_engine, rec_id,
                                                       rec_id)
     mongo_tables_obj = None
     # retrieve actual mongo record and transform it to relational data
-    mongo_reader.make_new_request(rec_id)
+    query = prepare_mongo_request(schema_engine.root_node.name, schema_engine, rec_id)
+    mongo_reader.make_new_request(query)
     rec = mongo_reader.next()
     if not rec:
         if psql_tables_obj.is_empty():
