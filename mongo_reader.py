@@ -7,15 +7,18 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 import pprint
+import os
 import sys
 import json
 import argparse
+import configparser
 from collections import namedtuple
 # profiling
 from pstats import Stats
 from cProfile import Profile
 # for data input
 from mongo_reader.reader import MongoReader
+from mongo_reader.reader import mongo_reader_from_settings
 # modules mostly used by data output functions
 from mongo_schema.schema_engine import SchemaEngine
 from mongo_schema.schema_engine import create_tables_load_bson_data
@@ -26,6 +29,8 @@ from gizer.opcreate import generate_drop_table_statement
 from gizer.opinsert import table_rows_list
 from gizer.opinsert import ENCODE_ONLY
 from gizer.opmultiprocessing import FastQueueProcessor
+from gizer.opconfig import MongoSettings
+from gizer.opconfig import mongo_settings_from_config
 
 CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
 ETL_PROCESS_NUMBER = 8
@@ -59,7 +64,7 @@ def merge_dicts(store, append):
     return store
 
 def save_ddl_create_statements(create_statements_file,
-                               schema,
+                               schema_engine,
                                psql_schema_name,
                                table_prefix):
     """ save create table statements to file """
@@ -68,7 +73,7 @@ def save_ddl_create_statements(create_statements_file,
         psql_schema_name = ''
     if not table_prefix:
         table_prefix = ''
-    sqltables = create_tables_load_bson_data(schema, None).tables
+    sqltables = create_tables_load_bson_data(schema_engine, None).tables
     for tablename, sqltable in sqltables.iteritems():
         ddls[tablename] = create_table(sqltable, psql_schema_name,
                                        table_prefix)
@@ -98,13 +103,13 @@ def retrieve_mongo_record(mongo_reader):
             message("\n%d of %d" % (mongo_reader.rec_i, count))
     return rec
 
-def async_worker_handle_mongo_rec(schema, rec):
+def async_worker_handle_mongo_rec(schema_engine, rec):
     """ function intended to call by FastQueueProcessor.
     process mongo record / bson data in separate process.
-    schema -- SchemaEngine
+    schema_engine -- SchemaEngine
     rec - bson record"""
     rows_as_dict = {}
-    tables_obj = create_tables_load_bson_data(schema, [rec])
+    tables_obj = create_tables_load_bson_data(schema_engine, [rec])
     for table_name, table in tables_obj.tables.iteritems():
         rows = table_rows_list(table, ENCODE_ONLY, null_value=NULLVAL)
         rows_as_dict[table_name] = rows
@@ -138,25 +143,15 @@ def getargs():
     """ get args from cmdline """
     default_request = '{}'
     parser = argparse.ArgumentParser()
-    parser.add_argument("-ssl", action="store_true",
-                        help="connect to ssl port")
-    parser.add_argument("--host", help="Mongo db host:port",
-                        type=str, required=True)
-    parser.add_argument("-user", help="Mongo db user", type=str)
-    parser.add_argument("-passw", help="Mongo db pass", type=str)
-    parser.add_argument("-cn", "--collection-name",
-                        help="Mongo collection name that is \
-expected in format db_name.collection_name",
-                        type=str, required=True)
-    parser.add_argument("-ifs", "--input-file-schema", action="store",
-                        help="Input file with json schema",
+    parser.add_argument("--config-file", action="store",
+                        help="Config file with settings",
                         type=file, required=True)
+    parser.add_argument("-cn", "--collection-name",
+                        help="Mongo collection name ", type=str, required=True)
     parser.add_argument("-js-request",
                         help='Mongo db search request in json format. \
-default=%s' % (default_request),
-                        type=str)
-    parser.add_argument("-psql-schema-name", help="", type=str)
-    parser.add_argument("-psql-table-name-prefix", help="", type=str)
+default=%s' % (default_request), type=str)
+    parser.add_argument("-psql-table-prefix", help="", type=str)
     parser.add_argument("--ddl-statements-file",
                         help="File to save create table statements",
                         type=argparse.FileType('w'), required=True)
@@ -172,28 +167,6 @@ default=%s' % (default_request),
         args.js_request = default_request
 
     return args
-
-
-def parse_mongo_args(argparse_args):
-    """ return parsed mongo connection parameters """
-    split_name = argparse_args.collection_name.split('.')
-    if len(split_name) != 2:
-        Exception("collection name is expected in format \
-db_name.collection_name")
-
-    split_host = argparse_args.host.split(':')
-    if len(split_host) > 1:
-        host = split_host[0]
-        port = split_host[1]
-    else:
-        host = argparse_args.host
-        port = 27017
-
-    dbname = split_name[0]
-    collection_name = split_name[1]
-    search_request = json.loads(argparse_args.js_request)
-    return MongoSettings(host, port, dbname, collection_name, \
-                         search_request)
 
 def print_profiler_stats(profiler):
     """ profiling results """
@@ -220,24 +193,28 @@ def main():
     profiler.enable()
 
     args = getargs()
-    mongo_args = parse_mongo_args(args)
 
-    schema = SchemaEngine(mongo_args.collection,
-                          [json.load(args.input_file_schema)])
-    mongo_reader = MongoReader(args.ssl,
-                               mongo_args.host,
-                               mongo_args.port,
-                               mongo_args.dbname,
-                               mongo_args.collection,
-                               args.user, args.passw,
-                               mongo_args.request)
-    table_names = create_tables_load_bson_data(schema, None).tables.keys()
+    config = configparser.ConfigParser()
+    config.read_file(args.config_file)
+
+    schema_name = config['psql']['psql-schema-name']
+    schemas_dir = config['misc']['schemas-dir']
+    schema_path = os.path.join(schemas_dir, args.collection_name + '.json')
+    schema_file = open(schema_path, 'r')
+
+    mongo_settings = mongo_settings_from_config(config, 'mongo')
+
+    mongo_reader = mongo_reader_from_settings(mongo_settings,
+                                              args.collection_name,
+                                              json.loads(args.js_request))
+    schema_engine = SchemaEngine(args.collection_name, [json.load(schema_file)])
+    table_names = create_tables_load_bson_data(schema_engine, None).tables.keys()
     csm = CsvWriteManager(table_names, args.csv_path, CSV_CHUNK_SIZE)
     mongo_rec_multiprocessing \
         = FastQueueProcessor(async_worker_handle_mongo_rec,
-                             schema,
+                             schema_engine,
                              ETL_PROCESS_NUMBER)
-    message("Connecting to mongo server " + args.host)
+    message("Connecting to mongo server " + mongo_settings.host)
     errors = {}
     all_written = {}
     etl_recs_count = 0
@@ -264,9 +241,9 @@ def main():
     message("")
 
     save_ddl_create_statements(args.ddl_statements_file,
-                               schema,
-                               args.psql_schema_name,
-                               args.psql_table_name_prefix)
+                               schema_engine,
+                               schema_name,
+                               args.psql_table_prefix)
     # save csv files
     csm.finalize()
 

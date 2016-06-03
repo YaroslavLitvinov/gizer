@@ -33,8 +33,6 @@ from gizer.oplog_parser import do_oplog_sync
 from gizer.oplog_parser import apply_oplog_recs_after_ts
 from gizer.psql_requests import PsqlRequests
 from gizer.psql_requests import psql_conn_from_settings
-from gizer.opconfig import MongoSettings
-from gizer.opconfig import PsqlSettings
 from gizer.opconfig import psql_settings_from_config
 from gizer.opconfig import mongo_settings_from_config
 
@@ -68,18 +66,20 @@ def main():
     config = configparser.ConfigParser()
     config.read_file(args.config_file)
 
+    schemas_path = config['misc']['schemas-dir']
+
     mongo_settings = mongo_settings_from_config(config, 'mongo')
+    oplog_settings = mongo_settings_from_config(config, 'mongo-oplog')
     psql_settings = psql_settings_from_config(config, 'psql')
     tmp_psql_settings = psql_settings_from_config(config, 'tmp-psql')
 
     mongo_readers = {}
-    schema_engines = get_schema_engines_as_dict(config['misc']['schemas-dir'])
+    schema_engines = get_schema_engines_as_dict(schemas_path)
     for collection_name in schema_engines:
-        reader = mongo_reader_from_settings(mongo_settings, collection_name, '{}')
+        reader = mongo_reader_from_settings(mongo_settings, collection_name, {})
         mongo_readers[collection_name] = reader
-    oplog_reader = mongo_reader_from_settings(mongo_settings, 'oplog.rs', '{}')
+    oplog_reader = mongo_reader_from_settings(oplog_settings, 'oplog.rs', {})
 
-    print psql_settings
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_op = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 
@@ -99,9 +99,10 @@ def main():
             # temporary psql instance as result of operation is not a data
             # commited to DB, but only single timestamp from oplog.
             # save oplog sync status
+            print "do_oplog_sync"
             status_manager.oplog_sync_start(status.ts)
             ts = do_oplog_sync(status.ts, psql_op, tmp_schema, main_schema,
-                               oplog_reader, mongo_readers, args.schemas_path)
+                               oplog_reader, mongo_readers, schemas_path)
             if ts: # sync ok
                 status_manager.oplog_sync_finish(ts, False)
                 res = 0
@@ -114,12 +115,13 @@ def main():
             and status.time_end and not status.error:
             # sync done, now apply oplog pacthes to main psql
             # save oplog sync status
+            print "do_oplog_use"
             status_manager.oplog_use_start(status.ts)
             ts_res = apply_oplog_recs_after_ts(status.ts, 
                                                psql_main, 
                                                mongo_readers, 
                                                oplog_reader, 
-                                               args.schemas_path,
+                                               schemas_path,
                                                main_schema)
             if ts_res.res: # oplog apply ok
                 status_manager.oplog_use_finish(ts_res.ts, False)
@@ -133,6 +135,7 @@ def main():
         # initial load is not performed 
         res = -1
 
+    print res
     return res
 
 if __name__ == "__main__":
