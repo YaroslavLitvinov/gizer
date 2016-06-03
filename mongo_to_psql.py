@@ -111,7 +111,7 @@ def main():
                 res = -1
 
         elif (status.status == STATUS_OPLOG_SYNC or \
-              status.status == STATUS_OPLOG_USE) \
+              status.status == STATUS_OPLOG_APPLY) \
             and status.time_end and not status.error:
             # sync done, now apply oplog pacthes to main psql
             # save oplog sync status
