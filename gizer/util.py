@@ -64,15 +64,10 @@ def get_postgres_type(type_name):
     return {
         'STRING': 'text',
         'INT': 'integer',
-        'BOOL': 'boolean',
+        'BOOLEAN': 'boolean',
         'LONG': 'bigint',
-        'TIMESTAMP': 'text',
-        'string': 'text',
-        'int': 'integer',
-        'bool': 'boolean',
-        'long': 'bigint',
-        'timestamp': 'text'
-    }[type_name]
+        'TIMESTAMP': 'text'
+    }[type_name.upper()]
 
 
 def get_table_name_from_list(spath):
@@ -81,7 +76,7 @@ def get_table_name_from_list(spath):
         if it.isdigit():
             spathl.remove(it)
     if len(spathl) > 1:
-        return '_'.join(['_'.join((el[:-1]) for el in spathl[:-1]), spathl[-1]])
+        return '_'.join(['_'.join(( el[:-1] if el[-1] == 's' else el) for el in spathl[:-1]), spathl[-1]])
     else:
         return spathl[-1]
 
