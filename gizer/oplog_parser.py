@@ -94,7 +94,7 @@ class OplogParser:
                                       item['ts'],
                                       rec_id)
 
-            if self.cb_before:
+            if self.cb_before and self.cb_before.cb:
                 self.cb_before.cb(self.cb_before.ext_arg,
                                   schema,
                                   item)
