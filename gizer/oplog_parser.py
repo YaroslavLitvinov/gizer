@@ -39,7 +39,10 @@ class OplogParser:
     def __init__(self, reader, start_after_ts, schemas_path,
                  cb_bef, cb_ins, cb_upd, cb_del):
         self.reader = reader
-        self.start_after_ts = timestamp_str_to_object(start_after_ts)
+        if type(start_after_ts) == bson.timestamp.Timestamp:
+            self.start_after_ts = start_after_ts
+        else:
+            self.start_after_ts = timestamp_str_to_object(start_after_ts)
         self.first_handled_ts = None
         self.schema_engines = get_schema_engines_as_dict(schemas_path)
         self.item_info = None
