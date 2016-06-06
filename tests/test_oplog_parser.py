@@ -85,7 +85,7 @@ def check_oplog_sync_point(oplog_test):
         return False
 
 def test_oplog_sync():
-
+    print('\ntest#1')
     oplog_test1 \
         = OplogTest(None,
                     {'posts': 'test_data/oplog1/before_collection_posts.js',
@@ -96,8 +96,9 @@ def test_oplog_sync():
     res = check_oplog_sync_point(oplog_test1)
     assert(res == True)
 
+    print('\ntest#2')
     oplog_test2 \
-        = OplogTest('6249008760904220673',
+        = OplogTest("Timestamp(1164278289, 1))",
                     {'posts': 'test_data/oplog2/before_collection_posts.js',
                      'guests': 'test_data/oplog2/before_collection_guests.js'},
                     'test_data/oplog2/oplog.js',
@@ -106,15 +107,31 @@ def test_oplog_sync():
     res = check_oplog_sync_point(oplog_test2)
     assert(res == True)
 
+    print('\ntest#3')
+    oplog_test3 \
+        = OplogTest("Timestamp(1000000001, 1))",
+                    {'posts': 'test_data/oplog3/before_collection_posts.js',
+                     'guests': 'test_data/oplog3/before_collection_guests.js',
+                     'posts2': 'test_data/oplog3/before_collection_posts2.js',
+                     'rated_posts': 'test_data/oplog3/before_collection_rated_posts.js'
+                     },
+                    'test_data/oplog3/oplog.js',
+                    {'posts': 'test_data/oplog3/after_collection_posts.js',
+                     'guests': 'test_data/oplog3/after_collection_guests.js',
+                     'posts2': 'test_data/oplog3/after_collection_posts2.js',
+                     'rated_posts': 'test_data/oplog3/after_collection_rated_posts.js'
+                     })
+    res = check_oplog_sync_point(oplog_test3)
+    assert(res == True)
 
-    # oplog_test2 \
-    #     = OplogTest('6249012068029138000',
+    # oplog_test4 \
+    #     = OplogTest("Timestamp(1364278289, 1))",
     #                 {'posts': 'test_data/oplog2/before_collection_posts.js',
     #                  'guests': 'test_data/oplog2/before_collection_guests.js'},
     #                 'test_data/oplog2/oplog.js',
     #                 {'posts': 'test_data/oplog2/after_collection_posts.js',
     #                  'guests': 'test_data/oplog2/after_collection_guests.js'})
-    # res = check_oplog_sync_point(oplog_test2)
+    # res = check_oplog_sync_point(oplog_test4)
     # assert(res == True)
 
     # temporarily disabled tests
