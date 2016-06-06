@@ -123,7 +123,7 @@ def cb_before(ext_arg, schema_engine, item):
     queries in operational database also."""
     if not hasattr(cb_before, "ids"):
         cb_before.ids = []
-    dbreq = ext_arg[0]
+    psql = ext_arg[0]
     src_schema_name = ext_arg[1]
     dst_schema_name = ext_arg[2]
 
@@ -134,7 +134,7 @@ def cb_before(ext_arg, schema_engine, item):
             rec_id = str(item['o2'].values()[0])
             if rec_id not in cb_before.ids:
                 # copy record from main tables to operational
-                insert_rec_from_one_tables_set_to_another(dbreq,
+                insert_rec_from_one_tables_set_to_another(psql,
                                                           rec_id,
                                                           tables_obj,
                                                           src_schema_name,
@@ -144,7 +144,7 @@ def cb_before(ext_arg, schema_engine, item):
             rec_id = str(item['o'].values()[0])
             if rec_id not in cb_before.ids:
                 # copy record from main tables to operational
-                insert_rec_from_one_tables_set_to_another(dbreq,
+                insert_rec_from_one_tables_set_to_another(psql,
                                                           rec_id,
                                                           tables_obj,
                                                           src_schema_name,
@@ -157,37 +157,37 @@ def cb_before(ext_arg, schema_engine, item):
         # create skeleton of original psql tables as initial load
         # was not executed previously.
         drop = True
-        create_psql_tables(tables_obj, dbreq, src_schema_name, '', drop)
+        create_psql_tables(tables_obj, psql, src_schema_name, '', drop)
 
 
-def exec_insert(dbreq, oplog_query):
+def exec_insert(psql, oplog_query):
     # create new connection and cursor
     query = oplog_query.query
     fmt_string = query[0]
     for sqlparams in query[1]:
-        dbreq.cursor.execute(fmt_string, sqlparams)
+        psql.cursor.execute(fmt_string, sqlparams)
         # if '56b8f05cf9fcee1b00000010' in sqlparams:
         #     print(fmt_string, sqlparams)
-        #     dbreq.cursor.execute("SELECT * FROM operational.posts")
-        #     print (dbreq.cursor.fetchall())
+        #     psql.cursor.execute("SELECT * FROM operational.posts")
+        #     print (psql.cursor.fetchall())
 
-def compare_psql_and_mongo_records(dbreq, mongo_reader, schema_engine, rec_id,
+def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
                                    dst_schema_name):
     """ Return True/False. Compare actual mongo record with record's relational
     model from operational tables. Comparison of non existing objects gets True.
-    dbreq -- psql cursor wrapper
-    mongo_reader - mongo cursor wrapper
+    psql -- psql cursor wrapper
+    mongo_reader - mongo cursor wrapper tied to specific collection
     schema_engine -- 'SchemaEngine' object
     rec_id - record id to compare
     dst_schema_name -- psql schema name where psql tables store that record"""
     res = None
-    psql_tables_obj = load_single_rec_into_tables_obj(dbreq,
+    psql_tables_obj = load_single_rec_into_tables_obj(psql,
                                                       schema_engine,
                                                       dst_schema_name,
                                                       rec_id)
     mongo_tables_obj = None
     # retrieve actual mongo record and transform it to relational data
-    query = prepare_mongo_request(schema_engine.root_node.name, schema_engine, rec_id)
+    query = prepare_mongo_request(schema_engine, rec_id)
     mongo_reader.make_new_request(query)
     rec = mongo_reader.next()
     if not rec:
@@ -211,14 +211,14 @@ def compare_psql_and_mongo_records(dbreq, mongo_reader, schema_engine, rec_id,
             print "mongo_tables_obj", None
     return res
 
-def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
+def create_truncate_psql_objects(psql, schemas_path, psql_schema):
     """ drop and create tables for all collections """
     schema_engines = get_schema_engines_as_dict(schemas_path)
     for schema_name, schema in schema_engines.iteritems():
         tables_obj = create_tables_load_bson_data(schema, None)
         drop = True
-        create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)
-        dbreq.cursor.execute("COMMIT")
+        create_psql_tables(tables_obj, psql, psql_schema, '', drop)
+        psql.cursor.execute("COMMIT")
 
 def apply_oplog_recs_after_ts(start_ts, psql, mongo_readers, oplog, schemas_path,
                               psql_schema_to_apply_ops,
@@ -298,14 +298,14 @@ def apply_oplog_recs_after_ts(start_ts, psql, mongo_readers, oplog, schemas_path
     else: # no oplog records to apply
         return OplogApplyRes(start_ts, True)
 
-def sync_oplog(test_ts, dbreq, mongo_readers, oplog, schemas_path,
+def sync_oplog(test_ts, psql, mongo_readers, oplog, schemas_path,
                psql_schema_to_apply_ops, psql_schema_initial_load):
     """ Find syncronization point of oplog and psql data
     (which usually is initially loaded data.)
     Return True if able to locate and synchronize initially loaded data
     with oplog data, or return next ts candidate for syncing.
     start_ts -- Timestamp of oplog record to start sync tests
-    dbreq -- Postgres cursor wrapper
+    psql -- Postgres cursor wrapper
     mongo -- Mongo cursor wrappper
     oplog -- Mongo oplog cursor wrappper
     schemas_path -- Path with js schemas representing mongo collections
@@ -315,9 +315,9 @@ def sync_oplog(test_ts, dbreq, mongo_readers, oplog, schemas_path,
     where data will be pacthed by oplog operations."""
     # create/truncate psql operational tables
     # which are using during oplog tail lookup
-    create_truncate_psql_objects(dbreq, schemas_path, psql_schema_to_apply_ops)
+    create_truncate_psql_objects(psql, schemas_path, psql_schema_to_apply_ops)
     ts_sync = apply_oplog_recs_after_ts(test_ts,
-                                        dbreq,
+                                        psql,
                                         mongo_readers,
                                         oplog,
                                         schemas_path,
@@ -325,7 +325,7 @@ def sync_oplog(test_ts, dbreq, mongo_readers, oplog, schemas_path,
                                         psql_schema_initial_load)
     if ts_sync.res == True:
         # sync succesfull if sync ok and was handled non null ts
-        dbreq.cursor.execute('COMMIT')
+        psql.cursor.execute('COMMIT')
         return True
     elif ts_sync.ts:
         print "sync oplog failed, tried to do starting from ts=", test_ts
