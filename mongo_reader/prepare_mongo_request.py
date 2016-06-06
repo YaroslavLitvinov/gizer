@@ -9,17 +9,18 @@ import time
 import bson
 from mongo_schema.schema_engine import SchemaEngine
 
-def prepare_mongo_request(collection, schema_engine, rec_id):
-    query_fmt = "db.%s.find({'%s': %s})"
+def prepare_mongo_request(schema_engine, rec_id):
+    #query_fmt = "{'%s': %s}"
     node = schema_engine.root_node.get_id_node()
     if type(rec_id) is bson.objectid.ObjectId:
-        id_str = "{ '$oid': '%s' }" % str(rec_id)
+        #id_str = "{ '$oid': '%s' }" % str(rec_id)
         name = node.parent.name
     elif type(rec_id) is str:
-        id_str = "'%s'" % rec_id
+        #id_str = "'%s'" % rec_id
         name = node.name
     else:
-        id_str = str(rec_id)
+        #id_str = str(rec_id)
         name = node.name
-    return query_fmt % (collection, name, id_str)
+    return {name:rec_id}
+    #return query_fmt % (name, id_str)
 

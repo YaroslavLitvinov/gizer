@@ -21,14 +21,14 @@ def test_prepare_request_with_id_as_object_id_or_int():
     schemas = get_schema_engines_as_dict(db_schemas_path)
 
     id_val = loads('{ "$oid": "56b8f05cf9fcee1b00000010" }')
-    req_str = prepare_mongo_request('posts', schemas['posts'], id_val)
-    print req_str
-    assert(req_str == "db.posts.find({'_id': { '$oid': '56b8f05cf9fcee1b00000010' }})")
+    req = prepare_mongo_request(schemas['posts'], id_val)
+    print req
+    assert(req == {"_id":id_val})
 
     id_val2 = 22
-    req_str2 = prepare_mongo_request('guests', schemas['guests'], id_val2)
-    print req_str2
-    assert(req_str2 == "db.guests.find({'id': 22})")
+    req2 = prepare_mongo_request(schemas['guests'], id_val2)
+    print req2
+    assert(req2 == {'id': 22})
     #assert(files==['guests.js', 'posts.js', 'posts2.js', 'rated_posts.js'])
 
 
@@ -38,9 +38,9 @@ def test_prepare_request_with_id_as_string():
     schema_engine = SchemaEngine(collection_name, schema)
     
     id_val = "hello_id"
-    req_str = prepare_mongo_request('foo', schema_engine, id_val)
-    print req_str
-    assert(req_str == "db.foo.find({'id': 'hello_id'})")
+    req = prepare_mongo_request(schema_engine, id_val)
+    print req
+    assert(req == {'id': 'hello_id'})
 
 
 if __name__=='__main__':
