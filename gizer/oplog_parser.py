@@ -378,9 +378,9 @@ def do_oplog_sync(ts, psql, psql_tmp_schema, psql_schema,
         else:
             oplog_ts_to_test = sync_res
         sync_res = sync_oplog(oplog_ts_to_test, 
-                              dbreq, 
-                              mongo_readers_after,
-                              oplog_reader, 
+                              psql, 
+                              mongo_readers,
+                              oplog, 
                               schemas_path,
                               psql_schema_to_apply_ops,
                               psql_schema_initial_load)
