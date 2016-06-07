@@ -51,7 +51,7 @@ def node_by_components(schema_engine, components):
     node = schema_engine.locate(locate_path)
     last_index = components[-1].index
     # if bson_data is considered as array item
-    if node.value is node.type_array and last_index:
+    if node.value is node.type_array and last_index is not None:
         node = node.children[0]
     return node
 
