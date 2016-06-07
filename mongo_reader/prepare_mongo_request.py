@@ -10,17 +10,15 @@ import bson
 from mongo_schema.schema_engine import SchemaEngine
 
 def prepare_mongo_request(schema_engine, rec_id):
-    #query_fmt = "{'%s': %s}"
     node = schema_engine.root_node.get_id_node()
     if type(rec_id) is bson.objectid.ObjectId:
-        #id_str = "{ '$oid': '%s' }" % str(rec_id)
         name = node.parent.name
-    elif type(rec_id) is str:
-        #id_str = "'%s'" % rec_id
-        name = node.name
     else:
-        #id_str = str(rec_id)
         name = node.name
     return {name:rec_id}
-    #return query_fmt % (name, id_str)
 
+def prepare_oplog_request(ts):
+    if not ts:
+        return {}
+    else:
+        return {"ts": {"$gt": ts}}

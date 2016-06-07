@@ -44,17 +44,19 @@ class MongoReader:
                              params=params)
         self.client = MongoClient(uri)
         message("Authenticated")
-        return self.make_new_request(self.query)
 
     def make_new_request(self, query):
+        if not self.client:
+            self.connauthreq()
         mongo_collection = self.client[self.settings.dbname][self.collection]
         cursor = mongo_collection.find(query)
         cursor.batch_size(1000)
+        self.cursor = cursor
         return cursor
 
     def next(self):
         if not self.cursor:
-            self.cursor = self.connauthreq()
+            self.cursor = self.make_new_request(self.query)
 
         self.attempts = 0
         rec = None
