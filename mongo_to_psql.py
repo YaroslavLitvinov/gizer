@@ -29,8 +29,7 @@ from gizer.etlstatus_table import STATUS_OPLOG_SYNC
 from gizer.etlstatus_table import STATUS_OPLOG_APPLY
 from gizer.etlstatus_table import PsqlEtlStatusTable
 from gizer.etlstatus_table import PsqlEtlStatusTableManager
-from gizer.oplog_parser import do_oplog_sync
-from gizer.oplog_parser import apply_oplog_recs_after_ts
+from gizer.oplog_highlevel import OplogHighLevel
 from gizer.psql_requests import PsqlRequests
 from gizer.psql_requests import psql_conn_from_settings
 from gizer.opconfig import psql_settings_from_config
@@ -89,7 +88,7 @@ def main():
 
     tmp_schema = config['tmp-psql']['tmp-psql-operational-schema-name']
     main_schema = config['psql']['psql-schema-name']
-    
+
     res = 0
     status = status_table.get_recent()
     if status:
@@ -101,8 +100,10 @@ def main():
             # save oplog sync status
             print "do_oplog_sync"
             status_manager.oplog_sync_start(status.ts)
-            ts = do_oplog_sync(status.ts, psql_op, tmp_schema, main_schema,
-                               oplog_reader, mongo_readers, schemas_path)
+
+            ohl = OplogHighLevel(psql_op, mongo_readers, oplog_reader,
+                 schemas_path, schema_engines, tmp_schema, main_schema)
+            ts = ohl.do_oplog_sync(status.ts)
             if ts: # sync ok
                 status_manager.oplog_sync_finish(ts, False)
                 res = 0
@@ -117,12 +118,9 @@ def main():
             # save oplog sync status
             print "do_oplog_use"
             status_manager.oplog_use_start(status.ts)
-            ts_res = apply_oplog_recs_after_ts(status.ts, 
-                                               psql_main, 
-                                               mongo_readers, 
-                                               oplog_reader, 
-                                               schemas_path,
-                                               main_schema)
+            ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
+                 schemas_path, schema_engines, main_schema, None)
+            ts_res = ohl.apply_oplog_recs_after_ts(status.ts)
             if ts_res.res: # oplog apply ok
                 status_manager.oplog_use_finish(ts_res.ts, False)
             else: # error

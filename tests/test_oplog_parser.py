@@ -8,10 +8,9 @@ import os
 import psycopg2
 from collections import namedtuple
 from gizer.psql_requests import PsqlRequests
-from gizer.oplog_parser import create_truncate_psql_objects
-from gizer.oplog_parser import sync_oplog
-from gizer.oplog_parser import do_oplog_sync
-from gizer.oplog_parser import compare_psql_and_mongo_records
+from gizer.oplog_highlevel import OplogHighLevel
+from gizer.oplog_highlevel import create_truncate_psql_objects
+from gizer.oplog_highlevel import compare_psql_and_mongo_records
 from gizer.oplog_parser import EMPTY_TS
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.psql_objects import insert_tables_data_into_dst_psql
@@ -75,10 +74,11 @@ def check_oplog_sync_point(oplog_test):
     for name, mongo_data_path in oplog_test.after.iteritems():
         mongo_readers_after[name] = mongo_reader_mock(mongo_data_path)
 
-    res = do_oplog_sync(oplog_test.ts, dbreq, 
-                        psql_schema_to_apply_ops, 
-                        psql_schema_initial_load,
-                        oplog_reader, mongo_readers_after, schemas_path)
+    ohl = OplogHighLevel(dbreq, mongo_readers_after, oplog_reader,
+                 schemas_path, schema_engines, psql_schema_to_apply_ops,
+                 psql_schema_initial_load)
+
+    res = ohl.do_oplog_sync(oplog_test.ts)
     if res:
         return True
     else:
