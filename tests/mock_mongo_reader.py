@@ -24,10 +24,11 @@ class MongoReaderMock:
 
     def next(self):
         rec = None
+        print "reader.next query=", self.query
         if self.query and len(self.query):
             for item in self.array_data:
-                if ('id' in item and str(item['id']) == str(self.query)) or \
-                        ('_id' in item and str(item['_id']) == str(self.query)):
+                if ('id' in item and item['id'] == self.query['id']) or \
+                   ('_id' in item and item['_id'] == self.query['_id']):
                     rec = item
                     break
         else:

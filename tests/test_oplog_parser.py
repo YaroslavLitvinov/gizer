@@ -9,11 +9,11 @@ import psycopg2
 from collections import namedtuple
 from gizer.psql_requests import PsqlRequests
 from gizer.oplog_highlevel import OplogHighLevel
-from gizer.oplog_highlevel import create_truncate_psql_objects
 from gizer.oplog_highlevel import compare_psql_and_mongo_records
 from gizer.oplog_parser import EMPTY_TS
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.psql_objects import insert_tables_data_into_dst_psql
+from gizer.psql_objects import create_truncate_psql_objects
 from mongo_schema.schema_engine import create_tables_load_file
 from mock_mongo_reader import MongoReaderMock
 
@@ -49,34 +49,24 @@ def check_oplog_sync_point(oplog_test):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
-    psql_schema_to_apply_ops = TMP_SCHEMA_NAME
-    psql_schema_initial_load = MAIN_SCHEMA_NAME
+    psql_schema = MAIN_SCHEMA_NAME
 
     schemas_path = "./test_data/schemas/rails4_mongoid_development"
     schema_engines = get_schema_engines_as_dict(schemas_path)
     oplog_reader = oplog_reader_mock(oplog_test.oplog)
 
-    create_truncate_psql_objects(dbreq, schemas_path, psql_schema_to_apply_ops)
+    create_truncate_psql_objects(dbreq, schemas_path, psql_schema)
     dbreq.cursor.execute('COMMIT')
     for name, mongo_data_path in oplog_test.before.iteritems():
         load_mongo_data_to_psql(schema_engines[name],
-                                mongo_data_path,
-                                dbreq, psql_schema_to_apply_ops)
-    # do initial load into main schema (not operational)
-    create_truncate_psql_objects(dbreq, schemas_path, psql_schema_initial_load)
-    dbreq.cursor.execute('COMMIT')
-    for name, mongo_data_path in oplog_test.before.iteritems():
-        load_mongo_data_to_psql(schema_engines[name],
-                                mongo_data_path,
-                                dbreq, psql_schema_initial_load)
+                                mongo_data_path, dbreq, psql_schema)
 
     mongo_readers_after = {}
     for name, mongo_data_path in oplog_test.after.iteritems():
         mongo_readers_after[name] = mongo_reader_mock(mongo_data_path)
 
     ohl = OplogHighLevel(dbreq, mongo_readers_after, oplog_reader,
-                 schemas_path, schema_engines, psql_schema_to_apply_ops,
-                 psql_schema_initial_load)
+                 schemas_path, schema_engines, psql_schema)
 
     res = ohl.do_oplog_sync(oplog_test.ts)
     if res:

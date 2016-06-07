@@ -8,6 +8,7 @@ from gizer.opcreate import generate_create_table_statement
 from gizer.opinsert import generate_insert_queries
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opcreate import generate_create_table_statement
+from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
 def parent_id_name_and_quotes_for_table(sqltable):
@@ -54,6 +55,7 @@ WHERE {id_name}={id_val};'
         src_dbreq.cursor.execute(select_req)
         ext_tables_data[table_name] = []
         for record in src_dbreq.cursor:
+            #print "record", record 
             ext_tables_data[table_name].append(record)
 
     # set external tables data to Tables
@@ -85,7 +87,7 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
                 print(dst_dbreq.cursor.fetchall())
                 print(insert_query[0], insert_data)
     # commit
-    dst_dbreq.cursor.execute('COMMIT')
+    #dst_dbreq.cursor.execute('COMMIT')
 
 
 def insert_rec_from_one_tables_set_to_another(dbreq, 
@@ -120,7 +122,7 @@ SELECT * FROM {src_schema}{src_table} WHERE {id_name}={id_val};'
                                          id_val = id_val)
         # print insert_query
         dbreq.cursor.execute(insert_query)
-    dbreq.cursor.execute('COMMIT')
+    #dbreq.cursor.execute('COMMIT')
 
 def create_psql_table(table, dbreq, psql_schema, prefix, drop):
     if drop:
@@ -137,3 +139,11 @@ def create_psql_table(table, dbreq, psql_schema, prefix, drop):
 def create_psql_tables(tables_obj, dbreq, psql_schema, prefix, drop):
     for table_name, table in tables_obj.tables.iteritems():
         create_psql_table(table, dbreq, psql_schema, prefix, drop)
+
+def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
+    """ drop and create tables for all collections """
+    schema_engines = get_schema_engines_as_dict(schemas_path)
+    for schema_name, schema in schema_engines.iteritems():
+        tables_obj = create_tables_load_bson_data(schema, None)
+        drop = True
+        create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)

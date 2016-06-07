@@ -12,7 +12,7 @@ MongoSettings = namedtuple('MongoSettings',
 PsqlSettings = namedtuple('PsqlSettings',
                           ['host', 'port', 'dbname',
                            'user', 'passw', 
-                           'schema', 'operational_schema'])
+                           'schema'])
 
 class SectionKey:
     def __init__(self, section_name):
@@ -40,8 +40,6 @@ def psql_settings_from_config(config, section_name):
                         dbname=conf[psql.key('dbname')].strip(),
                         user=conf[psql.key('user')].strip(),
                         passw=conf[psql.key('pass')].strip(),
-                        schema=conf[psql.key('schema-name')].strip(),
-                        operational_schema\
-                        =conf[psql.key('operational-schema-name')].strip())
+                        schema=conf[psql.key('schema-name')].strip())
 
 

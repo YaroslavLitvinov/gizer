@@ -80,14 +80,13 @@ def main():
     oplog_reader = mongo_reader_from_settings(oplog_settings, 'oplog.rs', {})
 
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
-    psql_op = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
+    psql_tmp = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 
     status_table = PsqlEtlStatusTable(psql_main.cursor, 
                                       config['psql']['psql-schema-name'])
     status_manager = PsqlEtlStatusTableManager(status_table)
 
-    tmp_schema = config['tmp-psql']['tmp-psql-operational-schema-name']
-    main_schema = config['psql']['psql-schema-name']
+    psql_schema = config['psql']['psql-schema-name']
 
     res = 0
     status = status_table.get_recent()
@@ -98,11 +97,10 @@ def main():
             # temporary psql instance as result of operation is not a data
             # commited to DB, but only single timestamp from oplog.
             # save oplog sync status
-            print "do_oplog_sync"
             status_manager.oplog_sync_start(status.ts)
 
-            ohl = OplogHighLevel(psql_op, mongo_readers, oplog_reader,
-                 schemas_path, schema_engines, tmp_schema, main_schema)
+            ohl = OplogHighLevel(psql_tmp, mongo_readers, oplog_reader,
+                 schemas_path, schema_engines, psql_schema)
             ts = ohl.do_oplog_sync(status.ts)
             if ts: # sync ok
                 status_manager.oplog_sync_finish(ts, False)
@@ -116,10 +114,10 @@ def main():
             and status.time_end and not status.error:
             # sync done, now apply oplog pacthes to main psql
             # save oplog sync status
-            print "do_oplog_use"
+            print "do_oplog_use", status.ts
             status_manager.oplog_use_start(status.ts)
             ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
-                 schemas_path, schema_engines, main_schema, None)
+                 schemas_path, schema_engines, psql_schema)
             ts_res = ohl.apply_oplog_recs_after_ts(status.ts)
             if ts_res.res: # oplog apply ok
                 status_manager.oplog_use_finish(ts_res.ts, False)
