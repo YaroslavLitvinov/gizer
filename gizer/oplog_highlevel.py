@@ -90,7 +90,10 @@ class OplogHighLevel:
         self.schemas_path = schemas_path
         self.schema_engines = schema_engines
         self.psql_schema = psql_schema
-        self.compare = {}
+        self.comparator = ComparatorMongoPsql(schema_engines,
+                                              mongo_readers,
+                                              psql,
+                                              psql_schema)
 
     def do_oplog_apply(self, start_ts):
         """ Read oplog operations starting just after timestamp start_ts.
@@ -114,21 +117,20 @@ class OplogHighLevel:
                     Callback(cb_insert, ext_arg=self.psql_schema),
                     Callback(cb_update, ext_arg=(self.psql, self.psql_schema)),
                     Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
-        # go over self.oplog, and apply all self.oplog pacthes starting from start_ts
+        # go over oplog, and apply all oplog pacthes starting from start_ts
         self.oplog_queries = parser.next()
         while self.oplog_queries != None:
             for self.oplog_query in self.oplog_queries:
                 if self.oplog_query.op == "u" or \
                    self.oplog_query.op == "d" or \
                    self.oplog_query.op == "i" or self.oplog_query.op == "ui":
-                    # add rec_id only if query executed
                     exec_insert(self.psql, self.oplog_query)
                     collection_name = parser.item_info.schema_name
                     rec_id = parser.item_info.rec_id
-                    self.add_to_compare(collection_name, rec_id)
+                    self.comparator.add_to_compare(collection_name, rec_id)
             self.oplog_queries = parser.next()
         # compare mongo data & psql data after self.oplog records applied
-        compare_res = self.compare_src_dest()
+        compare_res = self.comparator.compare_src_dest()
         print "do_oplog_apply", start_ts, "res=", compare_res
         if compare_res and not parser.first_handled_ts:
             # already synced, no oplog records to apply
@@ -200,27 +202,40 @@ class OplogHighLevel:
             else:
                 return False
 
+class ComparatorMongoPsql:
+
+    def __init__(self, schema_engines, mongo_readers, psql, psql_schema):
+        self.schema_engines = schema_engines
+        self.mongo_readers = mongo_readers
+        self.psql = psql
+        self.psql_schema = psql_schema
+        self.recs_to_compare = {}
+
     def add_to_compare(self, collection_name, rec_id):
-        if collection_name not in self.compare:
-            self.compare[collection_name] = {}
-        if rec_id not in self.compare[collection_name]:
-            self.compare[collection_name][rec_id] = False # by default
+        if collection_name not in self.recs_to_compare:
+            self.recs_to_compare[collection_name] = {}
+        if rec_id not in self.recs_to_compare[collection_name]:
+            self.recs_to_compare[collection_name][rec_id] = False # by default
+
+    def compare_one_src_dest(self, collection_name, rec_id):
+        schema_engine = self.schema_engines[collection_name]
+        mongo_reader = self.mongo_readers[collection_name]
+        message("comparing... rec_id = " + str(rec_id))
+        equal = compare_psql_and_mongo_records(self.psql,
+                                               mongo_reader,
+                                               schema_engine,
+                                               rec_id,
+                                               self.psql_schema)
+        message("compare res = " + str(equal))
+        return equal
 
     def compare_src_dest(self):
-        print "records to compare ", self.compare
+        print "records to compare ", self.recs_to_compare
         # compare mongo data & psql data after self.oplog records applied
-        for collection_name, recs in self.compare.iteritems():
-            schema_engine = self.schema_engines[collection_name]
-            mongo_reader = self.mongo_readers[collection_name]
+        for collection_name, recs in self.recs_to_compare.iteritems():
             for rec_id in recs:
-                message("comparing... rec_id = " + str(rec_id))
-                equal = compare_psql_and_mongo_records(self.psql,
-                                                       mongo_reader,
-                                                       schema_engine,
-                                                       rec_id,
-                                                       self.psql_schema)
-                self.compare[collection_name][rec_id] = equal
-                message("compare res = " + str(equal))
+                equal = self.compare_one_src_dest(collection_name, rec_id)
+                self.recs_to_compare[collection_name][rec_id] = equal
                 if not equal:
                     return False
         return True

@@ -118,7 +118,7 @@ def main():
             status_manager.oplog_use_start(status.ts)
             ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
                  schemas_path, schema_engines, psql_schema)
-            ts_res = ohl.apply_oplog_recs_after_ts(status.ts)
+            ts_res = ohl.do_oplog_apply(status.ts)
             if ts_res.res: # oplog apply ok
                 status_manager.oplog_use_finish(ts_res.ts, False)
             else: # error
