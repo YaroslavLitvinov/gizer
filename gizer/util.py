@@ -59,14 +59,15 @@ def get_table_name_schema(str_list):
 
 
 def get_postgres_type(type_name):
-    # TODO should be case insensitive
-    # TODO should be replaced
+    #TODO fix types
     return {
         'STRING': 'text',
         'INT': 'integer',
         'BOOLEAN': 'boolean',
         'LONG': 'bigint',
-        'TIMESTAMP': 'text'
+        'TIMESTAMP': 'text',
+        'DOUBLE': 'double',
+        'TINYINT': 'integer'
     }[type_name.upper()]
 
 
@@ -216,7 +217,7 @@ def get_column_type(schema, table, field_name, collection_name):
 
 
 def get_quotes_using(schema, table, field_name, collection_name):
-    quotes_not_needed = ['int', 'bigint', 'integer']
+    quotes_not_needed = ['int', 'bigint', 'integer' ,'double']
     if get_column_type(schema, table, field_name, collection_name) in quotes_not_needed:
         return False
     else:
