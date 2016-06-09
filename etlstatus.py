@@ -57,7 +57,6 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
 
     status_table = PsqlEtlStatusTable(psql_main.cursor,
                                       config['psql']['psql-schema-name'])
-
     res = 0    
     if args.init_load_status:
         status = status_table.get_recent()
@@ -67,7 +66,9 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
                 status.status == STATUS_INITIAL_LOAD) and not status.error:
                 delta = datetime.now() - status.time_start
                 # if operation is running to long
-                if delta.total_seconds() < 21600: # < 6 hours
+                if status.time_end:
+                    res = 0
+                elif delta.total_seconds() < 32400: # < 9 hours
                     res = 0
                     if not status.time_end:
                         print 1
