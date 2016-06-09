@@ -81,11 +81,19 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
             continue
 
         if len(updating_obj) > 1:
-            if updating_obj[-1].isdigit():
-                ret_val.extend(update_cmd(dbreq,schema_e,oplog_data_set,oplog_data_object_id,oplog_data_ns,tables_mappings,database_name,schema_name))
-            else:
-                new_oplog_data_set = { '.'.join(updating_obj[:-1]):{updating_obj[-1]:oplog_data_set[element]}}
-                ret_val.extend(update_cmd(dbreq,schema_e,new_oplog_data_set,oplog_data_object_id,oplog_data_ns,tables_mappings,database_name,schema_name))
+            last_digit = -1
+            for i, path_el in enumerate(updating_obj):
+                if path_el.isdigit():
+                    last_digit = i
+            if last_digit >= 0:
+                if last_digit == len(updating_obj) - 1:
+                    ret_val.extend(update_cmd(dbreq,schema_e,oplog_data_set,oplog_data_object_id,oplog_data_ns,tables_mappings,database_name,schema_name))
+                else:
+                    new_oplog_data_set = oplog_data_set[element]
+                    for i in reversed(range(last_digit + 1, len(updating_obj))):
+                        new_oplog_data_set = {updating_obj[i]:new_oplog_data_set}
+                    new_oplog_data_set = { '.'.join(updating_obj[:last_digit+1]):new_oplog_data_set}
+                    ret_val.extend(update_cmd(dbreq,schema_e,new_oplog_data_set,oplog_data_object_id,oplog_data_ns,tables_mappings,database_name,schema_name))
         else:
             if not is_root_object_updated:
                 ret_val.extend (update_cmd(dbreq,schema_e,oplog_data_set,oplog_data_object_id,oplog_data_ns,tables_mappings,database_name,schema_name))
