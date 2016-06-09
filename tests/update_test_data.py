@@ -226,4 +226,95 @@ oplog_u_08 = '''{
     }
 }'''
 
+oplog_u_09 = '''{
+    "ts": "6249012828238249985",
+    "t": 2,
+    "h": "6500669658302126550",
+    "v": 2,
+    "op": "u",
+    "ns": "rails4_mongoid_development.posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000007"}
+    },
+    "o": {
+        "$set": {
+            "comments.1._id": {"$oid": "56b8f344f9fcee1b00000018"},
+            "comments.1.updated_at": "2016-02-08T19:57:56.678Z",
+            "comments.1.created_at": "2016-04-08T19:57:56.678Z"
+        }
+    }
+}'''
+
+
 test_data_01 = {"aaa": {"bbb": {"ccc": {"__ddd": {"$eeee": "abcdef"}}}}}
+
+test_data_02 = '''{
+	"ts": "1465220614, 2",
+	"h": "143890519546180493",
+	"v": 2,
+	"op": "u",
+	"ns": "rails4_mongoid_development.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000010"}
+    },
+	"o": {
+		"$set": {
+			"comments.1.rates.1.items.1.approvals": [{
+				"_id": {"$oid": "57557e06cf68795ee8055c77"},
+				"message": {},
+				"initial_comment": {},
+				"message_type_id": 26,
+				"updated_at": {"$data" : "2016-06-06T13:43:34.389Z"},
+				"created_at": {"$data" : "2016-06-06T13:43:34.389Z"}
+			}]
+		}
+	}
+}'''
+
+
+test_data_03 = '''{
+	"ts": "1465220614, 2",
+	"h": "143890519546180493",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "rails4_mongoid_development.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000012"}
+    },
+	"o" : {
+		"$set" : {
+			"comments.1.updated_at" : {"$date":"2016-02-08T19:58:22.847Z"},
+			"comments.1.rates.1.user_id" : "B",
+			"comments.1.rates.2.rate" : 2,
+			"comments.1.rates.2.namesadas" : "XXX"
+		}
+	}
+}'''
+
+test_data_04 = '''{
+	"ts": "1465220614, 2",
+	"h": "143890519546180493",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "rails4_mongoid_development.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
+    },
+	"o" : {
+		"$set" : {
+			"comments.1.rates.1.user_id" : "B",
+			"comments.1.rates.2.rate" : 67,
+			"comments.1.rates.2.item_rates" : [
+			    {
+			        "_id": {"$oid": "57557e06cf68790000000000"},
+			        "name": "Ivan"
+			    },
+			    {
+			        "_id": {"$oid": "57557e06cf68790000000001"},
+			        "name": "Susanin"
+			    }
+			]
+
+		}
+	}
+}'''
