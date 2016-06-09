@@ -14,9 +14,19 @@
 	            "bsontype": "INT"
 	        },
 			"user_id" : "STRING",
-			"rate" : "INT",
+			"rate" : "STRING",
 		    "created_at": "TIMESTAMP",
-		    "updated_at": "TIMESTAMP"
+		    "updated_at": "TIMESTAMP",
+			"item_rates":[{
+		        "_id": {
+		            "oid": "STRING",
+		            "bsontype": "INT"
+		        },
+				"name" : "STRING",
+				"description" : "STRING",
+			    "created_at": "TIMESTAMP",
+			    "updated_at": "TIMESTAMP"
+			}]
 		}]
     }],
     "title": "STRING",
