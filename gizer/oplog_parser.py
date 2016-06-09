@@ -12,6 +12,7 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import bson
 import sys
+from logging import getLogger
 from bson.json_util import loads
 from collections import namedtuple
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
@@ -34,9 +35,6 @@ ItemInfo = namedtuple('ItemInfo', ['schema_name',
                                    'ts',
                                    'rec_id'])
 
-def message(mes, cr='\n'):
-    sys.stderr.write( mes + cr)
-
 class OplogParser:
     """ parse oplog data, apply oplog operations, execute resulted queries
     and verify patched results """
@@ -57,8 +55,9 @@ class OplogParser:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
                 schema_name = item["ns"].split('.')[1]
                 if schema_name not in self.schema_engines:
-                    message("Unknown collection: " + schema_name +
-                            ", skip ts:" + str(item["ts"]))
+                    getLogger(__name__).\
+                        warning("Unknown collection: " +
+                                schema_name + ", skip ts:" + str(item["ts"]))
                 else:
                     return item
             item = self.reader.next()
@@ -94,9 +93,9 @@ class OplogParser:
                                       schema,
                                       item['ts'],
                                       rec_id)
-            message("op=" + item["op"] + ", ts=" + str(item['ts']) +
+            getLogger(__name__).\
+                info("op=" + item["op"] + ", ts=" + str(item['ts']) +
                     ", name=" + schema_name + ", rec_id=" + str(rec_id))
-
             if item["op"] == "i":
                 # insert is ALWAYS expects array of records
                 res = self.cb_insert.cb(self.cb_insert.ext_arg,
@@ -117,7 +116,6 @@ def exec_insert(psql, oplog_query):
     query = oplog_query.query
     fmt_string = query[0]
     for sqlparams in query[1]:
+        getLogger(__name__).debug('EXECUTE: ' + str(fmt_string) + str(sqlparams))
         psql.cursor.execute(fmt_string, sqlparams)
-
-
-
+        

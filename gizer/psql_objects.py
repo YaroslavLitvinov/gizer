@@ -4,6 +4,7 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
+from logging import getLogger
 from gizer.opcreate import generate_create_table_statement
 from gizer.opinsert import generate_insert_queries
 from gizer.opcreate import generate_drop_table_statement
@@ -55,7 +56,7 @@ WHERE {id_name}={id_val};'
         src_dbreq.cursor.execute(select_req)
         ext_tables_data[table_name] = []
         for record in src_dbreq.cursor:
-            #print "record", record 
+            getLogger(__name__).debug("record=%s" % str(record))
             ext_tables_data[table_name].append(record)
 
     # set external tables data to Tables
@@ -79,16 +80,14 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
                                                dst_schema_name, 
                                                dst_table_prefix)
         for insert_data in insert_query[1]:
-            print "insert", table_name
+            getLogger(__name__).debug("insert=%s" % table_name)
             dst_dbreq.cursor.execute(insert_query[0],
                                      insert_data)
             if '56b8f05cf9fcee1b00000010' in insert_data:
                 dst_dbreq.cursor.execute('select * from operational.posts')
-                print(dst_dbreq.cursor.fetchall())
-                print(insert_query[0], insert_data)
-    # commit
-    #dst_dbreq.cursor.execute('COMMIT')
-
+                getLogger(__name__).debug("insert table: %s" % table_name)
+                getLogger(__name__).debug("data: %s, %s" % (insert_query[0],
+                                                            insert_data))
 
 def insert_rec_from_one_tables_set_to_another(dbreq, 
                                               rec_id,
@@ -106,7 +105,6 @@ def insert_rec_from_one_tables_set_to_another(dbreq,
         create_query = generate_create_table_statement(table,
                                                        dst_schema_name, '')
         dbreq.cursor.execute(create_query)
-        # print create_query
         id_name, quotes = parent_id_name_and_quotes_for_table(table)
         if quotes:
             id_val = "'" + str(rec_id) + "'"
@@ -120,9 +118,8 @@ SELECT * FROM {src_schema}{src_table} WHERE {id_name}={id_val};'
                                          src_table = table_name,
                                          id_name = id_name,
                                          id_val = id_val)
-        # print insert_query
+        getLogger(__name__).debug(insert_query)
         dbreq.cursor.execute(insert_query)
-    #dbreq.cursor.execute('COMMIT')
 
 def create_psql_table(table, dbreq, psql_schema, prefix, drop):
     if drop:

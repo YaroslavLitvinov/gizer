@@ -4,6 +4,7 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
+from logging import getLogger
 from collections import namedtuple
 from datetime import datetime
 from bson.json_util import loads
@@ -115,9 +116,8 @@ WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
         if ts:
             values = self.add_update_arg(values, 'ts', str(ts))
         values = self.add_update_arg(values, 'error', error)
-        res = fmt1.format(schema=self.schema_name, 
-                          values=values)
-        print res
+        res = fmt1.format(schema=self.schema_name, values=values)
+        getLogger(__name__).info('qmetlstatus update query: %s' % res)
         self.cursor.execute( res )
         self.cursor.execute('COMMIT;')
 

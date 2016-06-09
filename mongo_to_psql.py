@@ -20,6 +20,9 @@ from os import system
 import psycopg2
 import argparse
 import configparser
+import datetime
+import logging
+from logging import getLogger
 from collections import namedtuple
 from mongo_reader.reader import MongoReader
 from mongo_reader.reader import mongo_reader_from_settings
@@ -51,6 +54,17 @@ def getargs():
         args.js_request = default_request
 
     return args
+
+
+def create_logger(name):
+    today = datetime.datetime.now()
+    logfilename='{date}-{name}.log'.format(name=name,
+                                           date=today.strftime('%Y-%m-%d'))
+    logging.basicConfig(filename=logfilename,
+                        level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
+    logger = getLogger(__name__)
+    logger.info('Created')
 
 
 def main():
@@ -93,6 +107,7 @@ def main():
     if status:
         if status.status == STATUS_INITIAL_LOAD \
            and status.time_end and not status.error:
+            create_logger('oplogsync')
             # intial load done, now do oplog sync, in this stage will be used
             # temporary psql instance as result of operation is not a data
             # commited to DB, but only single timestamp from oplog.
@@ -112,9 +127,11 @@ def main():
         elif (status.status == STATUS_OPLOG_SYNC or \
               status.status == STATUS_OPLOG_APPLY) \
             and status.time_end and not status.error:
+            create_logger('oploguse')
             # sync done, now apply oplog pacthes to main psql
             # save oplog sync status
-            print "do_oplog_use", status.ts
+            getLogger(__name__).\
+                info('Sync point is ts:{ts}'.format(date=status.ts))
             status_manager.oplog_use_start(status.ts)
             ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
                  schemas_path, schema_engines, psql_schema)
@@ -131,7 +148,7 @@ def main():
         # initial load is not performed 
         res = -1
 
-    print res
+    getLogger(__name__).info('exiting with code %d' % res)
     return res
 
 if __name__ == "__main__":

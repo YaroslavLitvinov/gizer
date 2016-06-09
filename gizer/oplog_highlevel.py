@@ -12,6 +12,7 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import bson
 import sys
+from logging import getLogger
 from os import environ
 from bson.json_util import loads
 from collections import namedtuple
@@ -37,9 +38,6 @@ OplogApplyRes = namedtuple('OplogApplyRes',
                             'res' # True/False res
                             ])
 
-def message(mes, cr='\n'):
-    sys.stderr.write( mes + cr)
-
 def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
                                    dst_schema_name):
     """ Return True/False. Compare actual mongo record with record's relational
@@ -50,12 +48,11 @@ def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
     rec_id - record id to compare
     dst_schema_name -- psql schema name where psql tables store that record"""
     res = None
+    mongo_tables_obj = None
     psql_tables_obj = load_single_rec_into_tables_obj(psql,
                                                       schema_engine,
                                                       dst_schema_name,
                                                       rec_id)
-    #print psql_tables_obj.tables
-    mongo_tables_obj = None
     # retrieve actual mongo record and transform it to relational data
     query = prepare_mongo_request(schema_engine, rec_id)
     mongo_reader.make_new_request(query)
@@ -69,6 +66,11 @@ def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
     else:
         mongo_tables_obj = create_tables_load_bson_data(schema_engine,
                                                         [rec])
+        getLogger(__name__).debug('cmp rec=%s mongo arg[1] data: %s' %
+                                  (str(rec_id), str(mongo_tables_obj.tables)))
+        getLogger(__name__).debug('cmp rec=%s psql arg[2] data: %s' %
+                                  (str(rec_id), str(psql_tables_obj.tables)))
+
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         # save result of comparison
         res = compare_res
@@ -108,7 +110,8 @@ class OplogHighLevel:
         start_ts -- Timestamp of record in self.oplog db which should be
         applied first read ts or next available"""
 
-        print "do_oplog_apply", start_ts
+        getLogger(__name__).\
+                info('Apply oplog operation ts:%s' % str(start_ts))
         compare_rec_ids = {} # {collection: {rec_ids: bool}}
         self.oplog_query = prepare_oplog_request(start_ts)
         self.oplog.make_new_request(self.oplog_query)
@@ -131,7 +134,9 @@ class OplogHighLevel:
             self.oplog_queries = parser.next()
         # compare mongo data & psql data after self.oplog records applied
         compare_res = self.comparator.compare_src_dest()
-        print "do_oplog_apply", start_ts, "res=", compare_res
+        getLogger(__name__).\
+                info('oplog ts:%s operation applied res=%s' % (str(start_ts),
+                                                               str(compare_res)))
         if compare_res and not parser.first_handled_ts:
             # already synced, no oplog records to apply
             return OplogApplyRes(start_ts, True)
@@ -148,7 +153,8 @@ class OplogHighLevel:
         params:
         ts -- oplog timestamp which is start point to locate sync point"""
     
-        print "do_oplog_sync", ts
+        getLogger(__name__).\
+                info('Start oplog synchronising from ts:%s' % str(ts))
         schema_engines = get_schema_engines_as_dict(self.schemas_path)
     
         # oplog_ts_to_test is timestamp starting from which oplog records
@@ -163,18 +169,23 @@ class OplogHighLevel:
             else:
                 oplog_ts_to_test = sync_res
             sync_res = self._sync_oplog(oplog_ts_to_test)
-        print "sync_res=", sync_res, " oplog_ts_to_test=", oplog_ts_to_test
+        getLogger(__name__).\
+            info('oplog ts:%s sync res=%s' % (str(ts),
+                                              str(sync_res)))
+
         if sync_res:
             # if oplog sync point is located at None, then all oplog ops
             # must be applied starting from first ever ts
             if not oplog_ts_to_test:
-                print "do_oplog_sync - already synced ts:", ts
+                getLogger(__name__).\
+                    info('Already synchronised ts:%s' % str(ts))
                 return True
             else:
-                print "do_oplog_sync - synced ts:", oplog_ts_to_test
+                getLogger(__name__).\
+                    info('Sync point located ts:%s' % str(oplog_ts_to_test))
                 return oplog_ts_to_test
         else:
-            print "do_oplog_sync - sync error"
+            getLogger(__name__).error('Sync failed.')
             return None
     
 
@@ -187,16 +198,16 @@ class OplogHighLevel:
         ts_sync = self.do_oplog_apply(test_ts)
         if ts_sync.res == True:
             # sync succesfull
-            #self.psql.conn.commit()
-            #message('COMMIT')
+            getLogger(__name__).info('COMMIT')
+            self.psql.conn.commit()
             return True
         else:
             # continue syncing, revert to original data
+            getLogger(__name__).info('ROLLBACK')
             self.psql.conn.rollback()
-            message('ROLLBACK')
             if ts_sync.ts:
-                message("failed to sync ts=" + str(test_ts) +
-                        ", try next ts=" + str(ts_sync.ts))
+                getLogger(__name__).info("Bad sync candidate ts:" + str(test_ts) +
+                                         ", try next ts=" + str(ts_sync.ts))
             # next sync iteration, starting from ts_sync.ts
                 return ts_sync.ts
             else:
@@ -220,17 +231,19 @@ class ComparatorMongoPsql:
     def compare_one_src_dest(self, collection_name, rec_id):
         schema_engine = self.schema_engines[collection_name]
         mongo_reader = self.mongo_readers[collection_name]
-        message("comparing... rec_id = " + str(rec_id))
+        getLogger(__name__).info("comparing... rec_id=" + str(rec_id))
         equal = compare_psql_and_mongo_records(self.psql,
                                                mongo_reader,
                                                schema_engine,
                                                rec_id,
                                                self.psql_schema)
-        message("compare res = " + str(equal))
+        getLogger(__name__).info("compare res=" + str(equal) + 
+                                 " for rec_id=" + str(rec_id))
         return equal
 
     def compare_src_dest(self):
-        print "records to compare ", self.recs_to_compare
+        getLogger(__name__).info('Oplog ops applied. Compare following recs: %s'\
+                                     % self.recs_to_compare )
         # compare mongo data & psql data after self.oplog records applied
         for collection_name, recs in self.recs_to_compare.iteritems():
             for rec_id in recs:
