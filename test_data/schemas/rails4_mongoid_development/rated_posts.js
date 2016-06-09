@@ -15,6 +15,10 @@
 	        },
 			"user_id" : "STRING",
 			"rate" : "STRING",
+			"user_info":{
+			    "name":"STRING",
+			    "last_name":"STRING"
+			},
 		    "created_at": "TIMESTAMP",
 		    "updated_at": "TIMESTAMP",
 			"item_rates":[{
