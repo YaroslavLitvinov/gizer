@@ -318,3 +318,20 @@ test_data_04 = '''{
 		}
 	}
 }'''
+
+test_data_05 = '''{
+	"ts": "1465220614, 2",
+	"h" : "-1422482527797357621",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "quote_management.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000014"}
+    },
+	"o" : {
+		"$set" : {
+			"comments.1.rates.2.user_info.name" : "Vasya"
+		}
+	}
+}
+'''
