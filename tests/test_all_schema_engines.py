@@ -10,6 +10,7 @@ def test_get_schema_engines_as_dist():
     dbname = 'rails4_mongoid_development'
     db_schemas_path = '/'.join(['test_data', 'schemas', dbname])
     files = get_schema_files(db_schemas_path)
+    files.sort()
     assert(files==['guests.js', 'posts.js', 'posts2.js', 'rated_posts.js'])
     schemas = get_schema_engines_as_dict(db_schemas_path)
     assert(schemas['posts'].schema != None)
