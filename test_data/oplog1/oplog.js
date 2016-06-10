@@ -62,7 +62,7 @@
   },
   "o": {
     "$set": {
-	"comments.2.tests.1": 101
+	"comments.1.tests.0": 101
     }
   }
 },
@@ -148,7 +148,7 @@
   },
   "o": {
     "$set": {
-      "comments.2": {
+      "comments.1": {
         "_id": { "$oid": "56b8f34ef9fcee1b00000019" },
         "body": "commments2222",
         "updated_at": { "$date" :"2016-02-08T19:58:06.008Z"},
@@ -169,7 +169,7 @@
   },
   "o": {
     "$set": {
-      "comments.3": {
+      "comments.2": {
         "_id": { "$oid": "56b8f35ef9fcee1b0000001a" },
         "updated_at": {"$date": "2016-02-08T19:58:22.847Z"},
 	    "created_at": {"$date": "2016-02-08T19:58:22.847Z"}
