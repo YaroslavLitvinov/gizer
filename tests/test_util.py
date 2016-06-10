@@ -72,18 +72,18 @@ def test_get_root_table_from_path():
 
 def test_get_indexes_dictionary():
     path = 'persons.relatives.2.contacts.3.phones.4'
-    model = {'person_relative_contact_phones': '4', 'person_relatives': '2', 'person_relative_contacts': '3'}
+    model = {'person_relative_contact_phones': '5', 'person_relatives': '3', 'person_relative_contacts': '4'}
     f_return = get_indexes_dictionary(path)
     assert model == f_return
 
     path = 'persons.relatives.contacts.phones.4'
-    model = {'person_relative_contact_phones': '4'}
+    model = {'person_relative_contact_phones': '5'}
     f_return = get_indexes_dictionary(path)
     assert model == f_return
 
     path = 'persons.1.relatives.2.contacts.3.phones.4'
-    model = {'person_relative_contact_phones': '4', 'person_relatives': '2', 'person_relative_contacts': '3',
-             'persons': '1'}
+    model = {'person_relative_contact_phones': '5', 'person_relatives': '3', 'person_relative_contacts': '4',
+             'persons': '2'}
     f_return = get_indexes_dictionary(path)
     assert model == f_return
 
@@ -93,12 +93,12 @@ def test_get_indexes_dictionary():
     assert model == f_return
 
     path = 'persons.1.relatives.2.contacts.3.phones'
-    model = {'person_relative_contacts': '3', 'persons': '1', 'person_relatives': '2'}
+    model = {'person_relative_contacts': '4', 'persons': '2', 'person_relatives': '3'}
     f_return = get_indexes_dictionary(path)
     assert model == f_return
 
     path = 'persons.1.relatives.contacts.3.phones.6.numbers'
-    model = {'person_relative_contacts': '3', 'persons': '1', 'person_relative_contact_phones': '6'}
+    model = {'person_relative_contacts': '4', 'persons': '2', 'person_relative_contact_phones': '7'}
     f_return = get_indexes_dictionary(path)
     assert model == f_return
 
@@ -106,18 +106,18 @@ def test_get_indexes_dictionary():
 
 def test_get_indexes_dictionary_idx():
     path = 'persons.relatives.2.contacts.3.phones.4'
-    model = {'persons_relatives_contacts_phones': '4', 'persons_relatives': '2', 'persons_relatives_contacts': '3'}
+    model = {'persons_relatives_contacts_phones': '5', 'persons_relatives': '3', 'persons_relatives_contacts': '4'}
     f_return = get_indexes_dictionary_idx(path)
     assert model == f_return
 
     path = 'persons.relatives.contacts.phones.4'
-    model = {'persons_relatives_contacts_phones': '4'}
+    model = {'persons_relatives_contacts_phones': '5'}
     f_return = get_indexes_dictionary_idx(path)
     assert model == f_return
 
     path = 'persons.1.relatives.2.contacts.3.phones.4'
-    model = {'persons_relatives_contacts_phones': '4', 'persons_relatives': '2', 'persons_relatives_contacts': '3',
-             'persons': '1'}
+    model = {'persons_relatives_contacts_phones': '5', 'persons_relatives': '3', 'persons_relatives_contacts': '4',
+             'persons': '2'}
     f_return = get_indexes_dictionary_idx(path)
     assert model == f_return
 
@@ -127,12 +127,12 @@ def test_get_indexes_dictionary_idx():
     assert model == f_return
 
     path = 'persons.1.relatives.2.contacts.3.phones'
-    model = {'persons_relatives_contacts': '3', 'persons': '1', 'persons_relatives': '2'}
+    model = {'persons_relatives_contacts': '4', 'persons': '2', 'persons_relatives': '3'}
     f_return = get_indexes_dictionary_idx(path)
     assert model == f_return
 
     path = 'persons.1.relatives.contacts.3.phones.6.numbers'
-    model = {'persons_relatives_contacts': '3', 'persons': '1', 'persons_relatives_contacts_phones': '6'}
+    model = {'persons_relatives_contacts': '4', 'persons': '2', 'persons_relatives_contacts_phones': '7'}
     f_return = get_indexes_dictionary_idx(path)
     assert model == f_return
 
@@ -144,10 +144,10 @@ def test_get_last_idx_from_path():
     assert get_last_idx_from_path(path) is None
 
     path = 'persons.1.relatives.2.contacts.3.phones.4'
-    assert get_last_idx_from_path(path) == '4'
+    assert get_last_idx_from_path(path) == '5'
 
     path = 'persons.relatives.contacts.phones.234'
-    assert get_last_idx_from_path(path) == '234'
+    assert get_last_idx_from_path(path) == '235'
     print('TEST', 'get_last_idx_from_path', 'PASSED')
 
 

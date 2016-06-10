@@ -133,7 +133,7 @@ def gen_statements(dbreq, schema, path, id, database_name, schema_name):
     for ind in range(int(idx) + 1, int(max_idx) + 1):
         spath = path.split('.')
         del spath[-1]
-        spath.append(str(ind))
+        spath.append(str(ind - 1))
         path_to_update = '.'.join(spath)
         udpate_where = get_where_templates(get_conditions_list(schema, path_to_update, id))
         update_statements[UPDATE_TMPLT.format(table=get_table_name_schema([database_name, schema_name, target_table]), statements='idx=' + str(ind - 1),

@@ -109,7 +109,7 @@ def get_indexes_dictionary(path):
     for i in iter_i:
         if spath[i].isdigit():
             table_name = get_table_name_from_list(spath)
-            index_dict[table_name] = spath[i]
+            index_dict[table_name] = str(int(spath[i]) + 1)
             del spath[i]
             del spath[i - 1]
             next(iter_i)
@@ -125,7 +125,7 @@ def get_indexes_dictionary_idx(path):
     for i in iter_i:
         if spath[i].isdigit():
             table_name = get_idx_column_name_from_list(spath)
-            index_dict[table_name] = spath[i]
+            index_dict[table_name] = str(int(spath[i]) + 1)
             del spath[i]
             del spath[i - 1]
             next(iter_i)
@@ -137,7 +137,7 @@ def get_indexes_dictionary_idx(path):
 def get_last_idx_from_path(path):
     spath = path.split('.')
     if spath[-1].isdigit():
-        return spath[-1]
+        return str(int(spath[-1]) + 1)
     else:
         return None
 
