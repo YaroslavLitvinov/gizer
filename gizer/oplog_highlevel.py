@@ -66,12 +66,17 @@ def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
     else:
         mongo_tables_obj = create_tables_load_bson_data(schema_engine,
                                                         [rec])
-        getLogger(__name__).debug('cmp rec=%s mongo arg[1] data: %s' %
-                                  (str(rec_id), str(mongo_tables_obj.tables)))
-        getLogger(__name__).debug('cmp rec=%s psql arg[2] data: %s' %
-                                  (str(rec_id), str(psql_tables_obj.tables)))
-
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
+        if not compare_res:
+            getLogger(__name__).debug('cmp rec=%s res=False mongo arg[1] data:' % 
+                                      str(rec_id))
+            for line in str(mongo_tables_obj.tables).splitlines():
+                getLogger(__name__).debug(line)
+            getLogger(__name__).debug('cmp rec=%s res=False psql arg[2] data:' % 
+                                      str(rec_id))
+            for line in str(psql_tables_obj.tables).splitlines():
+                getLogger(__name__).debug(line)
+
         # save result of comparison
         res = compare_res
     return res

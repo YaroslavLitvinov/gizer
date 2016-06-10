@@ -6,6 +6,7 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import os
 import psycopg2
+import logging
 from collections import namedtuple
 from gizer.psql_requests import PsqlRequests
 from gizer.oplog_highlevel import OplogHighLevel
@@ -85,6 +86,7 @@ def test_oplog_sync():
                      'guests': 'test_data/oplog1/after_collection_guests.js'})
     res = check_oplog_sync_point(oplog_test1)
     assert(res == True)
+    
 
     print('\ntest#2')
     oplog_test2 \
@@ -146,4 +148,6 @@ def test_compare_empty_compare_psql_and_mongo_records():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
     test_oplog_sync()
