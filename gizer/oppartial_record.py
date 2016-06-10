@@ -39,11 +39,9 @@ def initial_indexes_from_components(schema_engine, components):
         locate_path = [i.name for i in components[:comp_i+1]]
         node = schema_engine.locate(locate_path)
         if not components[comp_i].index:
-            res[node.long_alias()] = 1
+            res[node.long_alias()] = 0
         else:
             res[node.long_alias()] = components[comp_i].index
-        # decrement initial indexes as gizer indexes starts from 0
-        res[node.long_alias()] = res[node.long_alias()] - 1
     return res
 
 def node_by_components(schema_engine, components):
