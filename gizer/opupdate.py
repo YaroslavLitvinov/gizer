@@ -15,21 +15,6 @@ import bson
 import datetime
 
 
-# UPSERT_TMLPT = """\
-# LOOP
-#     {update}
-#     IF found THEN
-#         RETURN;
-#     END IF;
-#     BEGIN
-#         {insert}
-#         RETURN;
-#     EXCEPTION WHEN unique_violation THEN
-#     END;
-# END LOOP;
-# """
-
-
 def localte_in_schema(schema_in, path):
     if type(schema_in) is list:
         schema = schema_in[0]
@@ -62,6 +47,72 @@ def localte_in_schema(schema_in, path):
         return False
 
 
+# def get_part_schema(schema_in, path):
+#     print(type(schema_in))
+#     if type(schema_in) is list:
+#         schema = schema_in[0]
+#     else:
+#         schema = schema_in
+#     if path[0] in schema.keys():
+#         if type(schema[path[0]]) is dict:
+#             if len(path) > 1:
+#                 return get_part_schema(schema[path[0]], path[1:])
+#             else:
+#                 return schema[path[0]]
+#         elif type(schema[path[0]]) is list:
+#             return schema[path[0]]
+#         else:
+#             return schema[path[0]]
+
+
+def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_name, tables_mappings, database_name, schema_name):
+    if type(schema_e) != dict:
+        schema = schema_e.schema
+    else:
+        schema = schema_e
+    ret_val = []
+    tables_mappings = get_tables_structure(schema, root_table_name, {}, {}, 1, '')
+    for element in oplog_data_unset:
+        updating_obj = element.split('.')
+        if not localte_in_schema(schema[0], updating_obj):
+            continue
+        last_digit_index = 1
+        for i, path_el in enumerate(updating_obj):
+            if path_el.isdigit():
+                last_digit_index = i
+        unset_table_path =  updating_obj[:last_digit_index+1]
+        unset_object_path = updating_obj[last_digit_index+1:]
+        doc_id = get_obj_id_recursive(oplog_data_object_id, [], [])
+        unset_target_table_path = [root_table_name] + unset_table_path
+        '.'.join(unset_target_table_path)
+        cond_list = get_conditions_list(schema, '.'.join([root_table_name] + unset_table_path),doc_id.itervalues().next())
+        unset_object_path_column = '_'.join([get_field_name_without_underscore(column) for column in unset_object_path])
+        target_table = get_table_name_from_list(unset_target_table_path)
+        set_to_null_columns_list = {}
+        for column in tables_mappings[target_table]:
+            if column.startswith(unset_object_path_column+'_'):
+                set_to_null_columns_list[column] = None
+        if len(set_to_null_columns_list) > 0:
+            statements_str = ', '.join(['{column}=(%s)'.format(column=col) for col in set_to_null_columns_list])
+            conditions_str = ' and '.join(['{column}=(%s)'.format(column=col) for col in sorted(cond_list['target'])])
+            upd_stmnt = UPDATE_TMPLT.format( table='.'.join(filter(None, [database_name, schema_name, target_table])), statements=statements_str, conditions=conditions_str )
+            ret_val.append({upd_stmnt:[tuple([set_to_null_columns_list[col] for col in set_to_null_columns_list]+[cond_list['target'][col] for col in sorted(cond_list['target']) ])]})
+        if target_table[:-1] + '_' + unset_object_path_column in tables_mappings.keys():
+            del_stmnt = delete(dbreq, schema, root_table_name + '.' + element, doc_id.itervalues().next(), database_name, schema_name)
+            for op in del_stmnt:
+                if type(del_stmnt[op]) is dict:
+                    for k in del_stmnt[op]:
+                        ret_val.append({k:[tuple(del_stmnt[op][k])]})
+        else:
+            conditions_str_child = ' and '.join(['{column}=(%s)'.format(column=col) for col in sorted(cond_list['child'])])
+            pattern_locate_table_name = target_table[:-1] + '_' + unset_object_path_column + '_'
+            for table in tables_mappings.keys():
+                if table.startswith(pattern_locate_table_name):
+                    del_stamnt = DELETE_TMPLT.format(table = '.'.join(filter(None, [database_name, schema_name, table])), conditions = conditions_str_child)
+                    ret_val.append({del_stamnt:tuple([cond_list['child'][col] for col in sorted(cond_list['child']) ])})
+        return ret_val
+
+
 def update(dbreq, schema_e, oplog_data, database_name, schema_name):
     if type(schema_e) != dict:
         schema = schema_e.schema
@@ -69,10 +120,13 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
         schema = schema_e
     oplog_data_object_id = oplog_data['o2']
     oplog_data_ns = oplog_data['ns']
-    oplog_data_set = oplog_data['o']['$set']
-    root_table_name = oplog_data_ns.split('.')[-1]
-    tables_mappings = get_tables_structure(schema, root_table_name, {}, {}, '')
     ret_val = []
+    root_table_name = oplog_data_ns.split('.')[-1]
+    tables_mappings = get_tables_structure(schema, root_table_name, {}, {}, 1, '')
+    if '$set' in oplog_data['o'].keys():
+        oplog_data_set = oplog_data['o']['$set']
+    else:
+        return unset(dbreq,schema_e,oplog_data['o']['$unset'], oplog_data_object_id, root_table_name,tables_mappings,database_name,schema_name)
     is_root_object_updated = False
     for element in oplog_data_set:
         updating_obj = element.split('.')
@@ -98,6 +152,7 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
             if not is_root_object_updated:
                 ret_val.extend (update_cmd(dbreq,schema_e,oplog_data_set,oplog_data_object_id,oplog_data_ns,tables_mappings,database_name,schema_name))
             is_root_object_updated = True
+    # print(ret_val)
     return ret_val
 
 def update_list (dbreq, schema_e, upd_path_str, oplog_data_set, oplog_data_object_id, database_name, schema_name):
@@ -161,9 +216,7 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             q_statements_list = [('{column}=(%s)' if not get_quotes_using(schema, root_table_name, col,
                                                                           root_table_name) else '{column}=(%s)').format(
                 column=col) for col in q_columns]
-            q_conditions = ('{column}=(%s)' if not get_quotes_using(schema, root_table_name, id_column,
-                                                                    root_table_name) else '{column}=(%s)').format(
-                column=id_column)
+            q_conditions = ('{column}=(%s)' if not get_quotes_using(schema, root_table_name, id_column,root_table_name) else '{column}=(%s)').format( column=id_column)
             upd_statement_template = UPDATE_TMPLT.format(
                 table=get_table_name_schema([database_name, schema_name, root_table_name]),
                 statements=', '.join(q_statements_list), conditions=q_conditions)
@@ -198,8 +251,7 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             upd_statement_template = UPDATE_TMPLT.format(
                 table=get_table_name_schema([database_name, schema_name, target_table_name]),
                 statements=q_statements_str, conditions=q_conditions_str)
-            upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in
-                                                                  q_conditions['target']]
+            upd_values = [q_columns[col] for col in q_columns] + [q_conditions['target'][col] for col in q_conditions['target']]
             tables, initial_indexes \
                 = get_tables_data_from_oplog_set_command(schema_e,
                                                          oplog_data_set,
@@ -217,6 +269,24 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             upd_stmnt[upsert_statement_template] = upsert_values
 
             ret_val.append({upsert_statement_template:[tuple(upsert_values)]})
+        else:
+            q_conditions = get_conditions_list(schema, '.'.join(upd_path), doc_id.itervalues().next())
+            q_conditions_str = ' and '.join(['{column}=(%s)'.format(column=col) for col in q_conditions['target']])
+            q_values = [q_conditions['target'][col] for col in q_conditions['target']]
+            target_table_name = get_table_name_from_list(upd_path)
+            target_table_name_db_schema = get_table_name_schema([database_name, schema_name, target_table_name])
+            item_value = u_data[k]
+            column_name = ''
+            for it in k.split('.'):
+                if not it.isdigit():
+                    column_name = it
+            columns_str = ', '.join([column for column in q_conditions['target']] + [column_name])
+            values_str = ', '.join(['%s' for column in tables_mappings[target_table_name].keys()])
+            ins_stmnt = INSERT_TMPLT.format( table=target_table_name_db_schema, columns=columns_str, values=values_str)
+            upd_stmnt = UPDATE_TMPLT.format( table=target_table_name_db_schema, statements='{column_name}=(%s)'.format(column_name=column_name), conditions=q_conditions_str)
+            upsetrt_tmplt = UPSERT_TMLPT.format(update = upd_stmnt, insert=ins_stmnt)
+            ret_val.append({upsetrt_tmplt:[tuple([item_value] + q_values + q_values + [item_value])]})
+
     return ret_val
 
 
