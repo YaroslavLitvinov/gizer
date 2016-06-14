@@ -11,6 +11,8 @@ import os
 import sys
 import json
 import argparse
+import logging
+from logging import getLogger
 import configparser
 from collections import namedtuple
 # profiling
@@ -41,10 +43,6 @@ TablesToSave = namedtuple('TablesToSave', ['rows', 'errors'])
 MongoSettings = namedtuple('MongoSettings',
                            ['host', 'port', 'dbname', 'collection',
                             'request'])
-
-def message(mes, crret='\n'):
-    """ put mes to stderr """
-    sys.stderr.write(mes + crret)
 
 def create_table(sqltable, psql_schema_name, table_prefix):
     """ get drop / create ddl statements """
@@ -98,9 +96,9 @@ def retrieve_mongo_record(mongo_reader):
         retrieve_mongo_record.mongo_count = mongo_reader.cursor.count()
     count = retrieve_mongo_record.mongo_count
     if rec:
-        message(".", crret="")
+        #message(".", crret="")
         if mongo_reader.rec_i % 1000 == 0:
-            message("\n%d of %d" % (mongo_reader.rec_i, count))
+            getLogger(__name__).info("%d of %d" % (mongo_reader.rec_i, count))
     return rec
 
 def async_worker_handle_mongo_rec(schema_engine, rec):
@@ -171,15 +169,19 @@ default=%s' % (default_request), type=str)
 def print_profiler_stats(profiler):
     """ profiling results """
     profiler.disable()
-    state_printer = Stats(profiler).sort_stats('cumulative')
+    state_printer = Stats(profiler, stream=sys.stderr).sort_stats('cumulative')
     state_printer.print_stats()
 
 def print_etl_stats(errors, all_written, etl_recs_count):
     """ etl summary """
     ppinter = pprint.PrettyPrinter(indent=4)
-    ppinter.pprint(errors)
-    ppinter.pprint(all_written)
-    print "Etl records count should be =", etl_recs_count
+    if len(errors):
+        getLogger(__name__).warning(ppinter.pformat(errors))
+    if len(all_written):
+        getLogger(__name__).info("written: " + ppinter.pformat(all_written))
+    else:
+        getLogger(__name__).warning("Nothing written!")
+    getLogger(__name__).info("Expected Etl records count = %d" % etl_recs_count)
 
 def save_etl_stats(out_file, all_written):
     """ save list of tables with processed counts """
@@ -189,8 +191,9 @@ def save_etl_stats(out_file, all_written):
 
 def main():
     """ main """
-    profiler = Profile()  # profiling
-    profiler.enable()
+    #for debugging purposes
+    #profiler = Profile()  # profiling
+    #profiler.enable()
 
     args = getargs()
 
@@ -214,7 +217,7 @@ def main():
         = FastQueueProcessor(async_worker_handle_mongo_rec,
                              schema_engine,
                              ETL_PROCESS_NUMBER)
-    message("Connecting to mongo server " + mongo_settings.host)
+    getLogger(__name__).info("Connecting to mongo server " + mongo_settings.host)
     errors = {}
     all_written = {}
     etl_recs_count = 0
@@ -238,7 +241,7 @@ def main():
         mongo_reader.failed = True
         del mongo_rec_multiprocessing
         raise
-    message("")
+    #message("")
     
     if mongo_rec_multiprocessing.error:
         mongo_reader.failed = True
@@ -250,7 +253,8 @@ def main():
     # save csv files
     csm.finalize()
 
-    print_profiler_stats(profiler)
+    #for debugging purposes
+    #print_profiler_stats(profiler)
     print_etl_stats(errors, all_written, etl_recs_count)
     save_etl_stats(args.stats_file, all_written)
 
@@ -258,4 +262,7 @@ def main():
     exit(mongo_reader.failed)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO,
+                        stream=sys.stdout,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
     main()

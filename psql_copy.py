@@ -10,6 +10,8 @@ import sys
 import argparse
 import psycopg2
 import configparser
+import logging
+from logging import getLogger
 from os import listdir, environ
 from os.path import isfile, join
 from json import load
@@ -20,16 +22,12 @@ from gizer.psql_objects import create_psql_table
 from gizer.psql_requests import psql_conn_from_settings
 from gizer.opconfig import psql_settings_from_config
 
-def message(mes, crret='\n'):
-    """ write mes to stderr """
-    sys.stderr.write(mes + crret)
-
 def copy_from_csv(dbreq, input_f, table_name):
     """Fastest approach, need specific csv format"""
     #use two slashes as '\N' became '\\N' when writing escaping csv data
     dbreq.cursor.copy_from(input_f, table_name, null='\\\\N')
     dbreq.cursor.execute('COMMIT')
-    message('Exported csv %s' % (input_f.name))
+    getLogger(__name__).info('Exported csv %s' % (input_f.name))
 
 def main():
     """ main """
@@ -83,4 +81,7 @@ def main():
             copy_from_csv(dbreq, csv_f, tname)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO,
+                        stream=sys.stdout,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
     main()

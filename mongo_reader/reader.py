@@ -7,12 +7,11 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 import sys
 import time
 import pymongo
+from logging import getLogger
 #import urllib
 from pymongo.mongo_client import MongoClient
 from pymongo.cursor import CursorType
 
-def message(mes, cr='\n'):
-    sys.stderr.write(mes + cr)
 
 def mongo_reader_from_settings(settings, collection_name, request):
     return MongoReader(settings, collection_name, request)
@@ -43,7 +42,7 @@ class MongoReader:
                              dbname=self.settings.dbname,
                              params=params)
         self.client = MongoClient(uri)
-        message("Authenticated")
+        getLogger(__name__).info("Authenticated")
 
     def make_new_request(self, query):
         if not self.client:
@@ -70,13 +69,13 @@ class MongoReader:
                 self.attempts += 1
                 if self.attempts <= 4:
                     time.sleep(pow(2, self.attempts))
-                    message("Connect attempt #%d, %s" %
+                    getLogger(__name__).warning("Connect attempt #%d, %s" %
                             (self.attempts, str(time.time())))
                     continue
                 else:
                     self.failed = True
             except pymongo.errors.OperationFailure:
                 self.failed = True
-                message("Exception: pymongo.errors.OperationFailure")
+                getLogger(__name__).error("Exception: pymongo.errors.OperationFailure")
             break
         return rec
