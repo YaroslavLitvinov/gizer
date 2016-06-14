@@ -47,22 +47,21 @@ def localte_in_schema(schema_in, path):
         return False
 
 
-# def get_part_schema(schema_in, path):
-#     print(type(schema_in))
-#     if type(schema_in) is list:
-#         schema = schema_in[0]
-#     else:
-#         schema = schema_in
-#     if path[0] in schema.keys():
-#         if type(schema[path[0]]) is dict:
-#             if len(path) > 1:
-#                 return get_part_schema(schema[path[0]], path[1:])
-#             else:
-#                 return schema[path[0]]
-#         elif type(schema[path[0]]) is list:
-#             return schema[path[0]]
-#         else:
-#             return schema[path[0]]
+def get_part_schema(schema_in, path):
+    if type(schema_in) is list:
+        schema = schema_in[0]
+    else:
+        schema = schema_in
+    if path[0] in schema.keys():
+        if type(schema[path[0]]) is dict:
+            if len(path) > 1:
+                return get_part_schema(schema[path[0]], path[1:])
+            else:
+                return schema[path[0]]
+        elif type(schema[path[0]]) is list:
+            return schema[path[0]]
+        else:
+            return schema[path[0]]
 
 
 def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_name, tables_mappings, database_name, schema_name):
@@ -77,17 +76,31 @@ def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_nam
         if not localte_in_schema(schema[0], updating_obj):
             continue
         last_digit_index = 1
+        is_root = True
         for i, path_el in enumerate(updating_obj):
             if path_el.isdigit():
+                is_root = False
                 last_digit_index = i
-        unset_table_path =  updating_obj[:last_digit_index+1]
-        unset_object_path = updating_obj[last_digit_index+1:]
+
+        if is_root:
+            s_part = get_part_schema(schema,updating_obj)
+            if not type(s_part) is list:
+                last_digit_index = 0
+
+        if last_digit_index == 0:
+            unset_table_path = [root_table_name]
+            unset_object_path = updating_obj
+            unset_target_table_path = [root_table_name]
+        else:
+            unset_table_path =  updating_obj[:last_digit_index+1]
+            unset_object_path = updating_obj[last_digit_index+1:]
+            unset_target_table_path = [root_table_name] + unset_table_path
         doc_id = get_obj_id_recursive(oplog_data_object_id, [], [])
-        unset_target_table_path = [root_table_name] + unset_table_path
         '.'.join(unset_target_table_path)
         cond_list = get_conditions_list(schema, '.'.join([root_table_name] + unset_table_path),doc_id.itervalues().next())
         unset_object_path_column = '_'.join([get_field_name_without_underscore(column) for column in unset_object_path])
         target_table = get_table_name_from_list(unset_target_table_path)
+
         set_to_null_columns_list = {}
         for column in tables_mappings[target_table]:
             if column.startswith(unset_object_path_column+'_'):
