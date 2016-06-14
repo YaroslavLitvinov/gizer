@@ -154,7 +154,7 @@ def test_get_last_idx_from_path():
 def test_get_tables_structure():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     collection_name = 'documents'
-    result = get_tables_structure(schema, collection_name, {}, {}, 1)
+    result = get_tables_structure(schema, collection_name, {}, {}, 1, '')
     model = {
         u'documents': {
             u'personal_info_driver_licence': u'text',
@@ -201,12 +201,12 @@ def test_get_tables_structure():
         },
         u'document_personal_info_fl_name_SSNs': {
             u'documents_id_oid': u'text',
-            u'data': u'integer',
+            u'SSNs': u'integer',
             u'idx': u'bigint'
         },
         u'document_indeces': {
             u'documents_id_oid': u'text',
-            u'data': u'integer',
+            u'indeces': u'integer',
             u'idx': u'bigint'
         },
         u'document_relative_jobs': {
@@ -220,12 +220,12 @@ def test_get_tables_structure():
     assert model == result
 
     schema = json.loads(open('test_data/test_schema6.txt').read())
-    result = get_tables_structure(schema, collection_name, {}, {}, 1)
+    result = get_tables_structure(schema, collection_name, {}, {}, 1, '')
     model = {'documents': {}}
     assert model == result
 
     schema = json.loads(open('test_data/test_schema4.txt').read())
-    result = get_tables_structure(schema, collection_name, {}, {}, 1)
+    result = get_tables_structure(schema, collection_name, {}, {}, 1, '')
     model = {
         'documents': {
             'personal_info_driver_licence': 'text',
@@ -272,19 +272,19 @@ def test_get_tables_structure():
         },
         'document_indeces': {
             'documents_id_oid': 'text',
-            'data': 'integer',
+            'indeces': 'integer',
             'idx': 'bigint'
         },
         'document_personal_info_full_name_SSNs': {
             'documents_id_oid': 'text',
-            'data': 'integer',
+            'SSNs': 'integer',
             'idx': 'bigint'
         }
     }
     assert model == result
 
     schema = json.loads(open('test_data/test_schema.txt').read())
-    result = get_tables_structure(schema, collection_name, {}, {}, 1)
+    result = get_tables_structure(schema, collection_name, {}, {}, 1, '')
     model = {
         'documents': {
             'field': 'text',
@@ -326,7 +326,7 @@ def test_get_tables_structure():
         },
         'document_indeces': {
             'documents_idx': 'bigint',
-            'data': 'integer',
+            'indeces': 'integer',
             'idx': 'bigint'
         }
     }
@@ -363,7 +363,7 @@ def test_get_quotes_using():
     assert model == result
 
     table = 'document_personal_info_fl_name_SSNs'
-    field_name = 'data'
+    field_name = 'SSNs'
     model = False
     result = get_quotes_using(schema, table, field_name, collection_name)
     assert model == result
@@ -381,7 +381,7 @@ def test_get_column_type():
     assert model == result
 
     table = 'document_personal_info_full_name_SSNs'
-    field_name = 'data'
+    field_name = 'SSNs'
     model = 'integer'
     result = get_column_type(schema, table, field_name, collection_name)
     assert model == result

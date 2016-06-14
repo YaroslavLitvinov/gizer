@@ -335,3 +335,80 @@ test_data_05 = '''{
 	}
 }
 '''
+
+test_data_06 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2" : { "_id" : 503078 },
+    "o" : {
+        "$unset" : {
+            "comments.2._id" : true
+        }
+    }
+}
+'''
+
+test_data_07 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2" : { "_id" : 503078 },
+    "o" : {
+        "$unset" : {
+            "comments.2.rates.8.user_info" : true
+        }
+    }
+}
+'''
+
+test_data_08 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2" : { "_id" : 503078 },
+    "o" : {
+        "$unset" : {
+            "comments.2.rates.9.item_rates" : true
+        }
+    }
+}
+'''
+
+test_data_09 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2" : { "_id" : 503078 },
+    "o" : {
+        "$set" : {
+            "comments.2.tests.5" : 24
+        }
+    }
+}
+'''
+test_data_10 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2" : { "_id" : 503078 },
+    "o" : {
+        "$unset" : {
+            "comments.2.tests" : true
+        }
+    }
+}
+'''
+
+#            "options.2.price" : true
+#            "options.2.groupings.3.items" : true

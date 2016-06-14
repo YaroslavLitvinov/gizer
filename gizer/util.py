@@ -163,7 +163,7 @@ def get_ids_list(lst, is_root):
     return ids_to_add
 
 
-def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_table):
+def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_table, parent_key):
     if type(schema) is list:
         table_struct = schema[0]
     else:
@@ -184,13 +184,15 @@ def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_
     root_table = 0
 
     if not type(table_struct) is dict:
-        table_mappings[table][u'data'] = get_postgres_type(table_struct)
+        print(table_struct)
+        print(table)
+        table_mappings[table][parent_key] = get_postgres_type(table_struct)
         return table_mappings
 
     for element in table_struct:
         if type(table_struct[element]) is list:
             get_tables_structure(table_struct[element], table[:-1] + '_' + get_field_name_without_underscore(element),
-                                 table_mappings, parent_tables_ids.copy(), root_table)
+                                 table_mappings, parent_tables_ids.copy(), root_table, element)
         elif type(table_struct[element]) is dict:
             get_table_struct_from_dict(table_struct[element], table, table_mappings, parent_tables_ids.copy(),
                                        get_field_name_without_underscore(element))
@@ -206,14 +208,14 @@ def get_table_struct_from_dict(schema, table, table_mappings, parent_tables_ids,
                                        parent_name + '_' + get_field_name_without_underscore(column))
         elif type(schema[column]) is list:
             get_tables_structure(schema[column], table[:-1] + '_' + parent_name + '_' + column, table_mappings,
-                                 parent_tables_ids, 0)
+                                 parent_tables_ids, 0, column)
         else:
             table_mappings[table][parent_name + '_' + get_field_name_without_underscore(column)] = get_postgres_type(
                 schema[column])
 
 
 def get_column_type(schema, table, field_name, collection_name):
-    return get_tables_structure(schema, collection_name, {}, {}, 1)[table][field_name]
+    return get_tables_structure(schema, collection_name, {}, {}, 1, '')[table][field_name]
 
 
 def get_quotes_using(schema, table, field_name, collection_name):
