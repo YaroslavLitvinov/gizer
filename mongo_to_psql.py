@@ -131,7 +131,7 @@ def main():
             # sync done, now apply oplog pacthes to main psql
             # save oplog sync status
             getLogger(__name__).\
-                info('Sync point is ts:{ts}'.format(date=status.ts))
+                info('Sync point is ts:{ts}'.format(ts=status.ts))
             status_manager.oplog_use_start(status.ts)
             ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
                  schemas_path, schema_engines, psql_schema)
