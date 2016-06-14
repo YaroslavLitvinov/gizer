@@ -410,5 +410,17 @@ test_data_10 = '''{
 }
 '''
 
-#            "options.2.price" : true
-#            "options.2.groupings.3.items" : true
+test_data_11 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2" : { "_id" : 503078 },
+    "o" : {
+        "$unset" : {
+            "_id" : true
+        }
+    }
+}
+'''
