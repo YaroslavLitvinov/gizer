@@ -239,6 +239,9 @@ def main():
         del mongo_rec_multiprocessing
         raise
     message("")
+    
+    if mongo_rec_multiprocessing.error:
+        mongo_reader.failed = True
 
     save_ddl_create_statements(args.ddl_statements_file,
                                schema_engine,
