@@ -271,13 +271,18 @@ def test_update():
     oplog_data = loads(test_data_09)
     model = [{'do $$    begin    UPDATE rated_post_comment_tests SET tests=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_tests (rated_posts_id_oid, rated_posts_comments_idx, idx, tests) VALUES(%s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(24, 503078, '3', '6', 503078, '3', '6', 24)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    print(result)
     assert result == model
 
     oplog_data = loads(test_data_10)
     model = [{'DELETE FROM rated_post_comment_tests WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', 503078)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
+
+    oplog_data = loads(test_data_11)
+    model = [{'UPDATE rated_posts SET id_bsontype=(%s), id_oid=(%s) WHERE rated_posts_id_oid=(%s);': [(None, None, 503078)]}]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    assert result == model
+
 
     print(TEST_INFO, 'update', 'PASSED')
 
