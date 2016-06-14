@@ -14,6 +14,7 @@ from collections import namedtuple
 from collections import deque
 
 _EOF = 'EOF'
+_ERROR_OCCURED = "OpMultiprocessingErrorOccured"
 
 def _worker(pipes):
     """ worker wrapper to be used with FastQueueProcessor
@@ -39,6 +40,9 @@ def _worker(pipes):
                     pipe_work.send(res)
         except EOFError:
             break
+        except:
+            pipe_work.send(_ERROR_OCCURED)
+            raise
 
 def _create_worker_proccess(worker, worker_1st_arg):
     """ Launch worker process and send via pipe a worker function 'worker'
@@ -68,6 +72,7 @@ class FastQueueProcessor:
         self.procs = [_create_worker_proccess(worker, worker_1st_arg) \
                       for i in xrange(procn)]
         self.proc_statuses = [False for i in xrange(procn)]
+        self.error = False
 
     def _consume_from_queue(self):
         """ try to consume data from queue by all available workers
@@ -126,6 +131,9 @@ class FastQueueProcessor:
                 if proc.pipe_main.poll():
                     res = proc.pipe_main.recv()
                     self.proc_statuses[i] = False
+                    if res == _ERROR_OCCURED:
+                        res = None
+                        self.error = True
                     break
             if res is not None:
                 break

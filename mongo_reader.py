@@ -220,7 +220,7 @@ def main():
     etl_recs_count = 0
     try:
         record = retrieve_mongo_record(mongo_reader)
-        while True:
+        while True and not mongo_rec_multiprocessing.error:
             tables_list = put_record_get_tables_async(mongo_rec_multiprocessing,
                                                       record)
 #            print "loop.b", len(tables_list), mongo_rec_multiprocessing.count()
