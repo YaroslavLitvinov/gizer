@@ -77,7 +77,7 @@ def get_table_name_from_list(spath):
         if it.isdigit():
             spathl.remove(it)
     if len(spathl) > 1:
-        return '_'.join(['_'.join(( el[:-1] if el[-1] == 's' else el) for el in spathl[:-1]), spathl[-1]])
+        return '_'.join(['_'.join(( el[:-1] if el[-1] == 's' else el) for el in spathl[:-1]), get_field_name_without_underscore(spathl[-1])])
     else:
         return spathl[-1]
 
