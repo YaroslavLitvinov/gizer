@@ -100,7 +100,6 @@ def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_nam
         cond_list = get_conditions_list(schema, '.'.join([root_table_name] + unset_table_path),doc_id.itervalues().next())
         unset_object_path_column = '_'.join([get_field_name_without_underscore(column) for column in unset_object_path])
         target_table = get_table_name_from_list(unset_target_table_path)
-
         set_to_null_columns_list = {}
         for column in tables_mappings[target_table]:
             if column.startswith(unset_object_path_column+'_'):
@@ -180,7 +179,6 @@ def update_list (dbreq, schema_e, upd_path_str, oplog_data_set, oplog_data_objec
         if type(del_stmnt[op]) is dict:
             for k in del_stmnt[op]:
                 ret_val.append({k:[tuple(del_stmnt[op][k])]})
-
     tables, initial_indexes \
         = get_tables_data_from_oplog_set_command(schema_e,
                                                  oplog_data_set,
@@ -225,6 +223,10 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
                 else:
                     if column in tables_mappings[root_table_name].keys():
                         q_columns[column] = unfiltered_q_columns[column]
+                if localte_in_schema(schema, updated_obj_split):
+                    if type(get_part_schema(schema,updated_obj_split)) is list:
+                        delete_path = '.'.join([root_table_name, column])
+                        ret_val.extend(update_list(dbreq,schema_e,delete_path,{column:oplog_data_set[column]},oplog_data_object_id,database_name,schema_name))
 
             q_statements_list = [('{column}=(%s)' if not get_quotes_using(schema, root_table_name, col,
                                                                           root_table_name) else '{column}=(%s)').format(
