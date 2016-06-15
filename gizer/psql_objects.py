@@ -54,10 +54,13 @@ WHERE {id_name}={id_val};'
                                        id_name = id_name,
                                        id_val = id_val)
         src_dbreq.cursor.execute(select_req)
+        getLogger(__name__).debug("Get psql data: "+select_req)
         ext_tables_data[table_name] = []
+        idx=0
         for record in src_dbreq.cursor:
-            getLogger(__name__).debug("record=%s" % str(record))
+            getLogger(__name__).debug("result[%d]=%s" % (idx, str(record)))
             ext_tables_data[table_name].append(record)
+            idx += 1
 
     # set external tables data to Tables
     tables.load_external_tables_data(ext_tables_data)
