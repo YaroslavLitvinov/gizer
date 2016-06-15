@@ -102,7 +102,7 @@ class OplogHighLevel:
                                               psql,
                                               psql_schema)
 
-    def do_oplog_apply(self, start_ts):
+    def do_oplog_apply(self, start_ts, doing_sync):
         """ Read oplog operations starting just after timestamp start_ts.
         Apply oplog operations to psql db.
         Compare source (mongo) and dest(psql) records.
@@ -113,7 +113,9 @@ class OplogHighLevel:
         This function is using Self.OplogParser itself.
         params:
         start_ts -- Timestamp of record in self.oplog db which should be
-        applied first read ts or next available"""
+        applied first read ts or next available
+        doing_sync -- if True then don't commit/rollback, 
+        if False do commit on success, rollback on fail"""
 
         getLogger(__name__).\
                 info('Apply oplog operation ts:%s' % str(start_ts))
@@ -126,27 +128,42 @@ class OplogHighLevel:
                     Callback(cb_update, ext_arg=(self.psql, self.psql_schema)),
                     Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
         # go over oplog, and apply all oplog pacthes starting from start_ts
-        self.oplog_queries = parser.next()
-        while self.oplog_queries != None:
-            for self.oplog_query in self.oplog_queries:
-                if self.oplog_query.op == "u" or \
-                   self.oplog_query.op == "d" or \
-                   self.oplog_query.op == "i" or self.oplog_query.op == "ui":
-                    exec_insert(self.psql, self.oplog_query)
+        last_ts = None
+        oplog_queries = parser.next()
+        while oplog_queries != None:
+            for oplog_query in oplog_queries:
+                if oplog_query.op == "u" or \
+                   oplog_query.op == "d" or \
+                   oplog_query.op == "i" or oplog_query.op == "ui":
+                    exec_insert(self.psql, oplog_query)
                     collection_name = parser.item_info.schema_name
                     rec_id = parser.item_info.rec_id
+                    last_ts = parser.item_info.ts
                     self.comparator.add_to_compare(collection_name, rec_id)
-            self.oplog_queries = parser.next()
+            oplog_queries = parser.next()
         # compare mongo data & psql data after self.oplog records applied
         compare_res = self.comparator.compare_src_dest()
         getLogger(__name__).\
                 info('oplog ts:%s operation applied res=%s' % (str(start_ts),
                                                                str(compare_res)))
+        if not doing_sync:
+            if compare_res:
+                getLogger(__name__).info('COMMIT')
+                self.psql.conn.commit()
+            else:
+                getLogger(__name__).info('ROLLBACK')
+                self.psql.conn.rollback()
+
         if compare_res and not parser.first_handled_ts:
-            # already synced, no oplog records to apply
+            # no oplog records to apply
             return OplogApplyRes(start_ts, True)
         else:
-            return OplogApplyRes(parser.first_handled_ts, compare_res)
+            if compare_res:
+                # oplog apply ok, return last appliued ts
+                return OplogApplyRes(last_ts, True)
+            else:
+                # oplog apply error, return next ts candidate
+                return OplogApplyRes(parser.first_handled_ts, False)
 
     def do_oplog_sync(self, ts):
         """ Oplog sync is using local psql database with all data from main psql db
@@ -200,7 +217,7 @@ class OplogHighLevel:
         Return True if able to locate and synchronize initially loaded data
         with oplog data, or return next ts candidate for syncing.
         start_ts -- Timestamp of oplog record to start sync tests"""
-        ts_sync = self.do_oplog_apply(test_ts)
+        ts_sync = self.do_oplog_apply(test_ts, doing_sync=True)
         if ts_sync.res == True:
             # sync succesfull
             getLogger(__name__).info('COMMIT')
@@ -213,7 +230,7 @@ class OplogHighLevel:
             if ts_sync.ts:
                 getLogger(__name__).info("Bad sync candidate ts:" + str(test_ts) +
                                          ", try next ts=" + str(ts_sync.ts))
-            # next sync iteration, starting from ts_sync.ts
+                # next sync iteration, must start after ts_sync.ts
                 return ts_sync.ts
             else:
                 return False
