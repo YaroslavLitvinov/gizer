@@ -334,6 +334,8 @@ def get_query_columns_with_nested (schema, u_data, parent_path, columns_list):
         #     pass
         if type(u_data[k]) == bson.objectid.ObjectId:
             columns_list[column_name+'_oid'] = str(u_data[k])
+            columns_list[column_name+'_bsontype'] = 7
+
         else:
             columns_list[column_name] = u_data[k]
     return columns_list
