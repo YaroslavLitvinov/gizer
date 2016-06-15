@@ -424,3 +424,57 @@ test_data_11 = '''{
     }
 }
 '''
+
+# test_data_12 = '''{
+# 	"ts": "1465220614, 2",
+#     "h" : "8003031459294353269",
+#     "v" : 2,
+#     "op" : "u",
+#     "ns" : "quote_management.provisioning_states",
+#     "o2": {
+#         "_id": {"$oid": "111111111111111111111111"}
+#     },
+# 	"o" : {
+# 	"$unset" : {
+# 			"_slugs" : true
+# 		}
+# 	}
+# }
+# '''
+
+
+test_data_13 = '''{
+	"ts": "1465220614, 2",
+	"h" : "-1422482527797357621",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "quote_management.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000014"}
+    },
+	"o" : {
+		"$set" : {
+			"title" : "Glory For Ukraine",
+			"body" : "Glory For Heroes",
+			"rates":[
+			    {
+    			 	"_id": {
+	    	            "oid": "aaaaaaaaaaaaassssssssssasdas",
+		                "bsontype": 7
+	                },
+		            "user_id" : "444444rrwerr34r",
+		            "rate" : 555
+	            },
+			    {
+    			 	"_id": {
+	    	            "oid": "aaaaaaaaaaaaasasdsadasdasdasd",
+		                "bsontype": 7
+	                },
+		            "user_id" : "987987978979",
+		            "rate" : 7777
+	            }
+	        ]
+		}
+	}
+}
+'''

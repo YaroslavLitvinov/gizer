@@ -54,9 +54,9 @@ def get_tables_list(schema, table):
                 item_value = item_list[it]
                 if type(item_value) is dict:
                     # TODO last letted in dictioonary
-                    tables_list.extend(get_child_dict_item(item_value, table[:-1] + '_' + it))
+                    tables_list.extend(get_child_dict_item(item_value, table[:-1] + '_' + get_field_name_without_underscore(it)))
                 elif type(item_value) is list:
-                    tables_list.extend(get_tables_list(item_value, table[:-1] + '_' + it))
+                    tables_list.extend(get_tables_list(item_value, table[:-1] + '_' + get_field_name_without_underscore(it)))
     return tables_list
 
 
