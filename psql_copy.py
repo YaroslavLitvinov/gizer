@@ -26,7 +26,7 @@ def copy_from_csv(dbreq, input_f, table_name):
     """Fastest approach, need specific csv format"""
     #use two slashes as '\N' became '\\N' when writing escaping csv data
     dbreq.cursor.copy_from(input_f, table_name, null='\\\\N')
-    dbreq.cursor.execute('COMMIT')
+    dbreq.conn.commit()
     getLogger(__name__).info('Exported csv %s' % (input_f.name))
 
 def main():
@@ -63,7 +63,7 @@ def main():
     dbreq = PsqlRequests(psql_conn_from_settings(psql_settings))
 
     create_psql_table(table, dbreq, schema_name, table_prefix, drop=True)
-    dbreq.cursor.execute('COMMIT')
+    dbreq.conn.commit()
 
     csv_files = [f \
                  for f in listdir(args.input_csv_dir) \
