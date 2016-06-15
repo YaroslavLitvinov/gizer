@@ -16,12 +16,13 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
-from os import system
+import os
 import psycopg2
 import argparse
 import configparser
 import datetime
 import logging
+from os import system
 from logging import getLogger
 from collections import namedtuple
 from mongo_reader.reader import MongoReader
@@ -56,10 +57,11 @@ def getargs():
     return args
 
 
-def create_logger(name):
+def create_logger(logspath, name):
     today = datetime.datetime.now()
     logfilename='{date}-{name}.log'.format(name=name,
                                            date=today.strftime('%Y-%m-%d'))
+    logfilename = os.path.join(logspath, logfilename)
     logging.basicConfig(filename=logfilename,
                         level=logging.DEBUG,
                         format='%(asctime)s %(levelname)-8s %(message)s')
@@ -80,6 +82,7 @@ def main():
     config.read_file(args.config_file)
 
     schemas_path = config['misc']['schemas-dir']
+    logspath = config['misc']['logs-dir']
 
     mongo_settings = mongo_settings_from_config(config, 'mongo')
     oplog_settings = mongo_settings_from_config(config, 'mongo-oplog')
@@ -107,7 +110,7 @@ def main():
     if status:
         if status.status == STATUS_INITIAL_LOAD \
            and status.time_end and not status.error:
-            create_logger('oplogsync')
+            create_logger(logspath, 'oplogsync')
             # intial load done, now do oplog sync, in this stage will be used
             # temporary psql instance as result of operation is not a data
             # commited to DB, but only single timestamp from oplog.
@@ -127,7 +130,7 @@ def main():
         elif (status.status == STATUS_OPLOG_SYNC or \
               status.status == STATUS_OPLOG_APPLY) \
             and status.time_end and not status.error:
-            create_logger('oploguse')
+            create_logger(logspath, 'oploguse')
             # sync done, now apply oplog pacthes to main psql
             # save oplog sync status
             getLogger(__name__).\
@@ -135,7 +138,7 @@ def main():
             status_manager.oplog_use_start(status.ts)
             ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
                  schemas_path, schema_engines, psql_schema)
-            ts_res = ohl.do_oplog_apply(status.ts)
+            ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
             if ts_res.res: # oplog apply ok
                 status_manager.oplog_use_finish(ts_res.ts, False)
             else: # error
