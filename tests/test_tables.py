@@ -6,9 +6,13 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import sys
 import os
-import pprint
+import pprint 
+import psycopg2
+from gizer.psql_requests import PsqlRequests
 from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_tables
 from mongo_schema import schema_engine
+from gizer.psql_objects import insert_tables_data_into_dst_psql
+from gizer.psql_objects import load_single_rec_into_tables_obj
 
 files = {'a_inserts': ('../test_data/opinsert/json_schema2.txt',
                        '../test_data/opinsert/bson_data2.txt'),
@@ -64,5 +68,21 @@ def test_tables2():
     assert(comments_t.sql_columns['a_somethings_id'].values[0] == 777)
     items_t = tables.tables['a_something_comment_items']
     assert('a_somethings_id' in items_t.sql_columns)
+    assert('customer_id_bsontype' in root_t.sql_columns)
+    print root_t.sql_columns['customer_id_bsontype'].values
+    assert(root_t.sql_columns['customer_id_bsontype'].values[0] == 7)
+    assert(root_t.sql_columns['customer_id_oid'].values[0]\
+               == '56b8f05cf9fcee1b00000000')
+
+    #test load / unload data
+    connstr = os.environ['TEST_PSQLCONN']
+    dbreq = PsqlRequests(psycopg2.connect(connstr))
+    insert_tables_data_into_dst_psql(dbreq, tables, '','')
     
+    loaded_tables = load_single_rec_into_tables_obj(dbreq, 
+                                                    tables.schema_engine, 
+                                                    '', 777)
+    assert(tables.compare(loaded_tables)==True)
+    
+    assert(0)
 

@@ -19,5 +19,11 @@
     "user_id": "STRING",
     "updated_at": "TIMESTAMP",
     "created_at": "TIMESTAMP",
-    "_id": "INT"
+    "_id": "INT",
+    "customer": {
+        "_id": {
+            "bsontype": "INT", 
+            "oid": "STRING"
+        }
+    }
 }
