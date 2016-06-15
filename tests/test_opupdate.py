@@ -284,6 +284,27 @@ def test_update():
     assert result == model
 
 
+
+
+    # oplog_data = loads(test_data_12)
+    # model = [{'UPDATE rated_posts SET id_bsontype=(%s), id_oid=(%s) WHERE rated_posts_id_oid=(%s);': [(None, None, 503078)]}]
+    # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    # print(result)
+    # assert result == model
+
+    oplog_data = loads(test_data_13)
+    model = [
+        {
+            'DELETE FROM rated_post_rates WHERE (rated_posts_id_oid=(%s));' : [('56b8da59f9fcee1b00000014', )]
+        }, {
+            u'INSERT INTO "rated_post_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s);' : [(None, 7, u'aaaaaaaaaaaaassssssssssasdas', 555, '56b8da59f9fcee1b00000014', None, u'444444rrwerr34r', 1), (None, 7, u'aaaaaaaaaaaaasasdsadasdasdasd', 7777, '56b8da59f9fcee1b00000014', None, u'987987978979', 2)]
+        }, {
+            'UPDATE rated_posts SET body=(%s), title=(%s) WHERE id_oid=(%s);' : [(u'Glory For Heroes', u'Glory For Ukraine', '56b8da59f9fcee1b00000014')]
+        }
+    ]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    assert result == model
+
     print(TEST_INFO, 'update', 'PASSED')
 
 
