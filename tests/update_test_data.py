@@ -91,6 +91,41 @@ oplog_u_02 = '''{
     }
 }'''
 
+oplog_u_02_A = '''{
+    "ts": "6249010526135779329",
+    "t": 2,
+    "h": "7673062055086646593",
+    "v": 2,
+    "op": "u",
+    "ns": "rails4_mongoid_development.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000007"}
+    },
+    "o": {
+        "$set": {
+            "number": 254.4
+        }
+    }
+}'''
+
+oplog_u_02_B = '''{
+    "ts": "6249010526135779329",
+    "t": 2,
+    "h": "7673062055086646593",
+    "v": 2,
+    "op": "u",
+    "ns": "rails4_mongoid_development.posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000007"}
+    },
+    "o": {
+        "$set": {
+            "updated_at": { "$date" : "2016-02-08T19:52:23.883Z"}
+        }
+    }
+}'''
+
+
 oplog_u_03 = '''{
     "ts": "6249011956359888897",
     "t": 2,
@@ -391,6 +426,21 @@ test_data_09 = '''{
     "o" : {
         "$set" : {
             "comments.2.tests.5" : 24
+        }
+    }
+}
+'''
+
+test_data_09_A = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2" : { "_id" : 503078 },
+    "o" : {
+        "$set" : {
+            "comments.2.tests.5" : 24.7
         }
     }
 }
