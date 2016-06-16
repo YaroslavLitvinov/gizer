@@ -6,6 +6,7 @@ from collections import namedtuple
 from gizer.opinsert import generate_insert_queries
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 from mongo_schema.schema_engine import create_tables_load_bson_data
+from mongo_schema.schema_engine import log_table_errors
 from gizer.opdelete import op_delete_stmts
 from gizer.opupdate import update
 
@@ -13,6 +14,9 @@ OplogQuery = namedtuple('OplogQuery', ['op', 'query'])
 
 def cb_insert(psql_schema, ts, ns, schema_engine, bson_data):
     tables = create_tables_load_bson_data(schema_engine, bson_data)
+    collection_name = tables.schema_engine.root_node.name
+    log_table_errors("collection: %s data for opinsert load from MONGO OPLOG \
+with errors:" % collection_name, tables.errors)
     res = []
     for name, table in tables.tables.iteritems():
         res.append(OplogQuery("i", generate_insert_queries(table,

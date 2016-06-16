@@ -12,6 +12,7 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import bson
 import sys
+import pprint
 from logging import getLogger
 from os import environ
 from bson.json_util import loads
@@ -30,7 +31,7 @@ from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
 from mongo_schema.schema_engine import create_tables_load_bson_data
-
+from mongo_schema.schema_engine import log_table_errors
 
 Callback = namedtuple('Callback', ['cb', 'ext_arg'])
 OplogApplyRes = namedtuple('OplogApplyRes', 
@@ -66,8 +67,20 @@ def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
     else:
         mongo_tables_obj = create_tables_load_bson_data(schema_engine,
                                                         [rec])
+        if len(mongo_tables_obj.errors):
+            ppinter = pprint.PrettyPrinter(indent=4)
+            for line in ppinter.pformat(mongo_tables_obj.errors):
+                getLogger(__name__).warning(line)
+
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         if not compare_res:
+            collection_name = mongo_tables_obj.schema_engine.root_node.name
+            log_table_errors("collection: %s data load from MONGO with errors:" \
+                                 % collection_name,
+                             mongo_tables_obj.errors)
+            log_table_errors("collection: %s data load from PSQL with errors:" \
+                                 % collection_name, 
+                             psql_tables_obj.errors)
             getLogger(__name__).debug('cmp rec=%s res=False mongo arg[1] data:' % 
                                       str(rec_id))
             for line in str(mongo_tables_obj.tables).splitlines():

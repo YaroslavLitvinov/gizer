@@ -24,6 +24,7 @@ from mongo_reader.reader import mongo_reader_from_settings
 # modules mostly used by data output functions
 from mongo_schema.schema_engine import SchemaEngine
 from mongo_schema.schema_engine import create_tables_load_bson_data
+from mongo_schema.schema_engine import log_table_errors
 from gizer.opcsv import CsvWriteManager
 from gizer.opcsv import NULLVAL
 from gizer.opcreate import generate_create_table_statement
@@ -175,8 +176,7 @@ def print_profiler_stats(profiler):
 def print_etl_stats(errors, all_written, etl_recs_count):
     """ etl summary """
     ppinter = pprint.PrettyPrinter(indent=4)
-    if len(errors):
-        getLogger(__name__).warning(ppinter.pformat(errors))
+    log_table_errors("etl errors:", errors)
     if len(all_written):
         getLogger(__name__).info("written: " + ppinter.pformat(all_written))
     else:

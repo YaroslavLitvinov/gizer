@@ -26,3 +26,6 @@ python mongo_reader.py --config-file ../gizer-config.ini -cn submit_feedbacks --
 python psql_copy.py --config-file ../gizer-config.ini -cn submit_feedbacks --psql-table-name submit_feedbacks --input-csv-dir tmp/submit_feedbacks/ -psql-table-prefix 2016_04_11_
 time python copy_object_from_psql_to_psql.py -cn quotes -ifs ~/schema/pregenerated/quotes_schema_verified.json --src-psql-schema-name quote_mgmt_ods --rec-id 504983
 
+5. Know issues.
+5.1. Schema items' types should be strictly defined. Incorrectly defined types will lead to errors.
+     
