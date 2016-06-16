@@ -13,9 +13,6 @@ from test_util import sqls_to_dict
 
 TEST_INFO = 'TEST_OPUPDATE'
 
-'update post_adresse_streets set name="STREETNAME" where post_id="aabbccddeeff" and post_adresses_idx=0, idx=7'
-
-
 def database_prepare():
     connstr = environ['TEST_PSQLCONN']
     connector = psycopg2.connect(connstr)
