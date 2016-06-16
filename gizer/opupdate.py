@@ -4,7 +4,7 @@
 import itertools
 
 
-import gizer.psql_requests
+from dateutil.parser import parse
 from gizer.opinsert import *
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 
@@ -219,10 +219,10 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             for column in unfiltered_q_columns:
                 updated_obj_split = column.split('.')
                 if updated_obj_split[-1] in tables_mappings[root_table_name].keys():
-                    q_columns[updated_obj_split[-1]] = unfiltered_q_columns[updated_obj_split[-1]]
+                    q_columns[updated_obj_split[-1]] = get_correct_type_value(tables_mappings,root_table_name,updated_obj_split[-1], unfiltered_q_columns[updated_obj_split[-1]])
                 else:
                     if column in tables_mappings[root_table_name].keys():
-                        q_columns[column] = unfiltered_q_columns[column]
+                        q_columns[column] = get_correct_type_value(tables_mappings,root_table_name,column, unfiltered_q_columns[column])
                 if localte_in_schema(schema, updated_obj_split):
                     if type(get_part_schema(schema,updated_obj_split)) is list:
                         delete_path = '.'.join([root_table_name, column])
@@ -237,6 +237,7 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
                 statements=', '.join(q_statements_list), conditions=q_conditions)
             upd_values = [q_columns[col] for col in q_columns] + [doc_id.itervalues().next()]
             ret_val.append({upd_statement_template:[tuple(upd_values)]})
+            print('asdasdadasd')
     else:
         # update nested element
         if type(u_data[k]) is dict:
@@ -258,7 +259,7 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             q_columns= {}
             for it in q_columns_unfiltered:
                 if it in tables_mappings[target_table_name].keys():
-                    q_columns[it] = q_columns_unfiltered[it]
+                    q_columns[it] =  get_correct_type_value(tables_mappings, target_table_name,it, q_columns_unfiltered[it])
             if len(q_columns) == 0:
                 return ret_val
             q_statements_str = ', '.join(['{column}=(%s)'.format(column=col) for col in q_columns])
@@ -297,12 +298,56 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
                     column_name = it
             columns_str = ', '.join([column for column in q_conditions['target']] + [column_name])
             values_str = ', '.join(['%s' for column in tables_mappings[target_table_name].keys()])
+            checked_value = get_correct_type_value(tables_mappings,target_table_name,column_name,item_value)
+            #TODO move to Yaroslavs INSERT
+            
             ins_stmnt = INSERT_TMPLT.format( table=target_table_name_db_schema, columns=columns_str, values=values_str)
             upd_stmnt = UPDATE_TMPLT.format( table=target_table_name_db_schema, statements='{column_name}=(%s)'.format(column_name=column_name), conditions=q_conditions_str)
             upsetrt_tmplt = UPSERT_TMLPT.format(update = upd_stmnt, insert=ins_stmnt)
-            ret_val.append({upsetrt_tmplt:[tuple([item_value] + q_values + q_values + [item_value])]})
-
+            ret_val.append({upsetrt_tmplt:[tuple([checked_value] + q_values + q_values + [checked_value])]})
     return ret_val
+
+def get_correct_type_value(tables_mappings, table, column, value, ):
+
+    def is_date(string):
+        try:
+            parse(string)
+            return True
+        except ValueError:
+            return False
+        # 'STRING': 'text',
+        # 'INT': 'integer',
+        # 'BOOLEAN': 'boolean',
+        # 'LONG': 'bigint',
+        # 'TIMESTAMP': 'timestamp',
+        # 'DOUBLE': 'double',
+        # 'TINYINT': 'integer'
+
+    types = {
+        'integer':int,
+        'boolean':bool,
+        'double':float,
+        'bigint':long,
+        'timestamp': datetime.datetime
+    }
+    if value is None:
+        return value
+    if table in tables_mappings.keys():
+        if column in tables_mappings[table].keys():
+            column_type = tables_mappings[table][column]
+
+            # if column_type == 'timestamp':
+            #     print(type(value))
+            #     if is_date(value):
+            #         return value
+            print(column_type, type(value))
+            if column_type in types.keys():
+                if isinstance(value, types[column_type]):
+                    return value
+                else:
+                    None
+            else:
+                return value
 
 
 def get_obj_id(oplog_data):
@@ -335,7 +380,6 @@ def get_query_columns_with_nested (schema, u_data, parent_path, columns_list):
         if type(u_data[k]) == bson.objectid.ObjectId:
             columns_list[column_name+'_oid'] = str(u_data[k])
             columns_list[column_name+'_bsontype'] = 7
-
         else:
             columns_list[column_name] = u_data[k]
     return columns_list
