@@ -325,7 +325,7 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
     types = {
         'integer':int,
         'boolean':bool,
-        'double':float,
+        'double precision':float,
         'bigint':long,
         'timestamp': datetime.datetime
     }
@@ -338,10 +338,14 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
                 if isinstance(value, types[column_type]):
                     return value
                 else:
-                    # if column_type == 'timestamp':
-                    #     if type(value) != types[column_type]
-                    #         is_date()
-                    return None
+                    if column_type == 'double precision':
+                        if isinstance(value, types['integer']) or isinstance(value, types['bigint']):
+                            return float(value)
+                        # :)
+                        else:
+                            return None
+                    else:
+                        return None
             else:
                 return value
 
