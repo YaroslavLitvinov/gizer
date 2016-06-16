@@ -67,11 +67,6 @@ def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
     else:
         mongo_tables_obj = create_tables_load_bson_data(schema_engine,
                                                         [rec])
-        if len(mongo_tables_obj.errors):
-            ppinter = pprint.PrettyPrinter(indent=4)
-            for line in ppinter.pformat(mongo_tables_obj.errors):
-                getLogger(__name__).warning(line)
-
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         if not compare_res:
             collection_name = mongo_tables_obj.schema_engine.root_node.name
