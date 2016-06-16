@@ -320,5 +320,17 @@
 	    "updated_at": { "$date" : "2016-02-08T21:01:00.985Z"}
     }
   }
+},
+{
+  "ts": {"$timestamp": {"t": 1000000017, "i": 1}},
+  "t": 2,
+  "h": "-3907160829967975359",
+  "v": 2,
+  "op": "d",
+  "ns": "rails4_mongoid_development.rated_posts",
+  "b" : true,
+  "o" : {
+    "_id" : {"$oid":"56b8f05cf9fcee1b00011000"}
+  }
 }
 ]
