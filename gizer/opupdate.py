@@ -2,9 +2,8 @@
 """Update callback."""
 
 import itertools
+import datetime
 
-
-from dateutil.parser import parse
 from gizer.opinsert import *
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 
@@ -12,7 +11,7 @@ from opdelete import op_delete_stmts as delete, get_conditions_list
 from util import *
 
 import bson
-import datetime
+
 
 
 def localte_in_schema(schema_in, path):
@@ -237,7 +236,6 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
                 statements=', '.join(q_statements_list), conditions=q_conditions)
             upd_values = [q_columns[col] for col in q_columns] + [doc_id.itervalues().next()]
             ret_val.append({upd_statement_template:[tuple(upd_values)]})
-            print('asdasdadasd')
     else:
         # update nested element
         if type(u_data[k]) is dict:
@@ -300,7 +298,7 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             values_str = ', '.join(['%s' for column in tables_mappings[target_table_name].keys()])
             checked_value = get_correct_type_value(tables_mappings,target_table_name,column_name,item_value)
             #TODO move to Yaroslavs INSERT
-            
+
             ins_stmnt = INSERT_TMPLT.format( table=target_table_name_db_schema, columns=columns_str, values=values_str)
             upd_stmnt = UPDATE_TMPLT.format( table=target_table_name_db_schema, statements='{column_name}=(%s)'.format(column_name=column_name), conditions=q_conditions_str)
             upsetrt_tmplt = UPSERT_TMLPT.format(update = upd_stmnt, insert=ins_stmnt)
@@ -309,12 +307,13 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
 
 def get_correct_type_value(tables_mappings, table, column, value, ):
 
-    def is_date(string):
-        try:
-            parse(string)
-            return True
-        except ValueError:
-            return False
+    # def is_date(string):
+    #     try:
+    #         datetime.datetime.
+    #         parse(string)
+    #         return True
+    #     except ValueError:
+    #         return False
         # 'STRING': 'text',
         # 'INT': 'integer',
         # 'BOOLEAN': 'boolean',
@@ -335,17 +334,14 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
     if table in tables_mappings.keys():
         if column in tables_mappings[table].keys():
             column_type = tables_mappings[table][column]
-
-            # if column_type == 'timestamp':
-            #     print(type(value))
-            #     if is_date(value):
-            #         return value
-            print(column_type, type(value))
             if column_type in types.keys():
                 if isinstance(value, types[column_type]):
                     return value
                 else:
-                    None
+                    # if column_type == 'timestamp':
+                    #     if type(value) != types[column_type]
+                    #         is_date()
+                    return None
             else:
                 return value
 
