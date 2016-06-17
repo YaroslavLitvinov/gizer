@@ -23,13 +23,13 @@ def get_name_and_path_components(name_and_path):
         if unicode(comp).isnumeric():
             numerics.append(int(comp))
         else:
+            if len(names) > len(numerics):
+                numerics.append(None)
             names.append(comp)
+    if len(names) > len(numerics):
+        numerics.append(None)
     for i in xrange(len(names)):
-        name = names[i]
-        if i < len(numerics):
-            res.append(PComponent(name, numerics[i]))
-        else:
-            res.append(PComponent(name, None))
+        res.append(PComponent(names[i], numerics[i]))
     return res
 
 def initial_indexes_from_components(schema_engine, components):
