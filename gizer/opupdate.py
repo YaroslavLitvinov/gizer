@@ -132,7 +132,7 @@ def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_nam
                 if table.startswith(pattern_locate_table_name):
                     del_stamnt = DELETE_TMPLT.format(table = '.'.join(filter(None, [database_name, schema_name, table])), conditions = conditions_str_child)
                     ret_val.append({del_stamnt:[tuple([cond_list['child'][col] for col in sorted(cond_list['child']) ])]})
-        return ret_val
+    return ret_val
 
 
 def update(dbreq, schema_e, oplog_data, database_name, schema_name):
