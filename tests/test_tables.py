@@ -83,6 +83,4 @@ def test_tables2():
                                                     tables.schema_engine, 
                                                     '', 777)
     assert(tables.compare(loaded_tables)==True)
-    
-    assert(0)
 
