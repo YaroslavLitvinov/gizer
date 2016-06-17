@@ -129,10 +129,12 @@ def create_psql_table(table, dbreq, psql_schema, prefix, drop):
         query1 = generate_drop_table_statement(table, 
                                                psql_schema, 
                                                prefix)
+        getLogger(__name__).info("EXECUTE: " + query1)
         dbreq.cursor.execute(query1)
     query = generate_create_table_statement(table, 
                                             psql_schema, 
                                             prefix)
+    getLogger(__name__).info("EXECUTE: " + query)
     dbreq.cursor.execute(query)
     
 
