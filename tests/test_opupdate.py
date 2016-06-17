@@ -73,6 +73,16 @@ def test_update():
 
     tz_info = loads(oplog_tz_info)['tzinfo_obj'].tzinfo
 
+
+
+    # print('Test #0')
+    # oplog_data = loads(test_data_15)
+    # model = [{'do $$    begin    UPDATE rated_post_comment_rates SET user_info_name=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'Vasya', '56b8da59f9fcee1b00000014', u'2', u'3', None, None, None, None, '56b8da59f9fcee1b00000014', None, None, None, u'Vasya', 2, 3)]}]
+    # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    # print(result)
+    # #assert result == model
+
+
     print('Test #1')
     oplog_data = loads(test_data_05)
     #TODO fix insert indexes 1, 2 --> 2, 3
@@ -312,11 +322,11 @@ def test_update():
     oplog_data = loads(test_data_13)
     model = [
         {
+            'UPDATE rated_posts SET body=(%s), title=(%s) WHERE id_oid=(%s);' : [(u'Glory For Heroes', u'Glory For Ukraine', '56b8da59f9fcee1b00000014')]
+        }, {
             'DELETE FROM rated_post_rates WHERE (rated_posts_id_oid=(%s));' : [('56b8da59f9fcee1b00000014', )]
         }, {
             u'INSERT INTO "rated_post_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s);' : [(None, 7, u'aaaaaaaaaaaaassssssssssasdas', 555, '56b8da59f9fcee1b00000014', None, u'444444rrwerr34r', 1), (None, 7, u'aaaaaaaaaaaaasasdsadasdasdasd', 7777, '56b8da59f9fcee1b00000014', None, u'987987978979', 2)]
-        }, {
-            'UPDATE rated_posts SET body=(%s), title=(%s) WHERE id_oid=(%s);' : [(u'Glory For Heroes', u'Glory For Ukraine', '56b8da59f9fcee1b00000014')]
         }
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
@@ -341,6 +351,20 @@ def test_update():
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
+    print('Test #23')
+    oplog_data = loads(test_data_15)
+    model = [
+        {
+            'DELETE FROM rated_post_enclosed_field_array WHERE (rated_posts_id_oid=(%s));' : [('56b8da59f9fcee1b00000013', )]
+        },
+        {
+            'UPDATE rated_posts SET enclosed_field2=(%s), enclosed_field1=(%s), enclosed_id_bsontype=(%s), enclosed_id_oid=(%s) WHERE id_oid=(%s);' : [(300, u'marty mackfly', 7, '57640cb0cf6879b3fcf0d3f6', '56b8da59f9fcee1b00000013')]
+        }
+    ]
+
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    print(result)
+    assert result == model
 
     print(TEST_INFO, 'update', 'PASSED')
 
