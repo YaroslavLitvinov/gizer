@@ -38,6 +38,7 @@
     "user_id": "STRING",
     "updated_at": "TIMESTAMP",
     "created_at": "TIMESTAMP",
+    "tests" : [ "INT" ],
     "number":"INT",
     "_id": {
         "oid": "STRING",

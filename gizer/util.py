@@ -66,7 +66,7 @@ def get_postgres_type(type_name):
         'BOOLEAN': 'boolean',
         'LONG': 'bigint',
         'TIMESTAMP': 'timestamp',
-        'DOUBLE': 'double',
+        'DOUBLE': 'double precision',
         'TINYINT': 'integer'
     }[type_name.upper()]
 
