@@ -589,7 +589,7 @@ test_data_16 = '''{
     "h" : "8003031459294353269",
     "v" : 2,
     "op" : "u",
-    "ns" : "quote_management.open_sesame_users",
+    "ns" : "quote_management.rated_posts",
     "o2": {
         "_id": {"$oid": "56b8da59f9fcee1b00000013"}
     },
@@ -611,7 +611,7 @@ test_data_17 = '''{
     "h" : "8003031459294353269",
     "v" : 2,
     "op" : "u",
-    "ns" : "quote_management.open_sesame_users",
+    "ns" : "quote_management.rated_posts",
     "o2": {
         "_id": {"$oid": "56b8da59f9fcee1b00000013"}
     },
