@@ -40,6 +40,16 @@
     "created_at": "TIMESTAMP",
     "tests" : [ "INT" ],
     "number":"INT",
+    "enclosed":{
+		"_id": {
+			"oid": "STRING",
+		    "bsontype": "INT"
+		},
+    	"field1":"STRING",
+    	"field2":"INT",
+    	"field3":"TIMESTAMP",
+    	"field_array": [ "STRING" ]
+    },
     "_id": {
         "oid": "STRING",
         "bsontype": "INT"
