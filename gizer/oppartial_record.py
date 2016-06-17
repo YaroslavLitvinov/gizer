@@ -5,6 +5,7 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 import bson
+from logging import getLogger
 from bson import json_util
 from collections import namedtuple
 from mongo_schema.schema_engine import Tables
@@ -17,7 +18,6 @@ def get_name_and_path_components(name_and_path):
     res = []
     numerics = []
     names = []
-    #collection_name = schema_engine.root_node.name
     name_components = name_and_path.split('.')
     for comp in name_components:
         if unicode(comp).isnumeric():
@@ -56,12 +56,18 @@ def node_by_components(schema_engine, components):
 def get_tables_data_from_oplog_set_command(schema_engine, bson_data,
                                            bson_object_id_name_value):
     """ @return ttuple(tables as dict, initial_indexes) """
+    getLogger(__name__).debug("collection=%s, bson_data=%s, \
+bson_object_id_name_value=%s" % (schema_engine.root_node.name,
+                                 str(bson_data),
+                                 str(bson_object_id_name_value)))
     all_initial_indexes = {}
     tables = {}
     for name_and_path, bson_value in bson_data.iteritems():
         components = get_name_and_path_components(name_and_path)
         initial_indexes = initial_indexes_from_components(schema_engine,
                                                           components)
+        getLogger(__name__).debug("components=%s, initial_indexes=%s" %
+                                  (components, initial_indexes))
         if initial_indexes:
             all_initial_indexes = dict(all_initial_indexes.items() + 
                                        initial_indexes.items())
@@ -69,9 +75,10 @@ def get_tables_data_from_oplog_set_command(schema_engine, bson_data,
         obj_id_name = bson_object_id_name_value.keys()[0]
         obj_id_val = bson_object_id_name_value.values()[0]
         node = node_by_components(schema_engine, components)
-        whole_bson = node.json_inject_data(bson_value,
-                                           obj_id_name, obj_id_val)
-        table_obj = Tables(schema_engine, whole_bson)
+        whole_partial_bson = node.json_inject_data(bson_value,
+                                                   obj_id_name, obj_id_val)
+        getLogger(__name__).debug("whole_partial_bson=%s" % (whole_partial_bson))
+        table_obj = Tables(schema_engine, whole_partial_bson)
         table_obj.load_all()
         # exclude parent tables if they have no data
         parent_tables_to_skip = [i.long_plural_alias()
@@ -81,4 +88,7 @@ def get_tables_data_from_oplog_set_command(schema_engine, bson_data,
             # skip parent tables as they have no data
             if not table_name in parent_tables_to_skip:
                 tables[table_name] = table
+            else:
+                getLogger(__name__).debug("based on partial bson skip empty \
+table=%s" % table_name)
     return (tables, all_initial_indexes)
