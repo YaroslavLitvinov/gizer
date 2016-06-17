@@ -584,3 +584,46 @@ test_data_15 = '''{
 }
 '''
 
+test_data_16 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.open_sesame_users",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
+    },
+	"o" : {
+		"$set" : {"enclosed":{
+			"WRONGmanager" : null,
+			"WRONGdisplay_name" : null,
+			"WRONGemail" : null,
+			"WRONGldap_group_memberships" : null,
+			"WRONGcountry_code" : null,
+			"WRONGupdated_at" : {"$date":"2016-06-17T14:41:57.705Z"}
+		}}
+	}
+}
+'''
+
+test_data_17 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.open_sesame_users",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
+    },
+	"o" : {
+		"$set" : {
+			"WRONGmanager" : null,
+			"WRONGdisplay_name" : null,
+			"WRONGemail" : null,
+			"WRONGldap_group_memberships" : null,
+			"WRONGcountry_code" : null,
+			"WRONGupdated_at" : {"$date":"2016-06-17T14:41:57.705Z"}
+		}
+	}
+}
+'''
