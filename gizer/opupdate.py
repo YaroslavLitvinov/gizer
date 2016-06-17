@@ -253,7 +253,6 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
                                 ins_obj = '.'.join([k, element])
                                 # new_oplog_data_set =  {k:{element:u_data[k][element]}}
                                 new_oplog_data_set =  {ins_obj:u_data[k][element]}
-                                print(new_oplog_data_set)
                                 ret_val.extend(update_list(dbreq,schema_e,delete_path,new_oplog_data_set,oplog_data_object_id,database_name,schema_name))
                 for column in unfiltered_q_columns:
                     updated_obj_split = updating_obj
@@ -272,6 +271,8 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             # q_statements_list = [('{column}=(%s)' if not get_quotes_using(schema, root_table_name, col, root_table_name) else '{column}=(%s)').format(column=col) for col in q_columns]
             # q_conditions = ('{column}=(%s)' if not get_quotes_using(schema, root_table_name, id_column,root_table_name) else '{column}=(%s)').format( column=id_column)
             q_statements_list = ['{column}=(%s)'.format(column=col) for col in q_columns]
+            if len(q_statements_list) == 0:
+                return ret_val
             q_conditions = '{column}=(%s)'.format( column=id_column)
             upd_statement_template = UPDATE_TMPLT.format(
                 table=get_table_name_schema([database_name, schema_name, root_table_name]),
@@ -338,7 +339,6 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             values_str = ', '.join(['%s' for column in tables_mappings[target_table_name].keys()])
             checked_value = get_correct_type_value(tables_mappings,target_table_name,column_name,item_value)
             #TODO move to Yaroslavs INSERT
-
             ins_stmnt = INSERT_TMPLT.format( table=target_table_name_db_schema, columns=columns_str, values=values_str)
             upd_stmnt = UPDATE_TMPLT.format( table=target_table_name_db_schema, statements='{column_name}=(%s)'.format(column_name=column_name), conditions=q_conditions_str)
             upsetrt_tmplt = UPSERT_TMLPT.format(update = upd_stmnt, insert=ins_stmnt)
