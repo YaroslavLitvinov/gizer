@@ -58,7 +58,10 @@ def get_part_schema(schema_in, path):
             else:
                 return schema[path[0]]
         elif type(schema[path[0]]) is list:
-            return schema[path[0]]
+            if len(path[1:]) == 0:
+                return schema[path[0]]
+            else:
+                return get_part_schema(schema[path[0]], path[1:])# schema[path[0]]
         else:
             return schema[path[0]]
 
@@ -152,7 +155,8 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                     last_digit = i
             if last_digit >= 0:
                 if last_digit == len(updating_obj) - 1:
-                    ret_val.extend(update_cmd(dbreq,schema_e,oplog_data_set,oplog_data_object_id,oplog_data_ns,tables_mappings,database_name,schema_name))
+                    new_oplog_data_set = {element:oplog_data_set[element]}
+                    ret_val.extend(update_cmd(dbreq,schema_e,new_oplog_data_set,oplog_data_object_id,oplog_data_ns,tables_mappings,database_name,schema_name))
                 else:
                     new_oplog_data_set = oplog_data_set[element]
                     for i in reversed(range(last_digit + 1, len(updating_obj))):
@@ -188,6 +192,17 @@ def update_list (dbreq, schema_e, upd_path_str, oplog_data_set, oplog_data_objec
         ret_val.append({rr[0]:rr[1]})
     return  ret_val
 
+def is_root_object(path):
+    if type(path) is list:
+        temp_path = path
+    else:
+        temp_path = path.split('.')
+
+    for elenemt in temp_path:
+        if elenemt.isdigit():
+            return False
+    return True
+
 def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_data_ns, tables_mappings, database_name, schema_name):
     #compatibility with schema object for insert
     if type(schema_e) != dict:
@@ -216,16 +231,19 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
             unfiltered_q_columns = get_query_columns_with_nested(schema, u_data, '', {})
             q_columns = {}
             for column in unfiltered_q_columns:
-                updated_obj_split = column.split('.')
-                if updated_obj_split[-1] in tables_mappings[root_table_name].keys():
-                    q_columns[updated_obj_split[-1]] = get_correct_type_value(tables_mappings,root_table_name,updated_obj_split[-1], unfiltered_q_columns[updated_obj_split[-1]])
-                else:
-                    if column in tables_mappings[root_table_name].keys():
-                        q_columns[column] = get_correct_type_value(tables_mappings,root_table_name,column, unfiltered_q_columns[column])
-                if localte_in_schema(schema, updated_obj_split):
-                    if type(get_part_schema(schema,updated_obj_split)) is list:
-                        delete_path = '.'.join([root_table_name, column])
-                        ret_val.extend(update_list(dbreq,schema_e,delete_path,{column:oplog_data_set[column]},oplog_data_object_id,database_name,schema_name))
+                if is_root_object(column):
+                    updated_obj_split = column.split('.')
+                    if updated_obj_split[-1] in tables_mappings[root_table_name].keys():
+                        if localte_in_schema(schema, updated_obj_split):
+                            q_columns[updated_obj_split[-1]] = get_correct_type_value(tables_mappings,root_table_name,updated_obj_split[-1], unfiltered_q_columns[updated_obj_split[-1]])
+
+                    else:
+                        if column in tables_mappings[root_table_name].keys():
+                            q_columns[column] = get_correct_type_value(tables_mappings,root_table_name,column, unfiltered_q_columns[column])
+                    if localte_in_schema(schema, updated_obj_split):
+                        if type(get_part_schema(schema,updated_obj_split)) is list:
+                            delete_path = '.'.join([root_table_name, column])
+                            ret_val.extend(update_list(dbreq,schema_e,delete_path,{column:oplog_data_set[column]},oplog_data_object_id,database_name,schema_name))
 
             q_statements_list = [('{column}=(%s)' if not get_quotes_using(schema, root_table_name, col,
                                                                           root_table_name) else '{column}=(%s)').format(
@@ -239,8 +257,6 @@ def update_cmd (dbreq, schema_e, oplog_data_set, oplog_data_object_id, oplog_dat
     else:
         # update nested element
         if type(u_data[k]) is dict:
-
-
             for element in u_data[k]:
                 if not localte_in_schema(schema, updating_obj + [element]):
                     continue
