@@ -8,7 +8,11 @@
         "updated_at": "TIMESTAMP",
         "created_at": "TIMESTAMP",
 	"struct": {
-	    "tests" : [ "INT" ]
+	    "tests" : [{
+                 "v": "INT",
+		 "nested": [ "INT" ]
+		 } 
+	    ]
 	 }
     }],
     "title": "STRING",
