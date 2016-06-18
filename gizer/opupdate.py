@@ -9,9 +9,14 @@ from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 
 from opdelete import op_delete_stmts as delete, get_conditions_list
 from util import *
+from collections import namedtuple
 
 import bson
 
+
+OplogBranch = namedtuple ('OplogBranch', ['oplog_path', 'normalize_path', 'data', 'conditions_list', 'parsed_path'])#, 'target_table', 'data'])
+ParsedObjPath = namedtuple ('ParsedObjPath', ['table_path', 'column'])
+OplogBranch2 = namedtuple ('OplogBranch2', ['oplog_path', 'normalize_path', 'target_table', 'root_table', 'child_tables', 'conditions_parent', 'conditions_target', 'conditions_child'])
 
 
 def localte_in_schema(schema_in, path):
@@ -72,6 +77,54 @@ def get_part_schema(schema_in, path):
                     return schema[current_path]
         else:
             return schema[current_path]
+
+
+def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list, root_id, root_collection):
+    print(root_id)
+    #new_branch_list = branch_list[:]
+    if type(oplog_data) is dict:
+        for element in oplog_data:
+            element_path = parent_path + element.split('.')
+            parsed_path = parse_column_path( '.'.join([root_collection] + element_path))
+            print(parsed_path)
+            # element_conditios_list = get_conditions_list(schema, '.'.join([root_collection] + element_path), root_id.itervalues().next())
+            element_conditios_list = get_conditions_list(schema, parsed_path.table_path, root_id.itervalues().next())
+            if not localte_in_schema(schema, element_path):
+                continue
+            if type(oplog_data[element]) is dict:
+                branch_list = normalize_oplog_recursive(schema, oplog_data[element], parent_path[:] + [element], branch_list, root_id, root_collection)
+                #branch_list.extend()
+            else:
+                if type(oplog_data[element]) is bson.objectid.ObjectId:
+                    parsed_path_oid = parse_column_path( '.'.join([root_collection] + element_path + ['oid']))
+                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.oid']), str(oplog_data[element]), element_conditios_list, parsed_path_oid))
+                    parsed_path_bsontype = parse_column_path( '.'.join([root_collection] + element_path + ['bsontype']))
+                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.bsontype']),  7, element_conditios_list, parsed_path_bsontype))
+                else:
+                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), oplog_data[element], element_conditios_list, parsed_path))
+    else:
+        print('SINGLE element')
+        if localte_in_schema(schema, oplog_data):
+            parsed_path = parse_column_path( '.'.join([root_collection] + parent_path))
+            element_conditios_list = get_conditions_list(schema, parsed_path.table_path, root_id.itervalues().next())
+            branch_list.append( OplogBranch( '.'.join(parent_path), '', oplog_data, element_conditios_list))
+    return branch_list
+
+
+def parse_column_path(path):
+    if type(path) is list:
+        w_path = path
+    else:
+        w_path = path.split('.')
+    last_digit_index = 0
+    for i, elemnt in enumerate(w_path):
+        if elemnt.isdigit():
+            last_digit_index = i
+    if not last_digit_index == 0:
+        parsed_path = ParsedObjPath( '.'.join(w_path[:last_digit_index + 1]), '.'.join(w_path[last_digit_index + 1:]) )
+    else:
+        parsed_path = ParsedObjPath( '.'.join(w_path[:1]), '.'.join(w_path[1:]))
+    return parsed_path
 
 
 def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_name, tables_mappings, database_name, schema_name):
