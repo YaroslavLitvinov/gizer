@@ -76,11 +76,11 @@ def test_update():
 
 
     # print('Test #0')
-    # oplog_data = loads(test_data_16)
+    # oplog_data = loads(test_data_18)
     # model = [{'do $$    begin    UPDATE rated_post_comment_rates SET user_info_name=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'Vasya', '56b8da59f9fcee1b00000014', u'2', u'3', None, None, None, None, '56b8da59f9fcee1b00000014', None, None, None, u'Vasya', 2, 3)]}]
     # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     # print(result)
-    #assert result == model
+    # #assert result == model
 
 
     print('Test #1')
@@ -305,7 +305,7 @@ def test_update():
 
     print('Test #20')
     oplog_data = loads(test_data_11)
-    model = [{'UPDATE rated_posts SET id_bsontype=(%s), id_oid=(%s) WHERE rated_posts_id_oid=(%s);': [(None, None, 503078)]}]
+    model = [{'UPDATE rated_posts SET id_bsontype=(%s), id_oid=(%s) WHERE id_oid=(%s);': [(None, None, 503078)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 

@@ -80,7 +80,7 @@ def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_nam
     else:
         schema = schema_e
     ret_val = []
-    tables_mappings = get_tables_structure(schema, root_table_name, {}, {}, 1, '')
+    #tables_mappings = get_tables_structure(schema, root_table_name, {}, {}, 1, '')
     for element in oplog_data_unset:
         updating_obj = element.split('.')
         if not localte_in_schema(schema[0], updating_obj):
@@ -107,7 +107,10 @@ def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_nam
             unset_target_table_path = [root_table_name] + unset_table_path
         doc_id = get_obj_id_recursive(oplog_data_object_id, [], [])
         '.'.join(unset_target_table_path)
-        cond_list = get_conditions_list(schema, '.'.join([root_table_name] + unset_table_path),doc_id.itervalues().next())
+        if is_root:
+            cond_list = get_conditions_list(schema, '.'.join([root_table_name]),doc_id.itervalues().next())
+        else:
+            cond_list = get_conditions_list(schema, '.'.join([root_table_name] + unset_table_path),doc_id.itervalues().next())
         unset_object_path_column = '_'.join([get_field_name_without_underscore(column) for column in unset_object_path])
         target_table = get_table_name_from_list(unset_target_table_path)
         set_to_null_columns_list = {}
