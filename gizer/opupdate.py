@@ -16,7 +16,6 @@ import bson
 
 OplogBranch = namedtuple ('OplogBranch', ['oplog_path', 'normalize_path', 'data', 'conditions_list', 'parsed_path'])#, 'target_table', 'data'])
 ParsedObjPath = namedtuple ('ParsedObjPath', ['table_path', 'column'])
-OplogBranch2 = namedtuple ('OplogBranch2', ['oplog_path', 'normalize_path', 'target_table', 'root_table', 'child_tables', 'conditions_parent', 'conditions_target', 'conditions_child'])
 
 
 def localte_in_schema(schema_in, path):
@@ -72,7 +71,7 @@ def get_part_schema(schema_in, path):
                 if len(path[1:]) == 0:
                     return schema[current_path]
                 else:
-                    return get_part_schema(schema[current_path], path[1:])# schema[path[0]]
+                    return get_part_schema(schema[current_path], path[1:])
             else:
                     return schema[current_path]
         else:
@@ -84,7 +83,6 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list, root
         for element in oplog_data:
             element_path = '.'.join(parent_path + element.split('.')).split('.')
             parsed_path = parse_column_path( '.'.join([root_collection] + element_path))
-            # element_conditios_list = get_conditions_list(schema, '.'.join([root_collection] + element_path), root_id.itervalues().next())
             element_conditios_list = get_conditions_list(schema, parsed_path.table_path, root_id.itervalues().next())
             if not localte_in_schema(schema, element_path):
                 continue
@@ -93,6 +91,7 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list, root
                 #branch_list.extend()
             else:
                 if type(oplog_data[element]) is bson.objectid.ObjectId:
+                    # convert bson.objectid.ObjectId to two fileds _id.oid and _id.bsontype
                     parsed_path_oid = parse_column_path( '.'.join([root_collection] + element_path + ['oid']))
                     branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.oid']), str(oplog_data[element]), element_conditios_list, parsed_path_oid))
                     parsed_path_bsontype = parse_column_path( '.'.join([root_collection] + element_path + ['bsontype']))
@@ -124,7 +123,6 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
         return unset(dbreq,schema_e,oplog_data['o']['$unset'], oplog_data_object_id, root_table_name,tables_mappings,database_name,schema_name)
 
     normalized_branch_list = normalize_oplog_recursive(schema,oplog_data_set,[],[],get_obj_id(oplog_data),root_table_name)
-    # print(normalized_branch_list)
 
     # grouping branches by target table
     grouped_branch_list = {}
@@ -134,22 +132,32 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
         else:
             grouped_branch_list [branch.parsed_path.table_path] = [branch]
 
-    # print(grouped_branch_list )
-
     for g_branch in grouped_branch_list:
         g_branches =  grouped_branch_list[g_branch]
         for branch in g_branches:
             if type(branch.data) is list:
                 ret_val.extend(update_list(dbreq,schema_e, '.'.join([root_table_name] + [branch.normalize_path]) , {branch.normalize_path:branch.data}, oplog_data_object_id,database_name,schema_name))
-            else:
+        for branch in g_branches:
+            if not type(branch.data) is list:
                 target_table = get_table_name_from_list(branch.parsed_path.table_path.split('.'))
                 # columns from root_object
                 dest_column_list_with_value = {}
                 for set_column_branch in g_branches:
-                    # generating column name. Also in case of enclosed objects
-                    column_dest_name = '_'.join(get_field_name_without_underscore(col_part) for col_part in set_column_branch.parsed_path.column.split('.'))
-                    # make dictionary column_name:value with type checking
-                    dest_column_list_with_value[column_dest_name] = get_correct_type_value(tables_mappings,target_table,column_dest_name, set_column_branch.data)
+                    if  not type(set_column_branch.data) is list:
+                        # generating column name. Also in case of enclosed objects
+                        col_list = []
+                        if set_column_branch.parsed_path.column == '':
+                            # if column is empty it means structure like this [INT].
+                            # this structure shoud be transformed to next view [ parent_element_name:INT ]
+                            column_name = set_column_branch.parsed_path.table_path.split('.')[-2]
+                        else:
+                            column_name = set_column_branch.parsed_path.column
+
+                        for col_part in column_name.split('.'):
+                            col_list.append(get_field_name_without_underscore(col_part))
+                        column_dest_name = '_'.join(col_list)
+                        # make dictionary column_name:value with type checking
+                        dest_column_list_with_value[column_dest_name] = get_correct_type_value(tables_mappings,target_table,column_dest_name, set_column_branch.data)
                 condition_str = ' and '.join(['{column}=(%s)'.format(column=col) for col in sorted(branch.conditions_list['target'])])
                 statements_to_set_str = ', '.join(['{column}=(%s)'.format(column = column_dest_name) for column_dest_name in sorted(dest_column_list_with_value)])
                 target_table_str = get_table_name_schema([database_name, schema_name, target_table])
@@ -169,10 +177,13 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                         elif set_column_branch.parsed_path.column == '_id.bsontype':
                             continue
                         else:
-                            set_list[key_for_set_dict ][set_column_branch.parsed_path.column] = set_column_branch.data
-                        # set_list[set_column_branch.normalize_path] = set_column_branch.data
+                            # if column is empty it means structure like this [INT].
+                            # this structure shoud be transformed to next view [ parent_element_name:INT ]
+                            if set_column_branch.parsed_path.column == '':
+                                set_list[key_for_set_dict] = set_column_branch.data
+                            else:
+                                set_list[key_for_set_dict][set_column_branch.parsed_path.column] = set_column_branch.data
                     #generate insert statements for non root objects
-                    # generate insert statement
                     insert_stmnts = insert_wrapper (schema_e, set_list,oplog_data_object_id,schema_name)
                     #check if it is possible multiple inserts
                     insert_statement_template = insert_stmnts.iterkeys().next()
@@ -219,7 +230,6 @@ def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_nam
     else:
         schema = schema_e
     ret_val = []
-    #tables_mappings = get_tables_structure(schema, root_table_name, {}, {}, 1, '')
     for element in oplog_data_unset:
         updating_obj = element.split('.')
         if not localte_in_schema(schema[0], updating_obj):
