@@ -158,7 +158,7 @@ class OplogHighLevel:
                 getLogger(__name__).info('COMMIT')
                 self.psql.conn.commit()
             else:
-                getLogger(__name__).info('ROLLBACK')
+                getLogger(__name__).error('ROLLBACK')
                 self.psql.conn.rollback()
 
         if compare_res and not parser.first_handled_ts:

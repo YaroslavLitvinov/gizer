@@ -17,7 +17,7 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 import os
-import psycopg2
+import sys
 import argparse
 import configparser
 import datetime
@@ -96,10 +96,11 @@ def main():
         mongo_readers[collection_name] = reader
     oplog_reader = mongo_reader_from_settings(oplog_settings, 'oplog.rs', {})
 
+    psql_main_etl_status = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_tmp = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 
-    status_table = PsqlEtlStatusTable(psql_main.cursor, 
+    status_table = PsqlEtlStatusTable(psql_main_etl_status.cursor, 
                                       config['psql']['psql-schema-name'])
     status_manager = PsqlEtlStatusTableManager(status_table)
 
@@ -119,12 +120,18 @@ def main():
 
             ohl = OplogHighLevel(psql_tmp, mongo_readers, oplog_reader,
                  schemas_path, schema_engines, psql_schema)
-            ts = ohl.do_oplog_sync(status.ts)
-            if ts: # sync ok
-                status_manager.oplog_sync_finish(ts, False)
-                res = 0
-            else: # error
-                status_manager.oplog_sync_finish(None, True)
+            try:
+                ts = ohl.do_oplog_sync(status.ts)
+                if ts: # sync ok
+                    status_manager.oplog_sync_finish(ts, False)
+                    res = 0
+                else: # error
+                    status_manager.oplog_sync_finish(None, True)
+                    res = -1
+            except Exception, e:
+                getLogger(__name__).error(e, exc_info=True)
+                getLogger(__name__).error('ROLLBACK CLOSE')
+                psql_tmp.conn.rollback()
                 res = -1
 
         elif (status.status == STATUS_OPLOG_SYNC or \
@@ -138,11 +145,19 @@ def main():
             status_manager.oplog_use_start(status.ts)
             ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
                  schemas_path, schema_engines, psql_schema)
-            ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
-            if ts_res.res: # oplog apply ok
-                status_manager.oplog_use_finish(ts_res.ts, False)
-            else: # error
-                status_manager.oplog_use_finish(ts_res.ts, True)
+            try:
+                ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
+                if ts_res.res: # oplog apply ok
+                    status_manager.oplog_use_finish(ts_res.ts, False)
+                    res= 0
+                else: # error
+                    status_manager.oplog_use_finish(ts_res.ts, True)
+                    res = -1
+            except Exception, e:
+                getLogger(__name__).error(e, exc_info=True)
+                getLogger(__name__).error('ROLLBACK CLOSE')
+                psql_main.conn.rollback()
+                res = -1
         else:
             # initial load is not performed 
             # or not time_end for any other state, or error, do exit
