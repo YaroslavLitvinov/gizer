@@ -545,7 +545,7 @@ test_data_14 = '''{
 		"$set" : {
 		    "body":"SOME text",
             "number": 33,
-            "tests.4": 456,
+            "tests": [123, 4 ,8],
 			"comments.1.rates.1.user_id" : "B",
 			"comments.1.rates.2.rate" : 67,
 			"comments.1.rates.2.item_rates" : [
@@ -557,10 +557,23 @@ test_data_14 = '''{
 			        "_id": {"$oid": "57557e06cf68790000000001"},
 			        "name": "Susanin"
 			    }
-			]
+			],
+			"comments.1.rates.2.item_ratessa" : [
+			    {
+			        "_id": {"$oid": "57557e06cf68790000000000"},
+			        "name": "Ivan"
+			    },
+			    {
+			        "_id": {"$oid": "57557e06cf68790000000001"},
+			        "name": "Susanin"
+			    }
+			],
+			"enclosed":{"field_array":["234", "ertret"]}
 		}
 	}
 }'''
+
+
 
 test_data_15 = '''{
 	"ts": "1465220614, 2",
