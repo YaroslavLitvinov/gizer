@@ -411,13 +411,13 @@ def sqls_to_dict(sql_dict):
     #     {u'INSERT INTO schema."post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
     # [{'do $$    begin
     parsed_dict = {}
-    print(sql_dict)
+    # print(sql_dict)
     for model_item in sql_dict:
         q_item = model_item.iterkeys().next()
         if q_item.startswith('DELETE FROM '):
             r = re.compile('DELETE FROM(.*?)WHERE')
             ext_key = str.strip(r.search(q_item).group(1))
-            parsed_dict[ext_key] = parse_del({q_item:model_item[q_item][0]})
+            parsed_dict['DELETE-'+ext_key] = parse_del({q_item:model_item[q_item][0]})
         elif q_item.startswith('UPDATE '):
             # for sql in sql_dict[model_item]:
             # r = re.compile('UPDATE (.*?)WHERE')
@@ -431,7 +431,7 @@ def sqls_to_dict(sql_dict):
             # ext_key = str.strip(res.group(1))
             # parsed_dict['insert'] = parse_insert({ext_key:model_item[q_item][0]})
         else:
-            print('unknown query type')
+            pass
     return parsed_dict
 
 
@@ -462,11 +462,11 @@ def parse_upd(sql_upd):
     where_value = {}
     for i, column in enumerate(where_strs):
         where_value[column] = sql_upd[sql][i+last_i]
-    key = 'update%{table}%set%{set}%where%{where}%{values}'.format(
+    key = 'update_{table}_set_{set}_where_{where}_{values}'.format(
         table=updated_table,
-        set= '-'.join([column for column in sorted(set_value)]),
-        where='-'.join([column for column in sorted(where_value)]),
-        values= '-'.join( [ str(value) for value in [set_value[column] for column in sorted(set_value)] + [where_value[column] for column in sorted(where_value)] ] )
+        set= '_'.join([column for column in sorted(set_value)]),
+        where='_'.join([column for column in sorted(where_value)]),
+        values= '_'.join( [ str(value) for value in [set_value[column] for column in sorted(set_value)] + [where_value[column] for column in sorted(where_value)] ] )
     )
     return {key:{'table':updated_table, 'set_value':set_value, 'where_dict':where_value}}
 
