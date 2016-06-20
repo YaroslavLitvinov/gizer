@@ -8,7 +8,10 @@ import os
 import psycopg2
 import bson
 import logging
+from logging import getLogger
 from bson.json_util import loads
+#from datetime import datetime
+import datetime
 #from gizer.oppartial_record import get_record_with_data
 from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 from gizer.opinsert import generate_insert_queries
@@ -27,11 +30,19 @@ def test_complete_partial_record():
 "_id": { "$oid": "56b8da59f9fcee1b00000007" }\
 }'
     array_bson_raw_data = '{\
-"comments": [{\
-"_id": {"$oid": "56b8f344f9fcee1b00000018"},\
-"updated_at": "2016-02-08T19:57:56.678Z",\
-"created_at": "2016-02-08T19:57:56.678Z"}]\
-}'
+    "comments": [{\
+    "_id": {"$oid": "56b8f344f9fcee1b00000018"},\
+    "updated_at": { "$date" : "2016-02-08T19:57:56.678Z"},\
+    "created_at": { "$date" : "2016-02-08T19:57:56.678Z"}\
+    }\
+]}'
+    sample_data = {
+        'post_comments': {
+            'id_oid': [str(loads('{ "$oid": "56b8f344f9fcee1b00000018" }'))],
+            'updated_at': [loads('{ "$date" : "2016-02-08T19:57:56.678Z"}')],
+            'created_at': [loads('{ "$date" : "2016-02-08T19:57:56.678Z"}')]
+        }
+    }
 
     dbname = 'rails4_mongoid_development'
     db_schemas_path = '/'.join(['test_data', 'schemas', dbname])
@@ -43,15 +54,37 @@ def test_complete_partial_record():
     tables_tuple = get_tables_data_from_oplog_set_command(\
         schema_engine, bson_data, object_id_bson_data)
     tables = tables_tuple[0]
-    assert(tables['post_comments'].sql_columns['posts_id_oid'].values[0]=="56b8da59f9fcee1b00000007")
-    assert(tables['post_comments'].sql_columns['id_oid'].values[0]=="56b8f344f9fcee1b00000018")
-    assert(len(tables)==1)
+    print tables
+    for table_name in tables:
+        assert(True==tables[table_name].compare_with_sample(sample_data))
 
 def test_complete_partial_record2():
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
     PSQL_SCHEMA_NAME = ''
+    # etalon of data
+    sample_data_before = {
+        'posts2': {
+            'id': [133],
+            "updated_at": [loads('{ "$date" : "2016-02-08T20:02:12.985Z"}')]
+        },
+        'posts2_comments': {
+            'id_oid': [str(loads('{ "$oid": "56b8f35ef9fcee1b0000001a" }')),
+                       str(loads('{ "$oid": "56b8f344f9fcee1b00000018" }'))],
+            'updated_at': [loads('{ "$date" : "2016-02-08T20:02:12.985Z"}'),
+                           loads('{ "$date" : "2016-02-08T20:02:12.985Z"}')]
+        },
+        'posts2_comment_struct_tests': {
+            'v': [1,2,3],
+            'idx': [1,2,1]
+        },
+        'posts2_comment_struct_test_nested': {
+            'nested': [20,23,24,25,26],
+            'idx': [1,1,2,1,2]
+        }
+    }
+
     existing_raw_bson_data = '[{\
      "_id": 133,\
      "updated_at": { "$date" : "2016-02-08T20:02:12.985Z"},\
@@ -75,11 +108,11 @@ def test_complete_partial_record2():
                   "nested": [25, 26]\
               }]}\
         } ]\
- }]'
+    }]'
 
     oplog_object_id_bson_raw_data = '{"_id": 133}'
     # insert request should be created, to add 'tests' item
-    oplog_path_array_bson_raw_data = '{"comments.1.struct.tests.0.nested.1": 21}'
+    oplog_path_array_bson_raw_data = '{"comments.0.struct.tests.0.nested.1": 21}'
 
     dbname = 'rails4_mongoid_development'
     db_schemas_path = '/'.join(['test_data', 'schemas', dbname])
@@ -94,16 +127,10 @@ def test_complete_partial_record2():
     tables_obj_before = \
         create_tables_load_bson_data(schema_engine, 
                                      existing_bson_data)
-    print tables_obj_before.tables.keys()
-    table_tests_before = tables_obj_before.tables['posts2_comment_struct_tests']
-    table_nested_before = tables_obj_before.tables['posts2_comment_struct_test_nested']
-    # data before
-    assert(table_nested_before.sql_columns['nested'].values[0]==20)
-    # indexes before
-    assert(table_tests_before.sql_columns['idx'].values[0]==1)
-    assert(table_tests_before.sql_columns['idx'].values[1]==2)
-    # items count in items array
-    assert(len(table_tests_before.sql_columns['idx'].values)==3)
+
+    assert(False==tables_obj_before.compare_with_sample({}))
+    assert(True==tables_obj_before.compare_with_sample(sample_data_before))
+
     # create table structure, drop existing
     create_psql_tables(tables_obj_before, psql, PSQL_SCHEMA_NAME, '', True)
     # insert data totables
@@ -119,14 +146,14 @@ def test_complete_partial_record2():
     initial_indexes = tables_tuple[1]
     print "tables_for_insert", tables_for_insert.keys()
     print "initial_indexes", initial_indexes
-    insert_nested_t = tables_for_insert['posts2_comment_struct_test_nested']
-    insert_query = generate_insert_queries(insert_nested_t, "", "", 
-                                           initial_indexes)
-    print "columns", insert_nested_t.sql_column_names
-    print "insert_query=", insert_query
-    for query in insert_query[1]:
-        print insert_query[0], query
-        psql.cursor.execute(insert_query[0], query)
+
+    for name, table in tables_for_insert.iteritems():
+        query_tuple = generate_insert_queries(table, 
+                                              PSQL_SCHEMA_NAME, "", 
+                                              initial_indexes)
+        for query in query_tuple[1]:
+            print query_tuple[0], query
+            psql.cursor.execute(query_tuple[0], query)
 
     # tables loaded from existing_bson_data
     rec_obj_id = object_id_bson_data['_id']
@@ -134,36 +161,14 @@ def test_complete_partial_record2():
                                                        schema_engine,
                                                        PSQL_SCHEMA_NAME,
                                                        rec_obj_id)
-    table_tests_after = tables_obj_after.tables['posts2_comment_struct_tests']
-    table_nested_after = \
-        tables_obj_after.tables['posts2_comment_struct_test_nested']
-    # data after
-    assert(table_tests_after.sql_columns['v'].values[0]==1)
-    assert(table_tests_after.sql_columns['v'].values[1]==2)
-    assert(table_tests_after.sql_columns['v'].values[2]==3)
-    assert(len(table_tests_after.sql_columns['v'].values)==3)
+    sample_data_after = sample_data_before
+    sample_data_after['posts2_comment_struct_test_nested'] = {
+            'nested': [20,21,23,24,25,26],
+            'idx': [1,2,1,2,1,2]
+    }
 
-    assert(table_nested_after.sql_columns['nested'].values[0]==20)
-    assert(table_nested_after.sql_columns['nested'].values[1]==21)
-    assert(table_nested_after.sql_columns['nested'].values[2]==23)
-    assert(table_nested_after.sql_columns['nested'].values[3]==24)
-    assert(table_nested_after.sql_columns['nested'].values[4]==25)
-    assert(table_nested_after.sql_columns['nested'].values[5]==26)
-    assert(len(table_nested_after.sql_columns['nested'].values)==6)
-    # indexes after
-    assert(table_tests_after.sql_columns['idx'].values[0]==1)
-    assert(table_tests_after.sql_columns['idx'].values[1]==2)
-    assert(table_tests_after.sql_columns['idx'].values[2]==1)
-
-    assert(table_nested_after.sql_columns['idx'].values[0]==1)
-    assert(table_nested_after.sql_columns['idx'].values[1]==2)
-    assert(table_nested_after.sql_columns['idx'].values[2]==1)
-    assert(table_nested_after.sql_columns['idx'].values[0]==1)
-    assert(table_nested_after.sql_columns['idx'].values[1]==2)
-    assert(table_nested_after.sql_columns['idx'].values[2]==1)
-    # items count in items array
-    assert(len(table_tests_after.sql_columns['idx'].values)==3)
-    assert(len(table_nested_after.sql_columns['idx'].values)==3)
+    assert(False==tables_obj_after.compare_with_sample({}))
+    assert(True==tables_obj_after.compare_with_sample(sample_data_after))
 
 
 def test_complete_partial_record3():
@@ -171,6 +176,25 @@ def test_complete_partial_record3():
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
     PSQL_SCHEMA_NAME = ''
+    # etalon of data
+    sample_data_before = {
+        'posts': {
+            'id_oid': ['56b8da59f9fcee1b00000007'],
+            "updated_at": [loads('{ "$date" : "2016-02-08T20:02:12.985Z"}')]
+        },
+        'post_comments': {
+            'id_oid': [str(loads('{ "$oid": "56b8f35ef9fcee1b0000001a" }')),
+                       str(loads('{ "$oid": "56b8f344f9fcee1b00000018" }'))],
+            'updated_at': [loads('{ "$date" : "2016-02-08T20:02:12.985Z"}'),
+                           loads('{ "$date" : "2016-02-08T20:02:13.985Z"}')],
+            'idx': [1,2]
+        },
+        'post_comment_tests': {
+            'tests': [0,2],
+            'idx': [1,2]
+        }
+    }
+
     existing_raw_bson_data = '[{\
      "_id": { "$oid": "56b8da59f9fcee1b00000007" },\
      "updated_at": { "$date" : "2016-02-08T20:02:12.985Z"},\
@@ -204,20 +228,13 @@ def test_complete_partial_record3():
     tables_obj_before = \
         create_tables_load_bson_data(schema_engine, 
                                      existing_bson_data)
-    print tables_obj_before.tables.keys()
-    table_tests_before = tables_obj_before.tables['post_comment_tests']
-    # data before
-    assert(table_tests_before.sql_columns['tests'].values[0]==0)
-    assert(table_tests_before.sql_columns['tests'].values[1]==2)
-    # indexes before
-    assert(table_tests_before.sql_columns['idx'].values[0]==1)
-    assert(table_tests_before.sql_columns['idx'].values[1]==2)
-    # items count in items array
-    assert(len(table_tests_before.sql_columns['idx'].values)==2)
+    assert(True==tables_obj_before.compare_with_sample(sample_data_before))
+
     # create table structure, drop existing
     create_psql_tables(tables_obj_before, psql, PSQL_SCHEMA_NAME, '', True)
     # insert data totables
-    insert_tables_data_into_dst_psql(psql, tables_obj_before, PSQL_SCHEMA_NAME, '')
+    insert_tables_data_into_dst_psql(psql, tables_obj_before, 
+                                     PSQL_SCHEMA_NAME, '')
 
     # oplog path inserting just a field
     bson_data = loads(oplog_path_array_bson_raw_data)
@@ -230,7 +247,8 @@ def test_complete_partial_record3():
     print "tables_for_insert", tables_for_insert.keys()
     print "initial_indexes", initial_indexes
     insert_tests_t = tables_for_insert['post_comments']
-    insert_query = generate_insert_queries(insert_tests_t, "", "", initial_indexes)
+    insert_query = generate_insert_queries(insert_tests_t, "", "", 
+                                           initial_indexes)
     print "columns", insert_tests_t.sql_column_names
     print "insert_query=", insert_query
     for query in insert_query[1]:
@@ -243,21 +261,13 @@ def test_complete_partial_record3():
                                                        schema_engine,
                                                        PSQL_SCHEMA_NAME,
                                                        rec_obj_id)
-    table_comments_after = tables_obj_after.tables['post_comments']
-    # data after
-    updated_at1 = loads('{ "$date" : "2016-02-08T20:02:12.985Z"}')
-    updated_at2 = loads('{ "$date" : "2016-02-08T20:02:13.985Z"}')
-    updated_at3 = loads('{ "$date" : "2016-02-08T20:02:14.985Z"}')
-    assert(table_comments_after.sql_columns['updated_at'].values[0]==updated_at1)
-    assert(table_comments_after.sql_columns['updated_at'].values[1]==updated_at2)
-    assert(table_comments_after.sql_columns['updated_at'].values[2]==updated_at3)
-    # indexes after
-    assert(table_comments_after.sql_columns['idx'].values[0]==1)
-    assert(table_comments_after.sql_columns['idx'].values[1]==2)
-    assert(table_comments_after.sql_columns['idx'].values[2]==3)
-    # items count in items array
-    assert(len(table_comments_after.sql_columns['idx'].values)==3)
+    sample_data_after = sample_data_before
+    sample_data_after['post_comments']['idx'].append(3)
+    sample_data_after['post_comments']['id_oid'].append(None)
+    sample_data_after['post_comments']['updated_at'].append(
+        loads('{ "$date" : "2016-02-08T20:02:14.985Z"}'))
 
+    assert(True==tables_obj_after.compare_with_sample(sample_data_after))
 
 def test_complete_partial_record4():
     logging.basicConfig(level=logging.DEBUG,

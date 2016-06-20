@@ -4,7 +4,6 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 
 from collections import namedtuple
 from gizer.opinsert import generate_insert_queries
-from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 from gizer.opdelete import op_delete_stmts

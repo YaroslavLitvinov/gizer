@@ -94,11 +94,6 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
             getLogger(__name__).debug("insert=%s" % table_name)
             dst_dbreq.cursor.execute(insert_query[0],
                                      insert_data)
-            #if '56b8f05cf9fcee1b00000010' in insert_data:
-            #    dst_dbreq.cursor.execute('select * from operational.posts')
-            #    getLogger(__name__).debug("insert table: %s" % table_name)
-            #    getLogger(__name__).debug("data: %s, %s" % (insert_query[0],
-            #                                                insert_data))
 
 def insert_rec_from_one_tables_set_to_another(dbreq, 
                                               rec_id,
