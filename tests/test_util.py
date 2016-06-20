@@ -407,37 +407,68 @@ def test_get_column_type():
 
 # functions for comparing SQL queries
 def sqls_to_dict(sql_dict):
+    #     {'DELETE FROM database.schema.post_comment_tests WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
+    #     {u'INSERT INTO schema."post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
+    # [{'do $$    begin
     parsed_dict = {}
+    # print(sql_dict)
     for model_item in sql_dict:
-        if model_item == 'upd':
-            if type(sql_dict[model_item]) == dict:
-                for sql in sql_dict[model_item]:
-                    r = re.compile('UPDATE (.*?)WHERE')
-                    ext_key = str.strip(r.search(sql).group(1))
-                    parsed_dict[ext_key] = parse_upd({sql:sql_dict[model_item][sql]})
-        if model_item == 'del':
-            if type(sql_dict[model_item]) == dict:
-                for sql in sql_dict[model_item]:
-                    r = re.compile('DELETE FROM(.*?)WHERE')
-                    ext_key = str.strip(r.search(sql).group(1))
-                    parsed_dict[ext_key] = parse_del({sql:sql_dict[model_item][sql]})
+        q_item = model_item.iterkeys().next()
+        if q_item.startswith('DELETE FROM '):
+            r = re.compile('DELETE FROM(.*?)WHERE')
+            ext_key = str.strip(r.search(q_item).group(1))
+            parsed_dict['DELETE-'+ext_key] = parse_del({q_item:model_item[q_item][0]})
+        elif q_item.startswith('UPDATE '):
+            # for sql in sql_dict[model_item]:
+            # r = re.compile('UPDATE (.*?)WHERE')
+            # ext_key = str.strip(r.search(q_item).group(1))
+            parsed_dict.update(parse_upd({q_item:model_item[q_item][0]}))
+        elif q_item.startswith('do $$    begin'):
+            res = re.search('begin    (.*?)IF FOUND THEN', q_item)
+            ext_key = str.strip(res.group(1))
+            parsed_dict.update(parse_upd({ext_key:model_item[q_item][0]}))
+            # res = re.search('IF FOUND THEN        RETURN;    END IF;    BEGIN(.*?)RETURN;', q_item)
+            # ext_key = str.strip(res.group(1))
+            # parsed_dict['insert'] = parse_insert({ext_key:model_item[q_item][0]})
+        else:
+            pass
     return parsed_dict
 
 
+def parse_insert(sql_upd):
+    sql = sql_upd.iterkeys().next()
+    updated_table = re.search('INSERT INTO(.*?)\(', sql).group(1).strip()
+    columns_strs = [ins_col.strip() for ins_col in sorted(re.search('\((.*?)\)', sql).group(1).split(','))]
+    values_strs = [set_col.strip() for set_col in re.search('VALUES\((.*?)\);', sql).group(1).split(',')]
+    assert len(columns_strs) == len(values_strs)
+    insert_value = {}
+    for i, column in enumerate(sorted(columns_strs)):
+        insert_value[column] = sql_upd[sql][i]
+    return {'table':updated_table, 'insert_value':insert_value}
+
+
+
 def parse_upd(sql_upd):
-    if not type(sql_upd) is dict:
-        return {}
-    stmnt = sql_upd.iterkeys().next()
-    values = sql_upd.itervalues().next()
-    clauses = stmnt.split(' ')
-    updated_table = clauses [1]
-    set_value = clauses [3]
-    's'.replace(';', '')
-    where_clauses = [cl.replace(';', '') for cl in clauses [5:] if cl != 'and']
-    where_dict = {}
-    for i, cl in enumerate(where_clauses):
-        where_dict[cl] = values[i]
-    return {'table':updated_table, 'set_value':set_value, 'where_dict':where_dict}
+    sql = sql_upd.iterkeys().next()
+    updated_table = re.search('UPDATE(.*?)SET', sql).group(1).strip()
+    set_strs = [set_col.strip() for set_col in re.search('SET(.*?)WHERE', sql).group(1).split(', ')]
+    where_strs = [set_col.strip() for set_col in re.search('WHERE(.*?);', sql).group(1).split('and')]
+    set_value = {}
+    last_i = 0
+
+    for i, column in enumerate(set_strs):
+        set_value[column] = sql_upd[sql][i]
+        last_i = i + 1
+    where_value = {}
+    for i, column in enumerate(where_strs):
+        where_value[column] = sql_upd[sql][i+last_i]
+    key = 'update_{table}_set_{set}_where_{where}_{values}'.format(
+        table=updated_table,
+        set= '_'.join([column for column in sorted(set_value)]),
+        where='_'.join([column for column in sorted(where_value)]),
+        values= '_'.join( [ str(value) for value in [set_value[column] for column in sorted(set_value)] + [where_value[column] for column in sorted(where_value)] ] )
+    )
+    return {key:{'table':updated_table, 'set_value':set_value, 'where_dict':where_value}}
 
 
 def parse_del(sql_upd):
@@ -452,7 +483,6 @@ def parse_del(sql_upd):
     for i, cl in enumerate(where_clauses):
         where_dict[cl] = values[i]
     return {'table':updated_table, 'where_dict':where_dict}
-
 
 
 def run_tests_():

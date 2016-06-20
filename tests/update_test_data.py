@@ -422,7 +422,9 @@ test_data_09 = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
+    },
     "o" : {
         "$set" : {
             "comments.2.tests.5" : 24
@@ -430,6 +432,7 @@ test_data_09 = '''{
     }
 }
 '''
+#    "o2" : { "_id" : 503078 },
 
 test_data_09_A = '''{
 	"ts": "1465220614, 2",
@@ -437,7 +440,9 @@ test_data_09_A = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
+    },
     "o" : {
         "$set" : {
             "comments.2.tests.5" : 24.7
@@ -529,9 +534,6 @@ test_data_13 = '''{
 }
 '''
 
-
-
-
 test_data_14 = '''{
 	"ts": "1465220614, 2",
 	"h": "143890519546180493",
@@ -545,7 +547,7 @@ test_data_14 = '''{
 		"$set" : {
 		    "body":"SOME text",
             "number": 33,
-            "tests.4": 456,
+            "tests": [123, 4 ,8],
 			"comments.1.rates.1.user_id" : "B",
 			"comments.1.rates.2.rate" : 67,
 			"comments.1.rates.2.item_rates" : [
@@ -557,10 +559,23 @@ test_data_14 = '''{
 			        "_id": {"$oid": "57557e06cf68790000000001"},
 			        "name": "Susanin"
 			    }
-			]
+			],
+			"comments.1.rates.2.item_ratessa" : [
+			    {
+			        "_id": {"$oid": "57557e06cf68790000000000"},
+			        "name": "Ivan"
+			    },
+			    {
+			        "_id": {"$oid": "57557e06cf68790000000001"},
+			        "name": "Susanin"
+			    }
+			],
+			"enclosed":{"field_array":["234", "ertret"]}
 		}
 	}
 }'''
+
+
 
 test_data_15 = '''{
 	"ts": "1465220614, 2",
