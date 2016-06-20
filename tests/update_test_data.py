@@ -422,7 +422,9 @@ test_data_09 = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
+    },
     "o" : {
         "$set" : {
             "comments.2.tests.5" : 24
@@ -430,6 +432,7 @@ test_data_09 = '''{
     }
 }
 '''
+#    "o2" : { "_id" : 503078 },
 
 test_data_09_A = '''{
 	"ts": "1465220614, 2",
@@ -437,7 +440,9 @@ test_data_09_A = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
+    },
     "o" : {
         "$set" : {
             "comments.2.tests.5" : 24.7
@@ -528,9 +533,6 @@ test_data_13 = '''{
 	}
 }
 '''
-
-
-
 
 test_data_14 = '''{
 	"ts": "1465220614, 2",
