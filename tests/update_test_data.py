@@ -599,6 +599,28 @@ test_data_15 = '''{
 }
 '''
 
+test_data_15_A = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
+    },
+	"o" : {
+		"$set" : {
+			"enclosed" : {
+				"_id" : {"$oid":"57640cb0cf6879b3fcf0d3f6"},
+				"field1" : "marty mackfly",
+				"field2" : 300,
+				"field_array" : null
+			}
+		}
+	}
+}
+'''
+
 test_data_16 = '''{
 	"ts": "1465220614, 2",
     "h" : "8003031459294353269",
