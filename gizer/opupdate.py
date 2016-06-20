@@ -86,6 +86,9 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list, root
             element_conditios_list = get_conditions_list(schema, parsed_path.table_path, root_id.itervalues().next())
             if not localte_in_schema(schema, element_path):
                 continue
+            if type(get_part_schema(schema, element_path)) is list:
+                if oplog_data[element] == None:
+                   oplog_data[element] = []
             if type(oplog_data[element]) is dict:
                 branch_list = normalize_oplog_recursive(schema, oplog_data[element], parent_path[:] + [element], branch_list, root_id, root_collection)
                 #branch_list.extend()
