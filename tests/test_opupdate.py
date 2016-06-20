@@ -254,10 +254,6 @@ def test_update():
         }
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    print('result')
-    print(sqls_to_dict(result))
-    print('model')
-    print(sqls_to_dict(model))
     # print(result)
     # print(model)
     # assert result == model
@@ -275,18 +271,23 @@ def test_update():
     #         'do $$    begin    UPDATE rated_post_comment_rates SET user_id=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(u'B', '56b8da59f9fcee1b00000013', u'1', u'1', None, None, None, None, '56b8da59f9fcee1b00000013', None, u'B', None, None, 1, 1)]
     #     }
     # ]
-    model = [{
-            'do $$    begin    UPDATE rated_post_comment_rates SET rate=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(67, '56b8da59f9fcee1b00000013', u'2', u'3', None, None, None, None, '56b8da59f9fcee1b00000013', None, None, None, None, 2, 3)]
-        }, {
+    model = [
+        {
             'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));' : [(u'2', u'3', '56b8da59f9fcee1b00000013')]
         }, {
             u'INSERT INTO "rated_post_comment_rate_item_rates" ("created_at", "description", "id_bsontype", "id_oid", "name", "rated_posts_id_oid", "updated_at", "rated_posts_comments_idx", "rated_posts_comments_rates_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);' : [(None, None, 7, '57557e06cf68790000000000', u'Ivan', '56b8da59f9fcee1b00000013', None, 2, 3, 1), (None, None, 7, '57557e06cf68790000000001', u'Susanin', '56b8da59f9fcee1b00000013', None, 2, 3, 2)]
+        }, {
+            'do $$    begin    UPDATE rated_post_comment_rates SET rate=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(67, '56b8da59f9fcee1b00000013', u'2', u'3', None, None, None, None, '56b8da59f9fcee1b00000013', None, None, None, None, 2, 3)]
         }, {
             'do $$    begin    UPDATE rated_post_comment_rates SET user_id=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(u'B', '56b8da59f9fcee1b00000013', u'2', u'2', None, None, None, None, '56b8da59f9fcee1b00000013', None, u'B', None, None, 2, 2)]
         }
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
+    # print(result)
+    # print(model)
+    # assert result == model
+
 
     print('Test #15')
     oplog_data = loads(test_data_06)
@@ -308,15 +309,17 @@ def test_update():
 
     print('Test #18')
     oplog_data = loads(test_data_09)
-    model = [{'do $$    begin    UPDATE rated_post_comment_tests SET tests=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_tests (rated_posts_id_oid, rated_posts_comments_idx, idx, tests) VALUES(%s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(24, 503078, '3', '6', 503078, '3', '6', 24)]}]
+    model = [{'do $$    begin    UPDATE rated_post_comment_tests SET tests=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_tests (rated_posts_id_oid, rated_posts_comments_idx, idx, tests) VALUES(%s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(24, '56b8da59f9fcee1b00000013', '3', '6', '56b8da59f9fcee1b00000013', '3', '6', 24)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
+    # assert result == model
 
     print('Test #18.A')
     oplog_data = loads(test_data_09_A)
-    model = [{'do $$    begin    UPDATE rated_post_comment_tests SET tests=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_tests (rated_posts_id_oid, rated_posts_comments_idx, idx, tests) VALUES(%s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(None, 503078, '3', '6', 503078, '3', '6', None)]}]
+    model = [{'do $$    begin    UPDATE rated_post_comment_tests SET tests=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_tests (rated_posts_id_oid, rated_posts_comments_idx, idx, tests) VALUES(%s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(None, '56b8da59f9fcee1b00000013', '3', '6', '56b8da59f9fcee1b00000013', '3', '6', None)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
+    # assert result == model
 
     print('Test #19')
     oplog_data = loads(test_data_10)
@@ -340,11 +343,11 @@ def test_update():
     oplog_data = loads(test_data_13)
     model = [
         {
-            'UPDATE rated_posts SET body=(%s), title=(%s) WHERE id_oid=(%s);' : [(u'Glory For Heroes', u'Glory For Ukraine', '56b8da59f9fcee1b00000014')]
-        }, {
             'DELETE FROM rated_post_rates WHERE (rated_posts_id_oid=(%s));' : [('56b8da59f9fcee1b00000014', )]
         }, {
             u'INSERT INTO "rated_post_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s);' : [(None, 7, u'aaaaaaaaaaaaassssssssssasdas', 555, '56b8da59f9fcee1b00000014', None, u'444444rrwerr34r', 1), (None, 7, u'aaaaaaaaaaaaasasdsadasdasdasd', 7777, '56b8da59f9fcee1b00000014', None, u'987987978979', 2)]
+        }, {
+            'UPDATE rated_posts SET body=(%s), title=(%s) WHERE id_oid=(%s);' : [(u'Glory For Heroes', u'Glory For Ukraine', '56b8da59f9fcee1b00000014')]
         }
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
@@ -352,21 +355,32 @@ def test_update():
 
     print('Test #22')
     oplog_data = loads(test_data_14)
-    model = [{
-            'UPDATE rated_posts SET body=(%s), number=(%s) WHERE id_oid=(%s);' : [(u'SOME text', 33, '56b8da59f9fcee1b00000013')]
-        }, {
-            'do $$    begin    UPDATE rated_post_tests SET tests=(%s) WHERE rated_posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_tests (rated_posts_id_oid, idx, tests) VALUES(%s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(456, '56b8da59f9fcee1b00000013', '5', '56b8da59f9fcee1b00000013', '5', 456)]
-        }, {
-            'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));' : [('2', '3', '56b8da59f9fcee1b00000013')]
-        }, {
-            u'INSERT INTO "rated_post_comment_rate_item_rates" ("created_at", "description", "id_bsontype", "id_oid", "name", "rated_posts_id_oid", "updated_at", "rated_posts_comments_idx", "rated_posts_comments_rates_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);' : [(None, None, 7, '57557e06cf68790000000000', u'Ivan', '56b8da59f9fcee1b00000013', None, 2, 3, 1), (None, None, 7, '57557e06cf68790000000001', u'Susanin', '56b8da59f9fcee1b00000013', None, 2, 3, 2)]
-        }, {
-            'do $$    begin    UPDATE rated_post_comment_rates SET user_id=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(u'B', '56b8da59f9fcee1b00000013', '2', '2', None, None, None, None, '56b8da59f9fcee1b00000013', None, u'B', None, None, 2, 2)]
-        }, {
-            'do $$    begin    UPDATE rated_post_comment_rates SET rate=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(67, '56b8da59f9fcee1b00000013', '2', '3', None, None, None, None, '56b8da59f9fcee1b00000013', None, None, None, None, 2, 3)]
-        }
+    model = [
+        {'DELETE FROM rated_post_tests WHERE (rated_posts_id_oid=(%s));': [('56b8da59f9fcee1b00000013',)]},
+        {u'INSERT INTO "rated_post_tests" ("rated_posts_id_oid", "tests", "idx") VALUES(%s, %s, %s);': [('56b8da59f9fcee1b00000013', 123, 1), ('56b8da59f9fcee1b00000013', 4, 2), ('56b8da59f9fcee1b00000013', 8, 3)]},
+        {'DELETE FROM rated_post_enclosed_field_array WHERE (rated_posts_id_oid=(%s));': [('56b8da59f9fcee1b00000013',)]},
+        {u'INSERT INTO "rated_post_enclosed_field_array" ("field_array", "rated_posts_id_oid", "idx") VALUES(%s, %s, %s);': [(u'234', '56b8da59f9fcee1b00000013', 1), (u'ertret', '56b8da59f9fcee1b00000013', 2)]},
+        {'UPDATE rated_posts SET body=(%s), number=(%s) WHERE id_oid=(%s);': [(u'SOME text', 33, '56b8da59f9fcee1b00000013')]},
+        {'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));': [('2', '3', '56b8da59f9fcee1b00000013')]},
+        {u'INSERT INTO "rated_post_comment_rate_item_rates" ("created_at", "description", "id_bsontype", "id_oid", "name", "rated_posts_id_oid", "updated_at", "rated_posts_comments_idx", "rated_posts_comments_rates_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);': [(None, None, 7, '57557e06cf68790000000000', u'Ivan', '56b8da59f9fcee1b00000013', None, 2, 3, 1), (None, None, 7, '57557e06cf68790000000001', u'Susanin', '56b8da59f9fcee1b00000013', None, 2, 3, 2)]},
+        {'do $$    begin    UPDATE rated_post_comment_rates SET user_id=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'B', '2', '2', '56b8da59f9fcee1b00000013', None, None, None, None, '56b8da59f9fcee1b00000013', None, u'B', None, None, 2, 2)]}
     ]
+    # model = [{
+    #         'UPDATE rated_posts SET body=(%s), number=(%s) WHERE id_oid=(%s);' : [(u'SOME text', 33, '56b8da59f9fcee1b00000013')]
+    #     }, {
+    #         'do $$    begin    UPDATE rated_post_tests SET tests=(%s) WHERE rated_posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_tests (rated_posts_id_oid, idx, tests) VALUES(%s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(456, '56b8da59f9fcee1b00000013', '5', '56b8da59f9fcee1b00000013', '5', 456)]
+    #     }, {
+    #         'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));' : [('2', '3', '56b8da59f9fcee1b00000013')]
+    #     }, {
+    #         u'INSERT INTO "rated_post_comment_rate_item_rates" ("created_at", "description", "id_bsontype", "id_oid", "name", "rated_posts_id_oid", "updated_at", "rated_posts_comments_idx", "rated_posts_comments_rates_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);' : [(None, None, 7, '57557e06cf68790000000000', u'Ivan', '56b8da59f9fcee1b00000013', None, 2, 3, 1), (None, None, 7, '57557e06cf68790000000001', u'Susanin', '56b8da59f9fcee1b00000013', None, 2, 3, 2)]
+    #     }, {
+    #         'do $$    begin    UPDATE rated_post_comment_rates SET user_id=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(u'B', '56b8da59f9fcee1b00000013', '2', '2', None, None, None, None, '56b8da59f9fcee1b00000013', None, u'B', None, None, 2, 2)]
+    #     }, {
+    #         'do $$    begin    UPDATE rated_post_comment_rates SET rate=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(67, '56b8da59f9fcee1b00000013', '2', '3', None, None, None, None, '56b8da59f9fcee1b00000013', None, None, None, None, 2, 3)]
+    #     }
+    # ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    assert sqls_to_dict(result) == sqls_to_dict(model)
     assert result == model
 
     print('Test #23')
@@ -381,7 +395,12 @@ def test_update():
     ]
 
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    # print(result)
+    # print(model)
+    # print(sqls_to_dict(result))
+    # print(sqls_to_dict(model))
+    #
+    assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #24')
     oplog_data = loads(test_data_16)
