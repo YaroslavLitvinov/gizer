@@ -393,13 +393,22 @@ def test_update():
             'UPDATE rated_posts SET enclosed_field2=(%s), enclosed_field1=(%s), enclosed_id_bsontype=(%s), enclosed_id_oid=(%s) WHERE id_oid=(%s);' : [(300, u'marty mackfly', 7, '57640cb0cf6879b3fcf0d3f6', '56b8da59f9fcee1b00000013')]
         }
     ]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    assert sqls_to_dict(result) == sqls_to_dict(model)
 
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    # print(result)
-    # print(model)
-    # print(sqls_to_dict(result))
-    # print(sqls_to_dict(model))
-    #
+
+    print('Test #23.A')
+    oplog_data = loads(test_data_15_A)
+    model = [
+        {
+            'DELETE FROM rated_post_enclosed_field_array WHERE (rated_posts_id_oid=(%s));' : [('56b8da59f9fcee1b00000013', )]
+        },
+        {
+            'UPDATE rated_posts SET enclosed_field2=(%s), enclosed_field1=(%s), enclosed_id_bsontype=(%s), enclosed_id_oid=(%s) WHERE id_oid=(%s);' : [(300, u'marty mackfly', 7, '57640cb0cf6879b3fcf0d3f6', '56b8da59f9fcee1b00000013')]
+        }
+    ]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #24')
