@@ -41,20 +41,28 @@ def load_single_rec_into_tables_obj(src_dbreq,
 
     # fetch mongo rec by id from source psql
     ext_tables_data = {}
+    idx_order = []
     for table_name, table in tables.tables.iteritems():
         id_name, quotes = parent_id_name_and_quotes_for_table(table)
         if quotes:
             id_val = "'" + str(rec_id) + "'"
         else:
             id_val = rec_id
+        indexes = [name \
+                       for name in table.sql_column_names \
+                       if table.sql_columns[name].index_key() ]
+        idx_order_by = ''
+        if len(indexes):
+            idx_order_by = "ORDER BY " + ','.join(indexes)
         select_fmt = 'SELECT * FROM {schema}"{table}" \
-WHERE {id_name}={id_val};'
+WHERE {id_name}={id_val} {idx_order_by};'
         select_req = select_fmt.format(schema = psql_schema,
                                        table = table_name,
                                        id_name = id_name,
-                                       id_val = id_val)
-        src_dbreq.cursor.execute(select_req)
+                                       id_val = id_val,
+                                       idx_order_by = idx_order_by)
         getLogger(__name__).debug("Get psql data: "+select_req)
+        src_dbreq.cursor.execute(select_req)
         ext_tables_data[table_name] = []
         idx=0
         for record in src_dbreq.cursor:
@@ -86,11 +94,6 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
             getLogger(__name__).debug("insert=%s" % table_name)
             dst_dbreq.cursor.execute(insert_query[0],
                                      insert_data)
-            if '56b8f05cf9fcee1b00000010' in insert_data:
-                dst_dbreq.cursor.execute('select * from operational.posts')
-                getLogger(__name__).debug("insert table: %s" % table_name)
-                getLogger(__name__).debug("data: %s, %s" % (insert_query[0],
-                                                            insert_data))
 
 def insert_rec_from_one_tables_set_to_another(dbreq, 
                                               rec_id,

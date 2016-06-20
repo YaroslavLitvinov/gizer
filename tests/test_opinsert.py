@@ -86,7 +86,7 @@ VALUES(%s, %s, %s, %s, %s, %s, %s);',
 VALUES(%s, %s, %s, %s);',
            [
             ('56b8f05cf9fcee1b00000010', u'1', 1, 1),
-            ('56b8f05cf9fcee1b00000010', u'2', 2, 2)])
+            ('56b8f05cf9fcee1b00000010', u'2', 2, 1)])
    
     sqltable4 = tables[collection_name[:-1]+'_comment_slugs']
     expect(generate_insert_queries(sqltable4, "", ""),

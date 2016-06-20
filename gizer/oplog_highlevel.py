@@ -17,7 +17,6 @@ from logging import getLogger
 from os import environ
 from bson.json_util import loads
 from collections import namedtuple
-from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 from gizer.psql_objects import load_single_rec_into_tables_obj
 from gizer.psql_objects import insert_rec_from_one_tables_set_to_another
 from gizer.psql_objects import create_psql_tables
