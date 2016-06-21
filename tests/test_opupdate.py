@@ -40,61 +40,15 @@ def d(str_date, tz_info):
     return datetime.datetime(l.year, l.month, l.day, l.hour, l.minute, l.second, l.microsecond, tzinfo=tz_info)
 
 
-# def test_prepare_unset():
-#     dbreq = database_prepare()
-#     schemas_path = 'test_data/schemas/rails4_mongoid_development'
-#     schema_engine = get_schema_engines_as_dict(schemas_path)
-#
-#     tz_info = loads(oplog_tz_info)['tzinfo_obj'].tzinfo
-#     oplog_data = loads(test_data_06)
-#     # model = [{'do $$    begin    UPDATE rated_post_comment_rates SET user_info_name=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'Vasya', '56b8da59f9fcee1b00000014', u'1', u'2', None, None, None, None, '56b8da59f9fcee1b00000014', None, None, None, u'Vasya', 1, 2)]}]
-# #    model = [{'do $$    begin    UPDATE rated_post_comment_rates SET user_info_name=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'Vasya', '56b8da59f9fcee1b00000014', u'2', u'3', None, None, None, None, '56b8da59f9fcee1b00000014', None, None, None, u'Vasya', 2, 3)]}]
-#     print(update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', ''))
-
 
 def test_update():
 
     dbreq = database_prepare()
 
-    # schema = json.loads(open('/home/volodymyr/git/gizer/test_data/test_schema__.txt').read())
-    # oplog_data = loads(test_data_03)
-    #
-    # result = update(dbreq, schema, oplog_data, '', '')
-    # print(result)
-    # # model = ['mains', 'main_personal_inf_fl_nam_SSNs', 'main_relatives', 'main_relative_contacts',
-    # #          'main_relative_contact_phones', 'main_relative_jobs', 'main_indeces', 'main_dates']
-    # # assert sorted(model) == sorted(result)
-    # #
-    # # exit(0)
-
-
     schemas_path = 'test_data/schemas/rails4_mongoid_development'
     schema_engine = get_schema_engines_as_dict(schemas_path)
 
     tz_info = loads(oplog_tz_info)['tzinfo_obj'].tzinfo
-
-
-
-    # print('Test #0')
-    # oplog_data = loads(test_data_18)
-    # model = [{'do $$    begin    UPDATE rated_post_comment_rates SET user_info_name=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "user_info_last_name", "user_info_name", "rated_posts_comments_idx", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'Vasya', '56b8da59f9fcee1b00000014', u'2', u'3', None, None, None, None, '56b8da59f9fcee1b00000014', None, None, None, u'Vasya', 2, 3)]}]
-    # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    # print(result)
-    # #assert result == model
-
-
-    # oplog_data = loads(test_data_14)
-    # print(update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', ''))
-    # oplog_data = loads(oplog_u_09)
-    # print(update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', ''))
-    # oplog_data = loads(test_data_02)
-    # print(update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', ''))
-    # oplog_data = loads(test_data_14)
-    # print(update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', ''))
-    # oplog_data = loads(test_data_15)
-    # print(update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', ''))
-    # oplog_data = loads(test_data_16)
-
 
     print('Test #1')
     oplog_data = loads(test_data_05)
@@ -254,9 +208,6 @@ def test_update():
         }
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    # print(result)
-    # print(model)
-    # assert result == model
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #14')
@@ -284,26 +235,33 @@ def test_update():
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
-    # print(result)
-    # print(model)
-    # assert result == model
 
 
     print('Test #15')
     oplog_data = loads(test_data_06)
-    model = [{'UPDATE rated_post_comments SET id_bsontype=(%s), id_oid=(%s) WHERE idx=(%s) and rated_posts_id_oid=(%s);': [(None, None, '3', 503078)]}]
+    model = [{'UPDATE rated_post_comments SET id_bsontype=(%s), id_oid=(%s) WHERE idx=(%s) and rated_posts_id_oid=(%s);': [(None, None, '3', '56b8da59f9fcee1b00000014')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
     print('Test #16')
     oplog_data = loads(test_data_07)
-    model = [{'UPDATE rated_post_comment_rates SET user_info_last_name=(%s), user_info_name=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);': [(None, None, '9', '3', 503078)]}]
+    model = [{'UPDATE rated_post_comment_rates SET user_info_last_name=(%s), user_info_name=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);': [(None, None, '9', '3', '56b8da59f9fcee1b00000015')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
+    print('Test #16.A')
+    oplog_data = loads(test_data_06_A)
+    model = [
+        {'DELETE FROM rated_post_enclosed_field_array WHERE (rated_posts_id_oid=(%s));': [('56b8da59f9fcee1b00000015',)]},
+        {'UPDATE rated_posts SET enclosed_field1=(%s), enclosed_field2=(%s), enclosed_field3=(%s), enclosed_id_bsontype=(%s), enclosed_id_oid=(%s) WHERE id_oid=(%s);': [(None, None, None, None, None, '56b8da59f9fcee1b00000015')]}
+    ]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    assert result == model
+
+
     print('Test #17')
     oplog_data = loads(test_data_08)
-    model = [{'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', '10', 503078)]}]
+    model = [{'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', '10', '56b8da59f9fcee1b00000015')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
@@ -319,25 +277,25 @@ def test_update():
     model = [{'do $$    begin    UPDATE rated_post_comment_tests SET tests=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_tests (rated_posts_id_oid, rated_posts_comments_idx, idx, tests) VALUES(%s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(None, '56b8da59f9fcee1b00000013', '3', '6', '56b8da59f9fcee1b00000013', '3', '6', None)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
-    # assert result == model
 
     print('Test #19')
     oplog_data = loads(test_data_10)
-    model = [{'DELETE FROM rated_post_comment_tests WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', 503078)]}]
+    model = [{'DELETE FROM rated_post_comment_tests WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', '56b8da59f9fcee1b00000015')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
     print('Test #20')
     oplog_data = loads(test_data_11)
-    model = [{'UPDATE rated_posts SET id_bsontype=(%s), id_oid=(%s) WHERE id_oid=(%s);': [(None, None, 503078)]}]
+    model = [{'UPDATE rated_posts SET id_bsontype=(%s), id_oid=(%s) WHERE id_oid=(%s);': [(None, None, '56b8da59f9fcee1b00000015')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
-    # oplog_data = loads(test_data_12)
-    # model = [{'UPDATE rated_posts SET id_bsontype=(%s), id_oid=(%s) WHERE rated_posts_id_oid=(%s);': [(None, None, 503078)]}]
-    # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    # print(result)
-    # assert result == model
+
+    print('Test #20.A')
+    oplog_data = loads(test_data_12)
+    model = [{'DELETE FROM rated_post_tests WHERE (rated_posts_id_oid=(%s));': [('111111111111111111111111',)]}]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    assert result == model
 
     print('Test #21')
     oplog_data = loads(test_data_13)
@@ -380,7 +338,7 @@ def test_update():
     #     }
     # ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert sqls_to_dict(result) == sqls_to_dict(model)
+    # assert sqls_to_dict(result) == sqls_to_dict(model)
     assert result == model
 
     print('Test #23')
@@ -396,7 +354,6 @@ def test_update():
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
-    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
 
     print('Test #23.A')
     oplog_data = loads(test_data_15_A)
@@ -432,9 +389,11 @@ def test_schema_part():
     schema_engine = get_schema_engines_as_dict(schemas_path)
 
     tz_info = loads(oplog_tz_info)['tzinfo_obj'].tzinfo
-    paths = []
+    paths1 = []
     schema = schema_engine['rated_posts'].schema
-    schema_part_print(schema[0], schema[0], [], paths)
+    paths = schema_part_paths(schema[0], [], paths1)
+    for key in paths:
+        print(key)
 
     oplog_data = loads(test_data_14)
     print(oplog_data)
@@ -460,24 +419,44 @@ def test_schema_part():
     #     print(el)
     #     print(get_part_schema(schema, el.split('.')))
 
+def check_print_dictionary(result, model, print_input=0):
+    d_res = sqls_to_dict(result)
+    d_mod = sqls_to_dict(model)
+    if print_input:
+        print('\ninput data')
+        print('result')
+        for el in sorted(result):
+            if type(result) is dict:
+                print(result[el])
+            else:
+                print(el)
+        print('\nmodel')
+        for el in sorted(model):
+            if type(model) is dict:
+                print(model[el])
+            else:
+                print(el)
 
-def schema_part_print(schema_stable, schema, path, paths):
-    if not type(schema) is dict:
-        pass
-        # print(schema)
-        # gen_p = '.'.join(path+[schema])
-        # paths.append( gen_p )
-        # print(gen_p)
-    else:
-        for el in schema:
-            gen_p = '.'.join(path + [el])
-            paths.append( gen_p )
-            # print(gen_p)
-            if type(schema[el]) is dict:
-                schema_part_print(schema_stable, schema[el], path + [el], paths)
-            elif type(schema[el]) is list:
-                schema_part_print(schema_stable, schema[el][0], path + [el], paths)
+    print('\nparsed data')
+    print('result')
+    for el in sorted(d_res):
+        print(d_res[el])
+    print('\nmodel')
+    for el in sorted(d_mod):
+        print(d_mod[el])
 
+
+
+def schema_part_paths(schema, path, paths):
+    for el in schema:
+        gen_p = '.'.join(path + [el])
+        if type(schema[el]) is dict:
+            schema_part_paths(schema[el], path + [el], paths)
+        elif type(schema[el]) is list:
+            paths.append({gen_p:[]})
+        else:
+            paths.append({gen_p:None})
+    return paths
 
 pp = pprint.PrettyPrinter(indent=4)
 
