@@ -408,30 +408,41 @@ def test_get_column_type():
 # functions for comparing SQL queries
 def sqls_to_dict(sql_dict):
     #     {'DELETE FROM database.schema.post_comment_tests WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
-    #     {u'INSERT INTO schema."post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
+    #     {'INSERT INTO schema."post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
     # [{'do $$    begin
     parsed_dict = {}
     # print(sql_dict)
     for model_item in sql_dict:
-        q_item = model_item.iterkeys().next()
-        if q_item.startswith('DELETE FROM '):
-            r = re.compile('DELETE FROM(.*?)WHERE')
-            ext_key = str.strip(r.search(q_item).group(1))
-            parsed_dict['DELETE-'+ext_key] = parse_del({q_item:model_item[q_item][0]})
-        elif q_item.startswith('UPDATE '):
-            # for sql in sql_dict[model_item]:
-            # r = re.compile('UPDATE (.*?)WHERE')
-            # ext_key = str.strip(r.search(q_item).group(1))
-            parsed_dict.update(parse_upd({q_item:model_item[q_item][0]}))
-        elif q_item.startswith('do $$    begin'):
-            res = re.search('begin    (.*?)IF FOUND THEN', q_item)
-            ext_key = str.strip(res.group(1))
-            parsed_dict.update(parse_upd({ext_key:model_item[q_item][0]}))
-            # res = re.search('IF FOUND THEN        RETURN;    END IF;    BEGIN(.*?)RETURN;', q_item)
-            # ext_key = str.strip(res.group(1))
-            # parsed_dict['insert'] = parse_insert({ext_key:model_item[q_item][0]})
+        if model_item == 'upd' or model_item == 'del':
+            if model_item == 'upd':
+                if type(sql_dict[model_item]) == dict:
+                    for sql in sql_dict[model_item]:
+                        r = re.compile('UPDATE(.*?)WHERE')
+                        ext_key = str.strip(r.search(sql).group(1))
+                        parsed_dict['UPD_' + ext_key] = parse_upd({sql:sql_dict[model_item][sql]})
+            if model_item == 'del':
+                if type(sql_dict[model_item]) == dict:
+                    for sql in sql_dict[model_item]:
+                        r = re.compile('DELETE FROM(.*?)WHERE')
+                        ext_key = str.strip(r.search(sql).group(1))
+                        parsed_dict['DEL_' + ext_key] = parse_del({sql:sql_dict[model_item][sql]})
         else:
-            pass
+            q_item = model_item.iterkeys().next()
+            if q_item.startswith('DELETE FROM '):
+                r = re.compile('DELETE FROM(.*?)WHERE')
+                ext_key = str.strip(r.search(q_item).group(1))
+                parsed_dict['DELETE_'+ext_key] = parse_del({q_item:model_item[q_item][0]})
+            elif q_item.startswith('UPDATE '):
+                # for sql in sql_dict[model_item]:
+                # r = re.compile('UPDATE (.*?)WHERE')
+                # ext_key = str.strip(r.search(q_item).group(1))
+                parsed_dict.update(parse_upd({q_item:model_item[q_item][0]}))
+            elif q_item.startswith('do $$    begin'):
+                res = re.search('begin    (.*?)IF FOUND THEN', q_item)
+                ext_key = str.strip(res.group(1))
+                parsed_dict.update(parse_upd({ext_key:model_item[q_item][0]}))
+            else:
+                pass
     return parsed_dict
 
 
@@ -444,7 +455,7 @@ def parse_insert(sql_upd):
     insert_value = {}
     for i, column in enumerate(sorted(columns_strs)):
         insert_value[column] = sql_upd[sql][i]
-    return {'table':updated_table, 'insert_value':insert_value}
+    return {'table':'INSERT_'+updated_table, 'insert_value':insert_value}
 
 
 
@@ -455,10 +466,13 @@ def parse_upd(sql_upd):
     where_strs = [set_col.strip() for set_col in re.search('WHERE(.*?);', sql).group(1).split('and')]
     set_value = {}
     last_i = 0
-
+    filled_values = 0
     for i, column in enumerate(set_strs):
         set_value[column] = sql_upd[sql][i]
+        if not column.endswith('=(%s)'):
+            filled_values = filled_values + 1
         last_i = i + 1
+    last_i = last_i - filled_values
     where_value = {}
     for i, column in enumerate(where_strs):
         where_value[column] = sql_upd[sql][i+last_i]
@@ -468,7 +482,7 @@ def parse_upd(sql_upd):
         where='_'.join([column for column in sorted(where_value)]),
         values= '_'.join( [ str(value) for value in [set_value[column] for column in sorted(set_value)] + [where_value[column] for column in sorted(where_value)] ] )
     )
-    return {key:{'table':updated_table, 'set_value':set_value, 'where_dict':where_value}}
+    return {key:{'table':'UPDATE_'+updated_table, 'set_value':set_value, 'where_dict':where_value}}
 
 
 def parse_del(sql_upd):
@@ -482,7 +496,7 @@ def parse_del(sql_upd):
     where_dict = {}
     for i, cl in enumerate(where_clauses):
         where_dict[cl] = values[i]
-    return {'table':updated_table, 'where_dict':where_dict}
+    return {'table':'DELETE_'+updated_table, 'where_dict':where_dict}
 
 
 def run_tests_():
