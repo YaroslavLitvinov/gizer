@@ -79,11 +79,11 @@ def get_conditions_list(schema, path, id):
     ids = get_ids_list(schema, 1)
     root_id = ids.iterkeys().next()
     if root_table == target_table:
-        params_target[root_id] = id
+        params_target[root_id] = str(id)
     else:
-        params_target[root_table+'_'+root_id] = id
+        params_target[root_table+'_'+root_id] = str(id)
 
-    params_child[root_table+'_'+root_id] = id
+    params_child[root_table+'_'+root_id] = str(id)
     return {'target': params_target, 'child': params_child}
 
 

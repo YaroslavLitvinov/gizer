@@ -377,7 +377,9 @@ test_data_06 = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000014"}
+    },
     "o" : {
         "$unset" : {
             "comments.2._id" : true
@@ -386,13 +388,33 @@ test_data_06 = '''{
 }
 '''
 
+test_data_06_A = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000015"}
+    },
+    "o" : {
+        "$unset" : {
+            "enclosed" : true
+        }
+    }
+}
+'''
+
+
 test_data_07 = '''{
 	"ts": "1465220614, 2",
     "h" : "8003031459294353269",
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000015"}
+    },
     "o" : {
         "$unset" : {
             "comments.2.rates.8.user_info" : true
@@ -407,7 +429,9 @@ test_data_08 = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000015"}
+    },
     "o" : {
         "$unset" : {
             "comments.2.rates.9.item_rates" : true
@@ -456,7 +480,9 @@ test_data_10 = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000015"}
+    },
     "o" : {
         "$unset" : {
             "comments.2.tests" : true
@@ -471,7 +497,9 @@ test_data_11 = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2" : { "_id" : 503078 },
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000015"}
+    },
     "o" : {
         "$unset" : {
             "_id" : true
@@ -480,22 +508,22 @@ test_data_11 = '''{
 }
 '''
 
-# test_data_12 = '''{
-# 	"ts": "1465220614, 2",
-#     "h" : "8003031459294353269",
-#     "v" : 2,
-#     "op" : "u",
-#     "ns" : "quote_management.provisioning_states",
-#     "o2": {
-#         "_id": {"$oid": "111111111111111111111111"}
-#     },
-# 	"o" : {
-# 	"$unset" : {
-# 			"_slugs" : true
-# 		}
-# 	}
-# }
-# '''
+test_data_12 = '''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2": {
+        "_id": {"$oid": "111111111111111111111111"}
+    },
+	"o" : {
+	"$unset" : {
+			"tests" : true
+		}
+	}
+}
+'''
 
 
 test_data_13 = '''{

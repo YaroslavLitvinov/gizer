@@ -10,20 +10,6 @@ UPDATE_TMPLT = 'UPDATE {table} SET {statements} WHERE {conditions};'
 INSERT_TMPLT = 'INSERT INTO {table} ({columns}) VALUES({values});'
 SELECT_TMPLT = 'SELECT MAX(idx) FROM {table} WHERE {conditions};'
 
-# UPSERT_TMLPT = """\
-# LOOP
-#     {update}
-#     IF found THEN
-#         RETURN;
-#     END IF;
-#     BEGIN
-#         {insert}
-#         RETURN;
-#     EXCEPTION WHEN unique_violation THEN
-#     END;
-# END LOOP;
-# """
-
 UPSERT_TMLPT = 'do $$\
     begin\
     {update}\
@@ -55,11 +41,10 @@ def isIdField(field_name):
 
 
 def get_table_name_schema(str_list):
-    return '.'.join(filter(None,str_list))
+    return '.'.join(filter(None, str_list))
 
 
 def get_postgres_type(type_name):
-    #TODO fix types
     return {
         'STRING': 'text',
         'INT': 'integer',
@@ -77,7 +62,7 @@ def get_table_name_from_list(spath):
         if it.isdigit():
             spathl.remove(it)
     if len(spathl) > 1:
-        return '_'.join(['_'.join(( el[:-1] if el[-1] == 's' else el) for el in spathl[:-1]), get_field_name_without_underscore(spathl[-1])])
+        return '_'.join(['_'.join((el[:-1] if el[-1] == 's' else el) for el in spathl[:-1]), get_field_name_without_underscore(spathl[-1])])
     else:
         return spathl[-1]
 
@@ -99,7 +84,6 @@ def get_root_table_from_path(path):
         return path
     else:
         return spath[0]
-    return get_table_name_from_list(collection_path)
 
 
 def get_indexes_dictionary(path):
@@ -154,8 +138,7 @@ def get_ids_list(lst, is_root):
                 for id_item in list_it[it]:
                     if isIdField(id_item) and is_root:
                         ids_to_add[get_field_name_without_underscore(
-                            it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(
-                            list_it[it][id_item])
+                            it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(list_it[it][id_item])
             else:
                 ids_to_add[get_field_name_without_underscore(it)] = get_postgres_type(list_it[it])
     if len(ids_to_add) == 0:
@@ -217,7 +200,7 @@ def get_column_type(schema, table, field_name, collection_name):
 
 
 def get_quotes_using(schema, table, field_name, collection_name):
-    quotes_not_needed = ['int', 'bigint', 'integer' ,'double']
+    quotes_not_needed = ['int', 'bigint', 'integer', 'double']
     if get_column_type(schema, table, field_name, collection_name) in quotes_not_needed:
         return False
     else:
