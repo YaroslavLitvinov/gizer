@@ -15,7 +15,7 @@ from logging import getLogger
 import bson
 
 
-OplogBranch = namedtuple ('OplogBranch', ['oplog_path', 'normalize_path', 'data', 'conditions_list', 'parsed_path'])#, 'target_table', 'data'])
+OplogBranch = namedtuple ('OplogBranch', ['oplog_path', 'normalize_path', 'data', 'conditions_list', 'parsed_path', "object_id_field"])
 ParsedObjPath = namedtuple ('ParsedObjPath', ['table_path', 'column'])
 
 
@@ -121,14 +121,14 @@ def normalize_unset_oplog_recursive(schema, oplog_data, parent_path, branch_list
                     # full_paths.append({element + '.' + el.iterkeys().next() :el.itervalues().next() })
                     parsed_path = parse_column_path( '.'.join([root_collection, element, el.iterkeys().next()] ))
                     # branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), oplog_data[element], element_conditios_list, parsed_path))
-                    branch_list.append( OplogBranch('', element + '.' + el.iterkeys().next(), el.itervalues().next(), element_conditios_list, parsed_path))
+                    branch_list.append( OplogBranch('', element + '.' + el.iterkeys().next(), el.itervalues().next(), element_conditios_list, parsed_path, None))
                 # print('paths', full_paths)
             elif type(elements_to_set_null) is list:
                 parsed_path = parse_column_path( '.'.join([root_collection] + parent_path+[element]))
-                branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), [], element_conditios_list, parsed_path))
+                branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), [], element_conditios_list, parsed_path, None))
             else:
                 parsed_path = parse_column_path( '.'.join([root_collection] + parent_path+[element]))
-                branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), None, element_conditios_list, parsed_path))
+                branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), None, element_conditios_list, parsed_path, None))
 
             # branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.oid']), str(oplog_data[element]), element_conditios_list, parsed_path_oid))
             # if type(get_part_schema(schema, element_path)) is list:
@@ -156,17 +156,17 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list, root
                 if type(oplog_data[element]) is bson.objectid.ObjectId:
                     # convert bson.objectid.ObjectId to two fileds _id.oid and _id.bsontype
                     parsed_path_oid = parse_column_path( '.'.join([root_collection] + element_path + ['oid']))
-                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.oid']), str(oplog_data[element]), element_conditios_list, parsed_path_oid))
+                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.oid']), str(oplog_data[element]), element_conditios_list, parsed_path_oid, oplog_data[element]))
                     parsed_path_bsontype = parse_column_path( '.'.join([root_collection] + element_path + ['bsontype']))
-                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.bsontype']),  7, element_conditios_list, parsed_path_bsontype))
+                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.bsontype']),  7, element_conditios_list, parsed_path_bsontype, None))
                 else:
-                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), oplog_data[element], element_conditios_list, parsed_path))
+                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), oplog_data[element], element_conditios_list, parsed_path, None))
     else:
         print('SINGLE element')
         if locate_in_schema(schema, oplog_data):
             parsed_path = parse_column_path( '.'.join([root_collection] + parent_path))
             element_conditios_list = get_conditions_list(schema, parsed_path.table_path, root_id.itervalues().next())
-            branch_list.append( OplogBranch( '.'.join(parent_path), '', oplog_data, element_conditios_list))
+            branch_list.append( OplogBranch( '.'.join(parent_path), '', oplog_data, element_conditios_list, None))
     return branch_list
 
 
@@ -240,40 +240,65 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                     # join columns in to one "$set" dictionary for insert
                     key_for_set_dict = '.'.join(branch.parsed_path.table_path.split('.')[1:])
                     set_list = {key_for_set_dict :{}}
-                    # set_list = {}
-                    ObjectId_found = False
+                    ObjectId_found = {}#False
                     for set_column_branch in g_branches:
                         # This is the crutch for converting _id.oid, _id.bsontype fields back to ObjectID type.
                         # This conversion needs only for insert operation.
-                        if (not ObjectId_found) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
-                            bsontype_found = False
-                            for check_set_column_branch in g_branches:
-                                if  set_column_branch.parsed_path.column == '_id.oid':
-                                    if check_set_column_branch.parsed_path.column == '_id.bsontype':
-                                        ObjIdStr = set_column_branch.data
-                                        bsontype_found = True
-                                        break
-                                if  set_column_branch.parsed_path.column == '_id.bsontype':
-                                    if check_set_column_branch.parsed_path.column == '_id.oid':
-                                        ObjIdStr = check_set_column_branch.data
-                                        bsontype_found = True
-                                        break
-                            if bsontype_found:
-                                if operation_type == 2:
-                                    set_list[key_for_set_dict ]['_id'] = None
-                                else:
-                                    set_list[key_for_set_dict ]['_id'] = bson.objectid.ObjectId(ObjIdStr)
-                                ObjectId_found = True
-                        elif (ObjectId_found) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
-                            continue
-                        else:
-                            # if column is empty it means structure like this [INT].
-                            # this structure shoud be transformed to next view [ parent_element_name:INT ]
-                            if set_column_branch.parsed_path.column == '':
-                                set_list[key_for_set_dict] = set_column_branch.data
+                        #
+                        #
+                        if set_column_branch.object_id_field != None:
+                            #
+                            column_name_with_obj_id = '.'.join(set_column_branch.parsed_path.column.split('.')[:-1])
+                            if operation_type == 1:
+                                data_val = set_column_branch.object_id_field
                             else:
-                                set_list[key_for_set_dict][set_column_branch.parsed_path.column] = set_column_branch.data
+                                data_val = None
+                            structured_branch = get_struct_branch(set_column_branch.parsed_path.column, data_val)
+                            set_list[key_for_set_dict].update(structured_branch)
+
+                            # if operation_type == 2:
+                            #     set_list[key_for_set_dict ][column_name_with_obj_id] = None
+                            # else:
+                            #     set_list[key_for_set_dict ][column_name_with_obj_id] = set_column_branch.object_id_field
+
+                        if 'oid' in set_column_branch.parsed_path.column.split('.')[-1] or 'bsontype' in set_column_branch.parsed_path.column.split('.')[-1]:
+                            continue
+                        # if column is empty it means structure like this [INT].
+                        # this structure shoud be transformed to next view [ parent_element_name:INT ]
+
+                        if set_column_branch.parsed_path.column == '':
+                            set_list[key_for_set_dict] = set_column_branch.data
+                        else:
+                            structured_branch = get_struct_branch(set_column_branch.parsed_path.column, set_column_branch.data)
+                            print(structured_branch)
+                            set_list[key_for_set_dict].update(structured_branch)
+                            # set_list[key_for_set_dict][set_column_branch.parsed_path.column] = set_column_branch.data
+
+
+                        # if (not set_column_branch.parsed_path.column in ObjectId_found.keys()) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
+                        #     bsontype_found = False
+                        #     for check_set_column_branch in g_branches:
+                        #         if  set_column_branch.parsed_path.column == '_id.oid':
+                        #             if check_set_column_branch.parsed_path.column == '_id.bsontype':
+                        #                 ObjIdStr = set_column_branch.data
+                        #                 bsontype_found = True
+                        #                 break
+                        #         if  set_column_branch.parsed_path.column == '_id.bsontype':
+                        #             if check_set_column_branch.parsed_path.column == '_id.oid':
+                        #                 ObjIdStr = check_set_column_branch.data
+                        #                 bsontype_found = True
+                        #                 break
+                        #     if bsontype_found:
+                        #         if operation_type == 2:
+                        #             set_list[key_for_set_dict ]['_id'] = None
+                        #         else:
+                        #             set_list[key_for_set_dict ]['_id'] = bson.objectid.ObjectId(ObjIdStr)
+                        #         ObjectId_found = True
+                        # elif (ObjectId_found) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
+                        #     continue
+                        # else:
                     #generate insert statements for non root objects
+                    print(set_list)
                     insert_stmnts = insert_wrapper (schema_e, set_list,oplog_data_object_id,schema_name)
                     #check if it is possible multiple inserts
                     insert_statement_template = insert_stmnts.iterkeys().next()
@@ -287,6 +312,18 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
             break
     return ret_val
 
+# def get_struct_branch(column_name, data_value):
+#     s_column_name = column_name.split('.')
+#     if s_column_name[-1] == 'oid':
+#         del s_column_name[-1]
+#     ret_val ={}
+#     if len(s_column_name) > 1:
+#         # ret_val = {s_column_name[-1]:data_value}
+#         for path_element in reversed(s_column_name[:-1]):
+#             ret_val={path_element:ret_val.copy()}
+#     else:
+#         ret_val = {s_column_name[-1]:data_value}
+#     return ret_val
 
 def insert_wrapper(schema_e, oploda_data_set, oplog_data_object_id, schema_name):
     tables, initial_indexes \
