@@ -238,73 +238,93 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                 if target_table != root_table_name and (operation_type != 2):
                     # generating insert also
                     # join columns in to one "$set" dictionary for insert
-                    key_for_set_dict = '.'.join(branch.parsed_path.table_path.split('.')[1:])
-                    set_list = {key_for_set_dict :{}}
-                    ObjectId_found = {}#False
-                    for set_column_branch in g_branches:
-                        # This is the crutch for converting _id.oid, _id.bsontype fields back to ObjectID type.
-                        # This conversion needs only for insert operation.
-                        #
-                        #
-                        if set_column_branch.object_id_field != None:
-                            #
-                            column_name_with_obj_id = '.'.join(set_column_branch.parsed_path.column.split('.')[:-1])
-                            if operation_type == 1:
-                                data_val = set_column_branch.object_id_field
-                            else:
-                                data_val = None
-                            structured_branch = get_struct_branch(set_column_branch.parsed_path.column, data_val)
-                            set_list[key_for_set_dict].update(structured_branch)
-
-                            # if operation_type == 2:
-                            #     set_list[key_for_set_dict ][column_name_with_obj_id] = None
-                            # else:
-                            #     set_list[key_for_set_dict ][column_name_with_obj_id] = set_column_branch.object_id_field
-
-                        if 'oid' in set_column_branch.parsed_path.column.split('.')[-1] or 'bsontype' in set_column_branch.parsed_path.column.split('.')[-1]:
-                            continue
-                        # if column is empty it means structure like this [INT].
-                        # this structure shoud be transformed to next view [ parent_element_name:INT ]
-
-                        if set_column_branch.parsed_path.column == '':
-                            set_list[key_for_set_dict] = set_column_branch.data
-                        else:
-                            structured_branch = get_struct_branch(set_column_branch.parsed_path.column, set_column_branch.data)
-                            print(structured_branch)
-                            set_list[key_for_set_dict].update(structured_branch)
-                            # set_list[key_for_set_dict][set_column_branch.parsed_path.column] = set_column_branch.data
-
-
-                        # if (not set_column_branch.parsed_path.column in ObjectId_found.keys()) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
-                        #     bsontype_found = False
-                        #     for check_set_column_branch in g_branches:
-                        #         if  set_column_branch.parsed_path.column == '_id.oid':
-                        #             if check_set_column_branch.parsed_path.column == '_id.bsontype':
-                        #                 ObjIdStr = set_column_branch.data
-                        #                 bsontype_found = True
-                        #                 break
-                        #         if  set_column_branch.parsed_path.column == '_id.bsontype':
-                        #             if check_set_column_branch.parsed_path.column == '_id.oid':
-                        #                 ObjIdStr = check_set_column_branch.data
-                        #                 bsontype_found = True
-                        #                 break
-                        #     if bsontype_found:
-                        #         if operation_type == 2:
-                        #             set_list[key_for_set_dict ]['_id'] = None
-                        #         else:
-                        #             set_list[key_for_set_dict ]['_id'] = bson.objectid.ObjectId(ObjIdStr)
-                        #         ObjectId_found = True
-                        # elif (ObjectId_found) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
-                        #     continue
-                        # else:
-                    #generate insert statements for non root objects
-                    print(set_list)
-                    insert_stmnts = insert_wrapper (schema_e, set_list,oplog_data_object_id,schema_name)
+                    # key_for_set_dict = '.'.join(branch.parsed_path.table_path.split('.')[1:])
+                    # set_list = {key_for_set_dict :{}}
+                    # ObjectId_found = {}#False
+                    # for set_column_branch in g_branches:
+                    #     # This is the crutch for converting _id.oid, _id.bsontype fields back to ObjectID type.
+                    #     # This conversion needs only for insert operation.
+                    #     #
+                    #     #
+                    #     if set_column_branch.object_id_field != None:
+                    #         #
+                    #         column_name_with_obj_id = '.'.join(set_column_branch.parsed_path.column.split('.')[:-1])
+                    #         if operation_type == 1:
+                    #             data_val = set_column_branch.object_id_field
+                    #         else:
+                    #             data_val = None
+                    #         structured_branch = get_struct_branch(set_column_branch.parsed_path.column, data_val)
+                    #         set_list[key_for_set_dict].update(structured_branch)
+                    #
+                    #         # if operation_type == 2:
+                    #         #     set_list[key_for_set_dict ][column_name_with_obj_id] = None
+                    #         # else:
+                    #         #     set_list[key_for_set_dict ][column_name_with_obj_id] = set_column_branch.object_id_field
+                    #
+                    #     if 'oid' in set_column_branch.parsed_path.column.split('.')[-1] or 'bsontype' in set_column_branch.parsed_path.column.split('.')[-1]:
+                    #         continue
+                    #     # if column is empty it means structure like this [INT].
+                    #     # this structure shoud be transformed to next view [ parent_element_name:INT ]
+                    #
+                    #     if set_column_branch.parsed_path.column == '':
+                    #         set_list[key_for_set_dict] = set_column_branch.data
+                    #     else:
+                    #         structured_branch = get_struct_branch(set_column_branch.parsed_path.column, set_column_branch.data)
+                    #         print(structured_branch)
+                    #         set_list[key_for_set_dict].update(structured_branch)
+                    #         # set_list[key_for_set_dict][set_column_branch.parsed_path.column] = set_column_branch.data
+                    #
+                    #
+                    #     # if (not set_column_branch.parsed_path.column in ObjectId_found.keys()) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
+                    #     #     bsontype_found = False
+                    #     #     for check_set_column_branch in g_branches:
+                    #     #         if  set_column_branch.parsed_path.column == '_id.oid':
+                    #     #             if check_set_column_branch.parsed_path.column == '_id.bsontype':
+                    #     #                 ObjIdStr = set_column_branch.data
+                    #     #                 bsontype_found = True
+                    #     #                 break
+                    #     #         if  set_column_branch.parsed_path.column == '_id.bsontype':
+                    #     #             if check_set_column_branch.parsed_path.column == '_id.oid':
+                    #     #                 ObjIdStr = check_set_column_branch.data
+                    #     #                 bsontype_found = True
+                    #     #                 break
+                    #     #     if bsontype_found:
+                    #     #         if operation_type == 2:
+                    #     #             set_list[key_for_set_dict ]['_id'] = None
+                    #     #         else:
+                    #     #             set_list[key_for_set_dict ]['_id'] = bson.objectid.ObjectId(ObjIdStr)
+                    #     #         ObjectId_found = True
+                    #     # elif (ObjectId_found) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
+                    #     #     continue
+                    #     # else:
+                    # #generate insert statements for non root objects
+                    # print(set_list)
+                    # insert_stmnts = insert_wrapper (schema_e, set_list,oplog_data_object_id,schema_name)
                     #check if it is possible multiple inserts
-                    insert_statement_template = insert_stmnts.iterkeys().next()
+
+
+                    # INSERT_TMPLT = 'INSERT INTO {table} ({columns}) VALUES({values});'
+
+                    # condition_str = ' and '.join(['{column}=(%s)'.format(column=col) for col in sorted(branch.conditions_list['target'])])
+                    # statements_to_set_str = ', '.join(['{column}=(%s)'.format(column = column_dest_name) for column_dest_name in sorted(dest_column_list_with_value)])
+                    # target_table_str = get_table_name_schema([database_name, schema_name, target_table])
+                    # upd_statement_template = UPDATE_TMPLT.format( table=target_table_str, statements=statements_to_set_str, conditions=condition_str)
+                    # upd_values = [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)] + [branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])]
+
+
+
+                    columns_list_ins = [col for col in sorted(branch.conditions_list['target'])] + [column_dest_name for column_dest_name in sorted(dest_column_list_with_value)]
+                    values_list_ins = [ branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])] + [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)]
+
+                    columns_list_str = ', '.join(columns_list_ins)
+                    values_list_str = ', '.join(' %s' for el in columns_list_ins)
+                    insert_statement_template = INSERT_TMPLT.format(table = target_table_str, columns=columns_list_str, values=values_list_str)
+
+                    # print(insert_statement_template)
+
                     upsert_statement_template = UPSERT_TMLPT.format(update=upd_statement_template,
                                                                     insert=insert_statement_template)
-                    ins_values = list(insert_stmnts [insert_statement_template][0])
+                    ins_values = values_list_ins
                     upsert_values = upd_values + ins_values
                     ret_val.append({upsert_statement_template:[tuple(upsert_values)]})
                 else:
