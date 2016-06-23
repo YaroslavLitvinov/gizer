@@ -317,7 +317,7 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                     values_list_ins = [ branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])] + [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)]
 
                     columns_list_str = ', '.join(columns_list_ins)
-                    values_list_str = ', '.join(' %s' for el in columns_list_ins)
+                    values_list_str = ', '.join('%s' for el in columns_list_ins)
                     insert_statement_template = INSERT_TMPLT.format(table = target_table_str, columns=columns_list_str, values=values_list_str)
 
                     # print(insert_statement_template)
@@ -346,12 +346,13 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
 #     return ret_val
 
 def insert_wrapper(schema_e, oploda_data_set, oplog_data_object_id, schema_name):
-    tables, initial_indexes \
-        = get_tables_data_from_oplog_set_command(schema_e, oploda_data_set,  oplog_data_object_id)
+
+    get_tables_data_from_oplog_set = get_tables_data_from_oplog_set_command(schema_e, oploda_data_set,  oplog_data_object_id)
     ins_stmnt = {}
-    for name, table in tables.iteritems():
-        rr = generate_insert_queries(table, schema_name, "", initial_indexes)
-        ins_stmnt[rr[0]] = rr[1]
+    for set_el in get_tables_data_from_oplog_set:
+        for name, table in set_el.tables.iteritems():
+            rr = generate_insert_queries(table, schema_name, "", set_el.initial_indexes)
+            ins_stmnt[rr[0]] = rr[1]
     return ins_stmnt
 
 
