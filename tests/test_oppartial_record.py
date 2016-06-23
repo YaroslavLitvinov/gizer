@@ -51,9 +51,9 @@ def test_complete_partial_record():
     
     bson_data = loads(array_bson_raw_data)
     object_id_bson_data = loads(object_id_bson_raw_data)
-    tables_tuple = get_tables_data_from_oplog_set_command(\
+    partial_inserts_list = get_tables_data_from_oplog_set_command(\
         schema_engine, bson_data, object_id_bson_data)
-    tables = tables_tuple[0]
+    tables = partial_inserts_list[0].tables
     print tables
     for table_name in tables:
         assert(True==tables[table_name].compare_with_sample(sample_data))
@@ -70,6 +70,7 @@ def test_complete_partial_record2():
             "updated_at": [loads('{ "$date" : "2016-02-08T20:02:12.985Z"}')]
         },
         'posts2_comments': {
+            'idx': [1,2],
             'id_oid': [str(loads('{ "$oid": "56b8f35ef9fcee1b0000001a" }')),
                        str(loads('{ "$oid": "56b8f344f9fcee1b00000018" }'))],
             'updated_at': [loads('{ "$date" : "2016-02-08T20:02:12.985Z"}'),
@@ -112,7 +113,21 @@ def test_complete_partial_record2():
 
     oplog_object_id_bson_raw_data = '{"_id": 133}'
     # insert request should be created, to add 'tests' item
-    oplog_path_array_bson_raw_data = '{"comments.0.struct.tests.0.nested.1": 21}'
+    oplog_path_array_bson_raw_data = '{\
+"comments.0.struct.tests.0.nested.1": 21,\
+"comments.2": { \
+    "_id": { "$oid": "56b8f35ef9fcee1b0000001a" },\
+    "updated_at": { "$date" : "2016-02-08T20:02:14.985Z"},\
+    "struct": {\
+        "tests": [{\
+            "v": 12,\
+            "nested": [30]\
+         }, {\
+            "v": 13,\
+            "nested": [32, 31]\
+         }\
+    ]}}\
+}'
 
     dbname = 'rails4_mongoid_development'
     db_schemas_path = '/'.join(['test_data', 'schemas', dbname])
@@ -139,21 +154,21 @@ def test_complete_partial_record2():
     # oplog path with indexes. insert array item
     bson_data = loads(oplog_path_array_bson_raw_data)
     object_id_bson_data = loads(oplog_object_id_bson_raw_data)
-    tables_tuple = get_tables_data_from_oplog_set_command(\
+    partial_inserts_list = get_tables_data_from_oplog_set_command(\
         schema_engine, bson_data, object_id_bson_data)
 
-    tables_for_insert = tables_tuple[0]
-    initial_indexes = tables_tuple[1]
-    print "tables_for_insert", tables_for_insert.keys()
-    print "initial_indexes", initial_indexes
+    for partial_insert in partial_inserts_list:
+        tables_for_insert = partial_insert.tables
+        initial_indexes = partial_insert.initial_indexes
 
-    for name, table in tables_for_insert.iteritems():
-        query_tuple = generate_insert_queries(table, 
-                                              PSQL_SCHEMA_NAME, "", 
-                                              initial_indexes)
-        for query in query_tuple[1]:
-            print query_tuple[0], query
-            psql.cursor.execute(query_tuple[0], query)
+        for name, table in tables_for_insert.iteritems():
+            query_tuple = generate_insert_queries(table, 
+                                                  PSQL_SCHEMA_NAME, "", 
+                                                  initial_indexes)
+            for query in query_tuple[1]:
+                getLogger(__name__).debug("EXECUTE: " + \
+                                              str(query_tuple[0]) + str(query))
+                psql.cursor.execute(query_tuple[0], query)
 
     # tables loaded from existing_bson_data
     rec_obj_id = object_id_bson_data['_id']
@@ -162,9 +177,18 @@ def test_complete_partial_record2():
                                                        PSQL_SCHEMA_NAME,
                                                        rec_obj_id)
     sample_data_after = sample_data_before
+    sample_data_after['posts2_comments']['idx'].append(3)
+    sample_data_after['posts2_comments']['id_oid'].append(\
+        "56b8f35ef9fcee1b0000001a")
+    sample_data_after['posts2_comments']['updated_at'].append(
+        loads('{ "$date" : "2016-02-08T20:02:14.985Z"}'))
+    sample_data_after['posts2_comment_struct_tests'] = {
+            'v': [1,2,3,12,13],
+            'idx': [1,2,1,1,2]
+    }
     sample_data_after['posts2_comment_struct_test_nested'] = {
-            'nested': [20,21,23,24,25,26],
-            'idx': [1,2,1,2,1,2]
+            'nested': [20,21,23,24,25,26,30,32,31],
+            'idx': [1,2,1,2,1,2,1,1,2]
     }
 
     assert(False==tables_obj_after.compare_with_sample({}))
@@ -240,10 +264,10 @@ def test_complete_partial_record3():
     bson_data = loads(oplog_path_array_bson_raw_data)
     print bson_data
     object_id_bson_data = loads(oplog_object_id_bson_raw_data)
-    tables_tuple = get_tables_data_from_oplog_set_command(\
+    partial_inserts_list = get_tables_data_from_oplog_set_command(\
         schema_engine, bson_data, object_id_bson_data)
-    tables_for_insert = tables_tuple[0]
-    initial_indexes = tables_tuple[1]
+    tables_for_insert = partial_inserts_list[0].tables
+    initial_indexes = partial_inserts_list[0].initial_indexes
     print "tables_for_insert", tables_for_insert.keys()
     print "initial_indexes", initial_indexes
     insert_tests_t = tables_for_insert['post_comments']
@@ -290,9 +314,9 @@ def test_complete_partial_record4():
     
     bson_data = loads(array_bson_raw_data)
     object_id_bson_data = loads(object_id_bson_raw_data)
-    tables_tuple = get_tables_data_from_oplog_set_command(\
+    partial_inserts_list = get_tables_data_from_oplog_set_command(\
         schema_engine, bson_data, object_id_bson_data)
-    tables = tables_tuple[0]
+    tables = partial_inserts_list[0].tables
     assert(tables['post_comments'].sql_columns['posts_id_oid'].values[0]=="56b8da59f9fcee1b00000007")
     assert(tables['post_comments'].sql_columns['id_oid'].values[0]=="56b8f344f9fcee1b00000018")
     assert(tables['post_comments'].sql_columns['idx'].values[0]==1)
