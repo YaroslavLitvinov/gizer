@@ -419,7 +419,7 @@ def sqls_to_dict(sql_dict):
                     for sql in sql_dict[model_item]:
                         r = re.compile('UPDATE(.*?)WHERE')
                         ext_key = str.strip(r.search(sql).group(1))
-                        parsed_dict['UPD_' + ext_key] = parse_upd({sql:sql_dict[model_item][sql]})
+                        parsed_dict['UPD_' + ext_key] = parse_upd(sql, sql_dict[model_item][sql])
             if model_item == 'del':
                 if type(sql_dict[model_item]) == dict:
                     for sql in sql_dict[model_item]:
