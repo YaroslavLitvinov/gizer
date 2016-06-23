@@ -62,6 +62,17 @@
 		"user_id" : "STRING",
 		"rate" : "INT",
 		"created_at": "TIMESTAMP",
-		"updated_at": "TIMESTAMP"
+		"updated_at": "TIMESTAMP",
+		"a_filed_with_id":{
+			"oid": "STRING",
+		    "bsontype": "INT"
+		},
+		"another_filed_with_id2":{
+			"onemore_enclosed_level":{
+				"oid": "STRING",
+		    	"bsontype": "INT"
+			},
+			"some_strange_field":"INT"
+		}
 	}]
 }
