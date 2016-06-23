@@ -677,9 +677,7 @@ test_data_17 = '''{
     "v" : 2,
     "op" : "u",
     "ns" : "quote_management.rated_posts",
-    "o2": {
-        "_id": {"$oid": "56b8da59f9fcee1b00000013"}
-    },
+    "o2": {"_id": {"$oid": "56b8da59f9fcee1b00000013"}},
 	"o" : {
 		"$set" : {
 			"WRONGmanager" : null,
@@ -692,3 +690,34 @@ test_data_17 = '''{
 	}
 }
 '''
+
+
+test_data_18 = '''{
+   "ts": "1465220614, 2",
+   "h": "-1447958161854102698",
+   "v": 2,
+   "op": "u",
+   "ns": "rails4_mongoid_development.rated_posts",
+   "o2": {"_id": {"$oid": "56b8da59f9fcee1b00000013"}},
+   "o": {
+       "$set": {
+           "rates.1": {
+               "_id": {"$oid":"5769a855cf6879d0b0a01978"},
+               "name": "Configuration 2",
+               "a_filed_with_id": {"$oid":"5769a7ebcf6879d0b0a01971"},
+               "another_filed_with_id2":{
+                    "onemore_enclosed_level": {
+                        "$oid":"5769a7ebcf6879d0b0a01973",
+                        "bsontype":7
+                    },
+                    "some_strange_field":45
+                },
+               "datacenter_id": 3,
+               "position": 2,
+               "updated_at": {"$date":"2016-06-21T20:49:24.995Z"},
+               "created_at": {"$date":"2016-06-21T20:49:24.995Z"}
+
+           }
+       }
+   }
+}'''
