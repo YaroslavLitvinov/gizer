@@ -428,6 +428,7 @@ def sqls_to_dict(sql_dict):
                         parsed_dict['DEL_' + ext_key] = parse_del({sql:sql_dict[model_item][sql]})
         else:
             q_item = model_item.iterkeys().next()
+            q_vals = list(model_item.itervalues().next()[0])
             if q_item.startswith('DELETE FROM '):
                 r = re.compile('DELETE FROM(.*?)WHERE')
                 ext_key = str.strip(r.search(q_item).group(1))
@@ -436,53 +437,79 @@ def sqls_to_dict(sql_dict):
                 # for sql in sql_dict[model_item]:
                 # r = re.compile('UPDATE (.*?)WHERE')
                 # ext_key = str.strip(r.search(q_item).group(1))
-                parsed_dict.update(parse_upd({q_item:model_item[q_item][0]}))
+                parsed_dict.update(parse_upd(q_item, model_item[q_item][0]))
             elif q_item.startswith('do $$    begin'):
-                res = re.search('begin    (.*?)IF FOUND THEN', q_item)
-                ext_key = str.strip(res.group(1))
-                parsed_dict.update(parse_upd({ext_key:model_item[q_item][0]}))
+                upsert_dict = upsert_to_dict(q_item, q_vals)
+                parsed_dict.update(upsert_dict)
+            elif q_item.startswith('INSERT INTO '):
+                insert_dict = parse_insert(q_item, q_vals)
+                parsed_dict.update(insert_dict)
             else:
                 pass
     return parsed_dict
 
 
-def parse_insert(sql_upd):
-    sql = sql_upd.iterkeys().next()
+
+def upsert_to_dict(tmplt, values):
+    res = re.search('begin    (.*?)IF FOUND THEN', tmplt)
+    if not res:
+        return {'empty':None}
+    upd_tmplt = str.strip(res.group(1))
+    val_count = upd_tmplt.count('=(%s)')
+    upd_dict = parse_upd(tmplt, values[:val_count])
+
+    res = re.search('END IF;    BEGIN        (.*?)        RETURN;', tmplt)
+    if not res:
+        return {'empty':None}
+    ins_tmplt = str.strip(res.group(1))
+    ins_dict = parse_insert( ins_tmplt, values[val_count:] )
+    main_key = 'UPSERT_' + upd_dict.iterkeys().next() +'_'+ ins_dict.iterkeys().next()
+    ret_val = {main_key:{'upd':upd_dict, 'ins':ins_dict}}
+    return ret_val
+
+def parse_insert(sql_ins, values):
+    sql = sql_ins
     updated_table = re.search('INSERT INTO(.*?)\(', sql).group(1).strip()
-    columns_strs = [ins_col.strip() for ins_col in sorted(re.search('\((.*?)\)', sql).group(1).split(','))]
+    columns_strs = [ins_col.strip() for ins_col in re.search('\((.*?)\)', sql).group(1).split(',')]
     values_strs = [set_col.strip() for set_col in re.search('VALUES\((.*?)\);', sql).group(1).split(',')]
     assert len(columns_strs) == len(values_strs)
-    insert_value = {}
-    for i, column in enumerate(sorted(columns_strs)):
-        insert_value[column] = sql_upd[sql][i]
-    return {'table':'INSERT_'+updated_table, 'insert_value':insert_value}
+    insert_value_dict = {}
+    insert_values_list = []
+    for i, column in enumerate(columns_strs):
+        el_val = (column + '=' + str(values[i])).replace('"', '').replace("'", '').replace(':', '').replace('(', '').replace('(', '').replace(')', '')
+        insert_values_list.append(el_val)
+    ins_key = 'INSERT_'+'_'.join(sorted(insert_values_list))
+    return {ins_key:{'table':updated_table, 'insert_value':insert_value_dict}}
 
 
-
-def parse_upd(sql_upd):
-    sql = sql_upd.iterkeys().next()
+def parse_upd(sql_upd, values):
+    sql = sql_upd# ql_upd.iterkeys().next()
     updated_table = re.search('UPDATE(.*?)SET', sql).group(1).strip()
     set_strs = [set_col.strip() for set_col in re.search('SET(.*?)WHERE', sql).group(1).split(', ')]
     where_strs = [set_col.strip() for set_col in re.search('WHERE(.*?);', sql).group(1).split('and')]
+    all_strs = set_strs + where_strs
+    i = 0
+    all_str_val = []
+    for el in all_strs:
+        if el.count('(%s)') > 0:
+            el_val = el.replace('(%s)', str(values[i])).replace('"', '').replace("'", '').replace(':', '').replace('(', '').replace('(', '').replace(')', '')
+            all_str_val.append(el_val)
+            i = i + 1
+
+    key = 'UPDATE_'+ '_'.join(sorted(all_str_val))
     set_value = {}
     last_i = 0
     filled_values = 0
     for i, column in enumerate(set_strs):
-        set_value[column] = sql_upd[sql][i]
+        set_value[column] = values[i]
         if not column.endswith('=(%s)'):
             filled_values = filled_values + 1
         last_i = i + 1
     last_i = last_i - filled_values
     where_value = {}
     for i, column in enumerate(where_strs):
-        where_value[column] = sql_upd[sql][i+last_i]
-    key = 'update_{table}_set_{set}_where_{where}_{values}'.format(
-        table=updated_table,
-        set= '_'.join([column for column in sorted(set_value)]),
-        where='_'.join([column for column in sorted(where_value)]),
-        values= '_'.join( [ str(value) for value in [set_value[column] for column in sorted(set_value)] + [where_value[column] for column in sorted(where_value)] ] )
-    )
-    return {key:{'table':'UPDATE_'+updated_table, 'set_value':set_value, 'where_dict':where_value}}
+        where_value[column] = values[i+last_i]
+    return {key:{'table':updated_table, 'set_value':set_value, 'where_dict':where_value}}
 
 
 def parse_del(sql_upd):
@@ -497,6 +524,35 @@ def parse_del(sql_upd):
     for i, cl in enumerate(where_clauses):
         where_dict[cl] = values[i]
     return {'table':'DELETE_'+updated_table, 'where_dict':where_dict}
+
+def upsert_pretty_print(upsert_stmnts):
+    ups_SQL = upsert_stmnts.iterkeys().next()
+    ups_vals = upsert_stmnts[ups_SQL][0]
+    res = re.search('begin    (.*?)IF FOUND THEN', ups_SQL)
+    if res:
+        upd_tmplt = str.strip(res.group(1))
+        val_count = upd_tmplt.count('=(%s)')
+        print(upd_tmplt)
+        print( [str(el) for el in ups_vals[:val_count]] )
+
+        res = re.search('END IF;    BEGIN        (.*?)        RETURN;', ups_SQL)
+
+        if res:
+            ins_tmplt = str.strip(res.group(1))
+            print(ins_tmplt)
+            print ([ str(el) for el in ups_vals[val_count:] ])
+    else:
+        print(ups_SQL)
+        print([ str(el) for el in ups_vals ])
+
+
+def sql_pretty_print(sqls):
+    print('\n\n')
+    for el in sqls:
+        if type(el) is dict:
+            upsert_pretty_print(el)
+        else:
+            print(el)
 
 
 def run_tests_():
