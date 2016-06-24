@@ -432,7 +432,6 @@ def test_oplog_normalization():
     print(TEST_INFO, 'oplog normalization', 'PASSED')
 
 
-
 def check_print_dictionary(result, model, print_input=0):
     if result != []:
         d_res = sqls_to_dict(result)
@@ -469,7 +468,8 @@ def check_print_dictionary(result, model, print_input=0):
         print(el)
         print(d_mod[el])
 
-
+def sorted_noramlized_oplod_list(n_list):
+    return sorted(n_list, key=lambda x: x.normalized_path)
 
 def schema_part_paths(schema, path, paths):
     for el in schema:
