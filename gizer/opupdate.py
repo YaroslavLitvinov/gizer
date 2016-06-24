@@ -15,7 +15,7 @@ from logging import getLogger
 import bson
 
 
-OplogBranch = namedtuple ('OplogBranch', ['oplog_path', 'normalize_path', 'data', 'conditions_list', 'parsed_path', "object_id_field"])
+OplogBranch = namedtuple ('OplogBranch', ['oplog_path', 'normalized_path', 'data', 'conditions_list', 'parsed_path', "object_id_field"])
 ParsedObjPath = namedtuple ('ParsedObjPath', ['table_path', 'column'])
 
 
@@ -207,7 +207,7 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
         g_branches =  grouped_branch_list[g_branch]
         for branch in g_branches:
             if type(branch.data) is list:
-                ret_val.extend(update_list(dbreq,schema_e, '.'.join([root_table_name] + [branch.normalize_path]) , {branch.normalize_path:branch.data}, oplog_data_object_id,database_name,schema_name))
+                ret_val.extend(update_list(dbreq,schema_e, '.'.join([root_table_name] + [branch.normalized_path]) , {branch.normalized_path:branch.data}, oplog_data_object_id,database_name,schema_name))
         for branch in g_branches:
             if not type(branch.data) is list:
                 target_table = get_table_name_from_list(branch.parsed_path.table_path.split('.'))
