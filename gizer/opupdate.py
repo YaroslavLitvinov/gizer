@@ -236,94 +236,15 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                 upd_values = [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)] + [branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])]
                 # here is a question. is it possible to to make upset operation in mongo to unexisting enclosed record
                 if target_table != root_table_name and (operation_type != 2):
-                    # generating insert also
-                    # join columns in to one "$set" dictionary for insert
-                    # key_for_set_dict = '.'.join(branch.parsed_path.table_path.split('.')[1:])
-                    # set_list = {key_for_set_dict :{}}
-                    # ObjectId_found = {}#False
-                    # for set_column_branch in g_branches:
-                    #     # This is the crutch for converting _id.oid, _id.bsontype fields back to ObjectID type.
-                    #     # This conversion needs only for insert operation.
-                    #     #
-                    #     #
-                    #     if set_column_branch.object_id_field != None:
-                    #         #
-                    #         column_name_with_obj_id = '.'.join(set_column_branch.parsed_path.column.split('.')[:-1])
-                    #         if operation_type == 1:
-                    #             data_val = set_column_branch.object_id_field
-                    #         else:
-                    #             data_val = None
-                    #         structured_branch = get_struct_branch(set_column_branch.parsed_path.column, data_val)
-                    #         set_list[key_for_set_dict].update(structured_branch)
-                    #
-                    #         # if operation_type == 2:
-                    #         #     set_list[key_for_set_dict ][column_name_with_obj_id] = None
-                    #         # else:
-                    #         #     set_list[key_for_set_dict ][column_name_with_obj_id] = set_column_branch.object_id_field
-                    #
-                    #     if 'oid' in set_column_branch.parsed_path.column.split('.')[-1] or 'bsontype' in set_column_branch.parsed_path.column.split('.')[-1]:
-                    #         continue
-                    #     # if column is empty it means structure like this [INT].
-                    #     # this structure shoud be transformed to next view [ parent_element_name:INT ]
-                    #
-                    #     if set_column_branch.parsed_path.column == '':
-                    #         set_list[key_for_set_dict] = set_column_branch.data
-                    #     else:
-                    #         structured_branch = get_struct_branch(set_column_branch.parsed_path.column, set_column_branch.data)
-                    #         print(structured_branch)
-                    #         set_list[key_for_set_dict].update(structured_branch)
-                    #         # set_list[key_for_set_dict][set_column_branch.parsed_path.column] = set_column_branch.data
-                    #
-                    #
-                    #     # if (not set_column_branch.parsed_path.column in ObjectId_found.keys()) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
-                    #     #     bsontype_found = False
-                    #     #     for check_set_column_branch in g_branches:
-                    #     #         if  set_column_branch.parsed_path.column == '_id.oid':
-                    #     #             if check_set_column_branch.parsed_path.column == '_id.bsontype':
-                    #     #                 ObjIdStr = set_column_branch.data
-                    #     #                 bsontype_found = True
-                    #     #                 break
-                    #     #         if  set_column_branch.parsed_path.column == '_id.bsontype':
-                    #     #             if check_set_column_branch.parsed_path.column == '_id.oid':
-                    #     #                 ObjIdStr = check_set_column_branch.data
-                    #     #                 bsontype_found = True
-                    #     #                 break
-                    #     #     if bsontype_found:
-                    #     #         if operation_type == 2:
-                    #     #             set_list[key_for_set_dict ]['_id'] = None
-                    #     #         else:
-                    #     #             set_list[key_for_set_dict ]['_id'] = bson.objectid.ObjectId(ObjIdStr)
-                    #     #         ObjectId_found = True
-                    #     # elif (ObjectId_found) and (set_column_branch.parsed_path.column == '_id.oid' or set_column_branch.parsed_path.column == '_id.bsontype'):
-                    #     #     continue
-                    #     # else:
-                    # #generate insert statements for non root objects
-                    # print(set_list)
-                    # insert_stmnts = insert_wrapper (schema_e, set_list,oplog_data_object_id,schema_name)
-                    #check if it is possible multiple inserts
-
-
-                    # INSERT_TMPLT = 'INSERT INTO {table} ({columns}) VALUES({values});'
-
-                    # condition_str = ' and '.join(['{column}=(%s)'.format(column=col) for col in sorted(branch.conditions_list['target'])])
-                    # statements_to_set_str = ', '.join(['{column}=(%s)'.format(column = column_dest_name) for column_dest_name in sorted(dest_column_list_with_value)])
-                    # target_table_str = get_table_name_schema([database_name, schema_name, target_table])
-                    # upd_statement_template = UPDATE_TMPLT.format( table=target_table_str, statements=statements_to_set_str, conditions=condition_str)
-                    # upd_values = [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)] + [branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])]
-
-
-
+                    #  As we don`t know if updatetd object is exist we are generating INSERT statement
+                    # in case enclosed objects in array and concatenate with UPDATE statement to "UPSERT" operation for postgress
                     columns_list_ins = [col for col in sorted(branch.conditions_list['target'])] + [column_dest_name for column_dest_name in sorted(dest_column_list_with_value)]
                     values_list_ins = [ branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])] + [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)]
 
                     columns_list_str = ', '.join(columns_list_ins)
                     values_list_str = ', '.join('%s' for el in columns_list_ins)
                     insert_statement_template = INSERT_TMPLT.format(table = target_table_str, columns=columns_list_str, values=values_list_str)
-
-                    # print(insert_statement_template)
-
-                    upsert_statement_template = UPSERT_TMLPT.format(update=upd_statement_template,
-                                                                    insert=insert_statement_template)
+                    upsert_statement_template = UPSERT_TMLPT.format(update=upd_statement_template, insert=insert_statement_template)
                     ins_values = values_list_ins
                     upsert_values = upd_values + ins_values
                     ret_val.append({upsert_statement_template:[tuple(upsert_values)]})
@@ -332,21 +253,7 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
             break
     return ret_val
 
-# def get_struct_branch(column_name, data_value):
-#     s_column_name = column_name.split('.')
-#     if s_column_name[-1] == 'oid':
-#         del s_column_name[-1]
-#     ret_val ={}
-#     if len(s_column_name) > 1:
-#         # ret_val = {s_column_name[-1]:data_value}
-#         for path_element in reversed(s_column_name[:-1]):
-#             ret_val={path_element:ret_val.copy()}
-#     else:
-#         ret_val = {s_column_name[-1]:data_value}
-#     return ret_val
-
 def insert_wrapper(schema_e, oploda_data_set, oplog_data_object_id, schema_name):
-
     get_tables_data_from_oplog_set = get_tables_data_from_oplog_set_command(schema_e, oploda_data_set,  oplog_data_object_id)
     ins_stmnt = {}
     for set_el in get_tables_data_from_oplog_set:
@@ -372,69 +279,6 @@ def parse_column_path(path):
     else:
         parsed_path = ParsedObjPath( '.'.join(w_path[:1]), '.'.join(w_path[1:]))
     return parsed_path
-
-
-def unset(dbreq, schema_e, oplog_data_unset, oplog_data_object_id,root_table_name, tables_mappings, database_name, schema_name):
-    if type(schema_e) != dict:
-        schema = schema_e.schema
-    else:
-        schema = schema_e
-    ret_val = []
-    for element in oplog_data_unset:
-        updating_obj = element.split('.')
-        if not locate_in_schema(schema[0], updating_obj):
-            continue
-        last_digit_index = 1
-        is_root = True
-        for i, path_el in enumerate(updating_obj):
-            if path_el.isdigit():
-                is_root = False
-                last_digit_index = i
-
-        if is_root:
-            s_part = get_part_schema(schema,updating_obj)
-            if not type(s_part) is list:
-                last_digit_index = 0
-
-        if last_digit_index == 0:
-            unset_table_path = [root_table_name]
-            unset_object_path = updating_obj
-            unset_target_table_path = [root_table_name]
-        else:
-            unset_table_path =  updating_obj[:last_digit_index+1]
-            unset_object_path = updating_obj[last_digit_index+1:]
-            unset_target_table_path = [root_table_name] + unset_table_path
-        doc_id = get_obj_id_recursive(oplog_data_object_id, [], [])
-        '.'.join(unset_target_table_path)
-        if is_root:
-            cond_list = get_conditions_list(schema, '.'.join([root_table_name]),doc_id.itervalues().next())
-        else:
-            cond_list = get_conditions_list(schema, '.'.join([root_table_name] + unset_table_path),doc_id.itervalues().next())
-        unset_object_path_column = '_'.join([get_field_name_without_underscore(column) for column in unset_object_path])
-        target_table = get_table_name_from_list(unset_target_table_path)
-        set_to_null_columns_list = {}
-        for column in tables_mappings[target_table]:
-            if column.startswith(unset_object_path_column+'_'):
-                set_to_null_columns_list[column] = None
-        if len(set_to_null_columns_list) > 0:
-            statements_str = ', '.join(['{column}=(%s)'.format(column=col) for col in set_to_null_columns_list])
-            conditions_str = ' and '.join(['{column}=(%s)'.format(column=col) for col in sorted(cond_list['target'])])
-            upd_stmnt = UPDATE_TMPLT.format( table='.'.join(filter(None, [database_name, schema_name, target_table])), statements=statements_str, conditions=conditions_str )
-            ret_val.append({upd_stmnt:[tuple([set_to_null_columns_list[col] for col in set_to_null_columns_list]+[cond_list['target'][col] for col in sorted(cond_list['target']) ])]})
-        if target_table[:-1] + '_' + unset_object_path_column in tables_mappings.keys():
-            del_stmnt = delete(dbreq, schema, root_table_name + '.' + element, doc_id.itervalues().next(), database_name, schema_name)
-            for op in del_stmnt:
-                if type(del_stmnt[op]) is dict:
-                    for k in del_stmnt[op]:
-                        ret_val.append({k:[tuple(del_stmnt[op][k])]})
-        else:
-            conditions_str_child = ' and '.join(['{column}=(%s)'.format(column=col) for col in sorted(cond_list['child'])])
-            pattern_locate_table_name = target_table[:-1] + '_' + unset_object_path_column + '_'
-            for table in tables_mappings.keys():
-                if table.startswith(pattern_locate_table_name):
-                    del_stamnt = DELETE_TMPLT.format(table = '.'.join(filter(None, [database_name, schema_name, table])), conditions = conditions_str_child)
-                    ret_val.append({del_stamnt:[tuple([cond_list['child'][col] for col in sorted(cond_list['child']) ])]})
-    return ret_val
 
 
 def update_list (dbreq, schema_e, upd_path_str, oplog_data_set, oplog_data_object_id, database_name, schema_name):
