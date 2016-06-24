@@ -440,6 +440,26 @@ test_data_08 = '''{
 }
 '''
 
+test_data_08_all ='''{
+	"ts": "1465220614, 2",
+    "h" : "8003031459294353269",
+    "v" : 2,
+    "op" : "u",
+    "ns" : "quote_management.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000015"}
+    },
+    "o" : {
+        "$unset" : {
+            "comments.2.rates.9.item_rates" : true,
+            "comments.2.rates.8.user_info" : true,
+            "enclosed" : true,
+            "comments.2._id" : true
+        }
+    }
+}
+'''
+
 test_data_09 = '''{
 	"ts": "1465220614, 2",
     "h" : "8003031459294353269",
