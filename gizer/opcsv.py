@@ -1,52 +1,72 @@
+#!/usr/bin/env python
+
+""" Classes for reading/writing csv files supporting null values
+and multilines.
+CsvWriteManager -- wrapper for CsvWriter, support writing to chunked files
+CsvWriter -- csv writer, should not be used directly if csv files
+need to be splited to chunks.
+CsvReader -- csv reader"""
+
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
 import os
 import csv
-import sys
-from subprocess import call
-from gizer.opexecutor import Executor
+from collections import namedtuple
 
-class CsvInfo:
-    def __init__(self, writer, filepath, name, filec):
-        self.writer = writer
-        self.filepath = filepath 
-        self.name = name
-        self.file_counter = filec
+NULLVAL = '\N'
+ESCAPECHAR = '\\'
+DELIMITER = '\t'
+LINETERMINATOR = '\r\n'
+DOUBLEQUOTE = False
+QUOTING = csv.QUOTE_NONE
 
-class CsvManager:
-    def __init__(self, tmp_path, hdfs_path, chunk_size):
+def ensure_dir_empty(dirpath):
+    """ remove files from dir """
+    if not os.path.exists(dirpath):
+        os.mkdir(dirpath)
+    for fname in os.listdir(dirpath):
+        fpath = os.path.join(dirpath, fname)
+        if os.path.isfile(fpath):
+            os.remove(fpath)
+
+CsvInfo = namedtuple('CsvInfo', ['writer', 'filepath', 'name', 'file_counter'])
+
+class CsvWriteManager:
+    """ Csv files manager, transparently spliting writing files to files
+    with max chunk size during writing."""
+    def __init__(self, names, csvs_path, chunk_size):
+        """ constructor
+        names -- list of base names (psql tables names) of csv files to write
+        csvs_path -- folder where to create subfolders for all 'names'
+        chunk_size -- max chunk size of file"""
         self.writers = {}
-        self.tmp_path = tmp_path
-        self.hdfs_path = hdfs_path
+        self.csvs_path = csvs_path
         self.chunk_size = chunk_size
-        self.hdfs_dirs = {}
-        self.executor = Executor()
+        self.cleandirs(names)
 
-    def put_to_hdfs(self, wrt):
-#ensure hdfs dirs exists
-        hdfsdir = os.path.join(self.hdfs_path, wrt.name)
-        if hdfsdir not in self.hdfs_dirs:
-            rm_cmd = ['hdfs', 'dfs', '-rm', '-R', '-f', hdfsdir]
-            call(rm_cmd)
-            mkdir_cmd = ['hdfs', 'dfs', '-mkdir', '-p', hdfsdir]
-            if call(mkdir_cmd) is 0:
-                self.hdfs_dirs[hdfsdir] = True
-
-        cmd = ['hdfs', 'dfs', '-copyFromLocal', wrt.filepath, \
-                   os.path.join(hdfsdir, str(wrt.file_counter).zfill(5))]
-        self.executor.execute(cmd)
+    def cleandirs(self, names):
+        """ remove files from dirs list
+        names -- names of psql tables corresponding to dirs to erase"""
+        for name in names:
+            dirpath = os.path.join(self.csvs_path, name)
+            ensure_dir_empty(dirpath)
 
     def create_writer(self, name, fnumber):
-        filepath = os.path.join(self.tmp_path, name+'.'+str(fnumber).zfill(5))
-        f = open(filepath, 'wb')
-        wrt = CsvInfo(CsvWriter(f, '\\N'),  filepath, name, fnumber)
+        """ return new file writer linked to file chunk with specific number
+        name -- psql table name corresponding to csv file
+        fnumber -- chunk number of file to create"""
+        dirpath = os.path.join(self.csvs_path, name)
+        filepath = os.path.join(dirpath, str(fnumber).zfill(5))
+        out_f = open(filepath, 'wb')
+        wrt = CsvInfo(CsvWriter(out_f, True), filepath, name, fnumber)
         return wrt
 
-    def write_csv(self, sqltable):
-        """
-        Write table records to csv file and place asynchronously to hdfs
-        @param sqltable data to write
-        @return records count written
-        """
-        name = sqltable.table_name
+    def write_csv(self, name, rows):
+        """ Write table records to csv file. Return wrote rows count.
+        name -- name of psql
+        rows -- rows list to write into csv file related to psql table"""
         if name not in self.writers.keys():
             self.writers[name] = self.create_writer(name, 0)
         elif not self.writers[name].writer.file:
@@ -54,61 +74,91 @@ class CsvManager:
             self.writers[name] = self.create_writer(name, newfile_count)
 
         wrt = self.writers[name]
-        written_reccount = wrt.writer.write_csv(sqltable)
+        written_reccount = wrt.writer.write_csv(rows)
         if wrt.writer.file.tell() >= self.chunk_size:
             wrt.writer.close()
-            self.put_to_hdfs(wrt)
         self.writers[name] = wrt
         return written_reccount
-    
+
     def finalize(self):
-        for name, wrt in self.writers.iteritems():
-            wrt.writer.close()
-            self.put_to_hdfs(wrt)
-        self.executor.wait_for_complete()
+        """ close all opened writer objects """
+        for name in self.writers:
+            self.writers[name].writer.close()
 
 class CsvWriter:
-    def __init__(self, output_file, null_val_as):
-        self.null_val = null_val_as
+    """ Csv files writer.
+    Supports multiline text values and NULLs, using specific csv format."""
+    def __init__(self, output_file, psql_copy, null_val=NULLVAL):
+        """ constructor
+        output_file -- opened file to write
+        psql_copy -- For csv format supported by PSQL_COPY set 'True'.
+        null_val -- char in csv file to distguish empty and null values"""
+        self.null_val = null_val
+        self.psql_copy = psql_copy
         self.file = output_file
-        self.csvwriter = csv.writer(output_file, 
-                                    quotechar='"',
-                                    escapechar='\\',
-                                    delimiter='\t',
-                                    lineterminator='\n',
-                                    doublequote=False,
-                                    quoting=csv.QUOTE_NONE)
+        self.csvwriter = csv.writer(output_file,
+                                    escapechar=ESCAPECHAR,
+                                    delimiter=DELIMITER,
+                                    lineterminator=LINETERMINATOR,
+                                    doublequote=DOUBLEQUOTE,
+                                    quoting=QUOTING)
 
     def close(self):
+        """ close output file"""
         self.file.close()
         self.file = None
 
-    def write_csv(self, sqltable):
-        """ 
-        @param table object schema_engine.SqlTable
-        @return records count was written
-        """
-        def escape_val(val):
+    def write_csv(self, rows):
+        """ write list of rows into csv file """
+        for row in rows:
+            self.csvwriter.writerow(row)
+        return len(rows)
+
+
+################
+
+class CsvReader:
+    """ Csv files reader, during read it's doing decode, escape of data.
+    Supports multiline text values and NULLs, using specific csv format."""
+    def __init__(self, input_file, null_val=NULLVAL):
+        """ constructor
+        input_file -- file opened for reading
+        null_val -- char in csv file to distguish empty and null values"""
+        self.null_val = null_val
+        self.file = input_file
+        self.csvreader = csv.reader(input_file,
+                                    escapechar=ESCAPECHAR,
+                                    delimiter=DELIMITER,
+                                    lineterminator=LINETERMINATOR,
+                                    doublequote=DOUBLEQUOTE,
+                                    quoting=QUOTING)
+
+    def close(self):
+        """ close input file """
+        self.file.close()
+        self.file = None
+
+    def read_record(self):
+        """ Return tuple corresponding to single record from csv file """
+        def decode_val(val):
+            """ return decoded, escaped unicode value """
             if type(val) is str or type(val) is unicode:
-                return val.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').encode('utf-8')
+                if val == self.null_val:
+                    return None
+                else:
+                    return val.decode('utf-8').decode('unicode-escape')
             else:
                 return val
 
-        def prepare_csv_data(current_idx, colnames, columns):
+        def prepare_csv_data(row):
+            """ return tuple of values, apply decode_val func to every value
+            row -- single row from csv"""
             csvvals = []
-            for i in colnames:
-                val = columns[i].values[current_idx]
-                if val is not None:
-                    csvvals.append(escape_val(val))
-                else:
-                    csvvals.append(self.null_val)
+            for val in row:
+                csvvals.append(decode_val(val))
             return csvvals
 
-        firstcolname = sqltable.sql_column_names[0]
-        reccount = len(sqltable.sql_columns[firstcolname].values)
-        for val_i in xrange(reccount):
-            csvdata = prepare_csv_data(val_i, 
-                                       sqltable.sql_column_names, 
-                                       sqltable.sql_columns)
-            self.csvwriter.writerow(csvdata)
-        return reccount
+        try:
+            return prepare_csv_data(self.csvreader.next())
+        except StopIteration:
+            return None

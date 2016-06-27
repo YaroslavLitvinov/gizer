@@ -27,7 +27,7 @@
 					"phones":[ 
 						{
 							"number":"STRING",
-							"count":"int"
+							"count":"INT"
 						}
 					]
 				}
@@ -35,7 +35,7 @@
 			"jobs":[
 				{
 					"test1":"INT",
-					"test2":"STRING"
+					"test2":"string"
 				}
 			]
         }
@@ -44,7 +44,7 @@
         "oid": "STRING", 
         "bsontype": "INT"
     }, 
-    "indeces": [
+    "_indeces": [
         "INT"
     ], 
     "dates": [

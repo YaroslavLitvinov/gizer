@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-from mongo_to_hive_mapping import schema_engine
+__author__ = "Yaroslav Litvinov"
+__copyright__ = "Copyright 2016, Rackspace Inc."
+__email__ = "yaroslav.litvinov@rackspace.com"
+
+from mongo_schema import schema_engine
 import os
 
 def get_schema_files(schemas_dirpath):
@@ -9,6 +13,7 @@ def get_schema_files(schemas_dirpath):
     for fname in os.listdir(schemas_dirpath):
         if fname.endswith('json') or fname.endswith('js'):
             res.append(fname)
+    res.sort()
     return res
         
 def get_schema_engines_as_dict(schemas_dirpath):
