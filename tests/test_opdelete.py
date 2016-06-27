@@ -142,6 +142,11 @@ def test_get_tables_list():
     model = ['table1']
     assert sorted(model) == sorted(result)
 
+    schema = json.loads(open('test_data/schemas/rails4_mongoid_development/rated_posts.js').read())
+    result = get_tables_list([schema], 'rated_posts')
+    model = [u'rated_posts', u'rated_post_tests', u'rated_post_comments', u'rated_post_comment_tests', u'rated_post_comment_rates', u'rated_post_comment_rate_item_rates', u'rated_post_rates', u'rated_post_enclose_field_array']
+    assert sorted(model) == sorted(result)
+
     print(TEST_INFO, 'get_tables_list', 'PASSED')
 
 
@@ -293,7 +298,7 @@ def test_gen_statements():
             'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_jobs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
             'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contacts WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
             'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contact_phones WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_personal_inf_fl_nam_SSNs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_personal_info_fl_name_SSNs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
             'DELETE FROM '+'.'.join([db_name, schema_name])+'person_indeces WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF']
         }
     }
@@ -313,7 +318,7 @@ def test_gen_statements():
             'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_jobs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
             'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contacts WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
             'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contact_phones WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_personal_inf_fl_nam_SSNs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_personal_info_fl_name_SSNs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
             'DELETE FROM '+'.'.join([db_name, schema_name])+'person_indeces WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF']
         }
     }
@@ -560,6 +565,14 @@ def test_gen_statements():
         'DELETE FROM person_relative_contact_phones WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
             '0123456789ABCDEF', '6', '3']}}
     assert model == result
+
+    schema = json.loads(open('test_data/test_schema5.txt').read())
+    path = 'persons.relatives.3.some_table'
+    id = 'AABBCCDDEEFF'
+    model=  {'upd': {}, 'del': {}}
+    result = gen_statements(dbreq, schema, path, id, '', '')
+    assert model == result
+
 
     database_clear(dbreq)
 

@@ -662,7 +662,8 @@ test_data_15_A = '''{
 				"_id" : {"$oid":"57640cb0cf6879b3fcf0d3f6"},
 				"field1" : "marty mackfly",
 				"field2" : 300,
-				"field_array" : null
+				"field_array" : null,
+				"not_in_schema_array":[]
 			}
 		}
 	}
