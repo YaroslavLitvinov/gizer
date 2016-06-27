@@ -107,13 +107,16 @@ def get_where_templates(conditions_list):
 
 
 def gen_statements(dbreq, schema, path, id, database_name, schema_name):
+    tables_mappings = get_tables_structure(schema, path.split('.')[0], {}, {}, 1, '')
     conditions_list = get_conditions_list(schema, path, id)
     where_clauses = get_where_templates(conditions_list)
     all_tables_list = get_tables_list(schema, get_root_table_from_path(path))
     target_table = get_table_name_from_list(path.split('.'))
+    if not target_table in tables_mappings.keys():
+        return {'del': {}, 'upd': {}}
     target_table_idx_name = get_idx_column_name_from_list (path.split('.'))
     tables_list = []
-    for table in all_tables_list:
+    for table in tables_mappings.keys():
         if str.startswith(str(table), target_table[:-1], 0, len(table)) and not table == target_table:
             tables_list.append(table)
     del_statements = {}
