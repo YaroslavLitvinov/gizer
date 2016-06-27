@@ -132,6 +132,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_tmp.conn.rollback()
+                status_manager.oplog_use_finish(None, True)
                 res = -1
 
         elif (status.status == STATUS_OPLOG_SYNC or \
@@ -157,6 +158,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_main.conn.rollback()
+                status_manager.oplog_use_finish(None, True)
                 res = -1
         else:
             # initial load is not performed 
