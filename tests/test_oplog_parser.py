@@ -5,6 +5,7 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 import os
+import sys
 import psycopg2
 import logging
 from collections import namedtuple
@@ -18,6 +19,7 @@ from gizer.psql_objects import create_truncate_psql_objects
 from mongo_schema.schema_engine import create_tables_load_file
 from mock_mongo_reader import MongoReaderMock
 
+SCHEMAS_PATH = "./test_data/schemas/rails4_mongoid_development"
 # THis schema must be precreated before running tests
 TMP_SCHEMA_NAME = 'operational'
 MAIN_SCHEMA_NAME = ''
@@ -46,13 +48,13 @@ def load_mongo_data_to_psql(schema_engine, mongo_data_path, psql, psql_schema):
     insert_tables_data_into_dst_psql(psql, tables, psql_schema, '')
     psql.cursor.execute('COMMIT')
 
-def check_oplog_sync_point(oplog_test):
+
+def check_oplog_sync_point(oplog_test, schemas_path):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
     psql_schema = MAIN_SCHEMA_NAME
 
-    schemas_path = "./test_data/schemas/rails4_mongoid_development"
     schema_engines = get_schema_engines_as_dict(schemas_path)
     oplog_reader = oplog_reader_mock(oplog_test.oplog)
 
@@ -75,6 +77,7 @@ def check_oplog_sync_point(oplog_test):
     else:
         return False
 
+
 def test_oplog_sync():
     print('\ntest#1')
     oplog_test1 \
@@ -84,7 +87,7 @@ def test_oplog_sync():
                     'test_data/oplog1/oplog.js',
                     {'posts': 'test_data/oplog1/after_collection_posts.js',
                      'guests': 'test_data/oplog1/after_collection_guests.js'})
-    res = check_oplog_sync_point(oplog_test1)
+    res = check_oplog_sync_point(oplog_test1, SCHEMAS_PATH)
     assert(res == True)
     
 
@@ -96,7 +99,7 @@ def test_oplog_sync():
                     'test_data/oplog2/oplog.js',
                     {'posts': 'test_data/oplog2/after_collection_posts.js',
                      'guests': 'test_data/oplog2/after_collection_guests.js'})
-    res = check_oplog_sync_point(oplog_test2)
+    res = check_oplog_sync_point(oplog_test2, SCHEMAS_PATH)
     assert(res == True)
 
     print('\ntest#3')
@@ -113,7 +116,7 @@ def test_oplog_sync():
                      'posts2': 'test_data/oplog3/after_collection_posts2.js',
                      'rated_posts': 'test_data/oplog3/after_collection_rated_posts.js'
                      })
-    res = check_oplog_sync_point(oplog_test3)
+    res = check_oplog_sync_point(oplog_test3, SCHEMAS_PATH)
     assert(res == True)
 
     # oplog_test4 \
@@ -148,6 +151,24 @@ def test_compare_empty_compare_psql_and_mongo_records():
 
 
 if __name__ == '__main__':
+    """ Test external data by providing path to schemas folder, 
+    data folder as args """
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s')
-    test_oplog_sync()
+    schemas_path = sys.argv[1]
+    data_path = sys.argv[2]
+    mongo_oplog = os.path.join(data_path, 'mongo_oplog.json')
+
+    empty_data_before = {}
+    data_after = {}
+    schema_engines = get_schema_engines_as_dict(schemas_path)
+    for schema_name in schema_engines:
+        path_with_data = os.path.join(data_path, 'mongo_%s.json' % schema_name)
+        data_after[schema_name] = path_with_data
+    oplog_test1 \
+        = OplogTest(None, 
+                    empty_data_before,
+                    mongo_oplog,
+                    data_after)
+    res = check_oplog_sync_point(oplog_test1, schemas_path)
+    assert(res == True)
