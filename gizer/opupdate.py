@@ -192,7 +192,6 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
         operation_type = 2
         oplog_data_set = oplog_data['o']['$unset']
         normalized_branch_list = normalize_unset_oplog_recursive(schema,oplog_data_set,[],[],oplog_data_object_id,root_table_name)
-        # return unset(dbreq,schema_e,oplog_data['o']['$unset'], oplog_data_object_id, root_table_name,tables_mappings,database_name,schema_name)
 
     # grouping branches by target table
     grouped_branch_list = {}
@@ -207,7 +206,11 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
         g_branches =  grouped_branch_list[g_branch]
         for branch in g_branches:
             if type(branch.data) is list:
-                ret_val.extend(update_list(dbreq,schema_e, '.'.join([root_table_name] + [branch.normalized_path]) , {branch.normalized_path:branch.data}, oplog_data_object_id,database_name,schema_name))
+                # added check datatype in schema.
+                if type(get_part_schema(schema, branch.normalized_path.split('.'))) is list:
+                    ret_val.extend(update_list(dbreq,schema_e, '.'.join([root_table_name] + [branch.normalized_path]) , {branch.normalized_path:branch.data}, oplog_data_object_id,database_name,schema_name))
+                else:
+                    getLogger(__name__).warning('{0} specified as {1} in schema, but presented as list in data. SKIPPED!'.format(branch.normalized_path, get_part_schema(schema, branch.normalized_path.split('.'))))
         for branch in g_branches:
             if not type(branch.data) is list:
                 target_table = get_table_name_from_list(branch.parsed_path.table_path.split('.'))
@@ -218,8 +221,8 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                         # generating column name. Also in case of enclosed objects
                         col_list = []
                         if set_column_branch.parsed_path.column == '':
-                            # if column is empty it means structure like this [INT].
-                            # this structure shoud be transformed to next view [ parent_element_name:INT ]
+                            # if column is empty it means structure like this : [INT].
+                            # this structure shoud be transformed to structure with next view [ parent_element_name:INT ]
                             column_name = set_column_branch.parsed_path.table_path.split('.')[-2]
                         else:
                             column_name = set_column_branch.parsed_path.column
@@ -236,8 +239,8 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                 upd_values = [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)] + [branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])]
                 # here is a question. is it possible to to make upset operation in mongo to unexisting enclosed record
                 if target_table != root_table_name and (operation_type != 2):
-                    #  As we don`t know if updatetd object is exist we are generating INSERT statement
-                    # in case enclosed objects in array and concatenate with UPDATE statement to "UPSERT" operation for postgress
+                    #  As we don`t know if updatetd object is already exist we are generating INSERT statements for
+                    # enclosed objects in array and concatenate their with UPDATE statement to "UPSERT" operation for postgres
                     columns_list_ins = [col for col in sorted(branch.conditions_list['target'])] + [column_dest_name for column_dest_name in sorted(dest_column_list_with_value)]
                     values_list_ins = [ branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])] + [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)]
 
@@ -250,7 +253,9 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                     ret_val.append({upsert_statement_template:[tuple(upsert_values)]})
                 else:
                     ret_val.append({upd_statement_template:[tuple(upd_values)]})
-            break
+                break
+            else:
+                continue
     return ret_val
 
 def insert_wrapper(schema_e, oploda_data_set, oplog_data_object_id, schema_name):
