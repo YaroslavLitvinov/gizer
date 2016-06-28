@@ -1,10 +1,8 @@
-import pprint
-
 __author__ = 'Volodymyr Varchuk'
 __email__ = "vladimir.varchuk@rackspace.com"
 
+
 from util import *
-from os import environ
 import psycopg2
 
 
@@ -58,7 +56,6 @@ def get_conditions_list(schema, path, id):
 
 
 def get_where_templates(conditions_list):
-    # TODO check id`s types. compliance quotes
     def condition_with_quotes(key):
         temp = ''
         if key.endswith('_idx') or key == 'idx':
@@ -80,7 +77,6 @@ def gen_statements(dbreq, schema, path, id, database_name, schema_name):
     tables_mappings = get_tables_structure(schema, path.split('.')[0], {}, {}, 1, '')
     conditions_list = get_conditions_list(schema, path, id)
     where_clauses = get_where_templates(conditions_list)
-    # all_tables_list = get_tables_list(schema, get_root_table_from_path(path))
     target_table = get_table_name_from_list(path.split('.'))
     if not target_table in tables_mappings.keys():
         return {'del': {}, 'upd': {}}
