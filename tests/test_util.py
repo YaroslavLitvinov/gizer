@@ -217,6 +217,9 @@ def test_get_tables_structure():
             u'document_relatives_idx': u'bigint'
         }
     }
+    print(result)
+    print(model)
+
     assert model == result
 
     schema = json.loads(open('test_data/test_schema6.txt').read())
@@ -407,9 +410,6 @@ def test_get_column_type():
 
 # functions for comparing SQL queries
 def sqls_to_dict(sql_dict):
-    #     {'DELETE FROM database.schema.post_comment_tests WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
-    #     {'INSERT INTO schema."post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
-    # [{'do $$    begin
     parsed_dict = {}
     # print(sql_dict)
     for model_item in sql_dict:
