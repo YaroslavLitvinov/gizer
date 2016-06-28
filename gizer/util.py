@@ -62,7 +62,8 @@ def get_table_name_from_list(spath):
         if it.isdigit():
             spathl.remove(it)
     if len(spathl) > 1:
-        return '_'.join(['_'.join((el[:-1] if el[-1] == 's' else el) for el in spathl[:-1]), get_field_name_without_underscore(spathl[-1])])
+        return '_'.join(['_'.join((el[:-1] if el[-1] == 's' else el) for el in spathl[:-1]),
+                         get_field_name_without_underscore(spathl[-1])])
     else:
         return spathl[-1]
 
@@ -138,7 +139,8 @@ def get_ids_list(lst, is_root):
                 for id_item in list_it[it]:
                     if isIdField(id_item) and is_root:
                         ids_to_add[get_field_name_without_underscore(
-                            it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(list_it[it][id_item])
+                            it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(
+                            list_it[it][id_item])
             else:
                 ids_to_add[get_field_name_without_underscore(it)] = get_postgres_type(list_it[it])
     if len(ids_to_add) == 0:
