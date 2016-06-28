@@ -7,6 +7,7 @@ import pprint
 from test_util import *
 from psycopg2.extensions import AsIs
 from psycopg2 import ProgrammingError
+from os import environ
 
 
 
@@ -302,8 +303,6 @@ def test_gen_statements():
     }
     assert model == result
 
-    #SQL_prepare = 'INSERT INTO '
-    #TODO place insert preset rows HERE
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789ABCDEF'
