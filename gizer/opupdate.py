@@ -1,7 +1,4 @@
-#!/usr/bin/env python
-"""Update callback."""
 
-import itertools
 import datetime
 
 from gizer.opinsert import *
