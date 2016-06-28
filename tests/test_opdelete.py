@@ -120,31 +120,31 @@ def test_get_ids_list():
 def test_get_tables_list():
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
-    result = get_tables_list(schema, 'mains')
-    model = ['mains', 'main_personal_inf_fl_nam_SSNs', 'main_relatives', 'main_relative_contacts',
+    result = get_tables_structure(schema,'mains',{},{},1, '').keys()
+    model = ['mains', 'main_personal_info_fl_name_SSNs', 'main_relatives', 'main_relative_contacts',
              'main_relative_contact_phones', 'main_relative_jobs', 'main_indeces', 'main_dates']
     assert sorted(model) == sorted(result)
 
     schema = json.loads(open('test_data/test_schema4.txt').read())
-    result = get_tables_list(schema, 'table1')
-    model = ['table_personal_inf_full_nam_SSNs', 'table_relative_contact_phones', 'table_relative_contacts',
+    result = get_tables_structure(schema,'table1',{},{},1, '').keys()
+    model = ['table_personal_info_full_name_SSNs', 'table_relative_contact_phones', 'table_relative_contacts',
              'table_relatives', 'table1', 'table_indeces', 'table_dates']
     assert sorted(model) == sorted(result)
 
     schema = json.loads(open('test_data/test_schema3.txt').read())
-    result = get_tables_list(schema, 'table1')
+    result = get_tables_structure(schema,'table1',{},{},1, '').keys()
     model = ['table1', 'table_relative_contact_phones', 'table_relative_contacts', 'table_relatives',
              'table_indeces', 'table_dates']
     assert sorted(model) == sorted(result)
 
     schema = json.loads(open('test_data/test_schema6.txt').read())
-    result = get_tables_list(schema, 'table1')
+    result = get_tables_structure(schema,'table1',{},{},1, '').keys()
     model = ['table1']
     assert sorted(model) == sorted(result)
 
     schema = json.loads(open('test_data/schemas/rails4_mongoid_development/rated_posts.js').read())
-    result = get_tables_list([schema], 'rated_posts')
-    model = [u'rated_posts', u'rated_post_tests', u'rated_post_comments', u'rated_post_comment_tests', u'rated_post_comment_rates', u'rated_post_comment_rate_item_rates', u'rated_post_rates', u'rated_post_enclose_field_array']
+    result = get_tables_structure(schema,'rated_posts',{},{},1, '').keys()
+    model = [u'rated_posts', u'rated_post_tests', u'rated_post_comments', u'rated_post_comment_tests', u'rated_post_comment_rates', u'rated_post_comment_rate_item_rates', u'rated_post_rates', u'rated_post_enclosed_field_array']
     assert sorted(model) == sorted(result)
 
     print(TEST_INFO, 'get_tables_list', 'PASSED')
