@@ -30,32 +30,6 @@ def get_max_id_in_array(dbreq, table, condition_list, database_name, schema_name
     return idx
 
 
-def get_child_dict_item(dict_items, table):
-    tables_list = []
-    for it in dict_items:
-        if type(dict_items[it]) is dict:
-            # TODO fix last letter in dictionary
-            tables_list = get_child_dict_item(dict_items[it], table[:-1] + '_' + it)
-        elif type(dict_items[it]) is list:
-            tables_list = get_tables_list(dict_items[it], table[:-1] + '_' + it)
-    return tables_list
-
-
-def get_tables_list(schema, table):
-    tables_list = []
-    tables_list.append(table)
-    for item_list in schema:
-        if type(item_list) is dict or type(item_list) is list:
-            for it in item_list:
-                item_value = item_list[it]
-                if type(item_value) is dict:
-                    # TODO last letted in dictioonary
-                    tables_list.extend(get_child_dict_item(item_value, table[:-1] + '_' + get_field_name_without_underscore(it)))
-                elif type(item_value) is list:
-                    tables_list.extend(get_tables_list(item_value, table[:-1] + '_' + get_field_name_without_underscore(it)))
-    return tables_list
-
-
 def get_conditions_list(schema, path, id):
     spath = path.split('.')
     parental_tables_idx_list = get_indexes_dictionary_idx(path)
@@ -106,7 +80,7 @@ def gen_statements(dbreq, schema, path, id, database_name, schema_name):
     tables_mappings = get_tables_structure(schema, path.split('.')[0], {}, {}, 1, '')
     conditions_list = get_conditions_list(schema, path, id)
     where_clauses = get_where_templates(conditions_list)
-    all_tables_list = get_tables_list(schema, get_root_table_from_path(path))
+    # all_tables_list = get_tables_list(schema, get_root_table_from_path(path))
     target_table = get_table_name_from_list(path.split('.'))
     if not target_table in tables_mappings.keys():
         return {'del': {}, 'upd': {}}
