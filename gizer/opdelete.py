@@ -8,10 +8,6 @@ from os import environ
 import psycopg2
 
 
-# UPDATE_TMPL2 = 'UPDATE %s SET %s WHERE (root_id="%s") and (idx=%s);'
-# {"template":'UPDATE table SET idx=34 WHERE idx=%s;', "params":['45']}
-
-
 def op_delete_stmts(dbreq, schema, path, id, database_name, schema_name):
     return gen_statements(dbreq, schema, path, id, database_name, schema_name)
 
