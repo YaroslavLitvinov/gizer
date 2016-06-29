@@ -100,7 +100,7 @@ class OplogHighLevel:
         psql_schema -- psql schema whose tables data to patch."""
         self.psql = psql
         self.mongo_readers = mongo_readers
-        self.oplog = oplog
+        self.oplog_reader = oplog
         self.schemas_path = schemas_path
         self.schema_engines = schema_engines
         self.psql_schema = psql_schema
@@ -113,46 +113,62 @@ class OplogHighLevel:
         """ Read oplog operations starting just after timestamp start_ts.
         Apply oplog operations to psql db.
         Compare source (mongo) and dest(psql) records.
-        Return named tuple - Self.OplogApplyRes. Where:
-        Self.OplogApplyRes.ts is ts to apply operations.
-        Self.OplogApplyRes.res is result of applying self.oplog operations.
+        Return named tuple - OplogApplyRes. Where:
+        OplogApplyRes.ts is ts to apply operations.
+        OplogApplyRes.res is result of applying oplog operations.
         False - apply failed.
-        This function is using Self.OplogParser itself.
+        This function is using OplogParser itself.
         params:
-        start_ts -- Timestamp of record in self.oplog db which should be
+        start_ts -- Timestamp of record in oplog db which should be
         applied first read ts or next available
         doing_sync -- if True then don't commit/rollback, 
         if False do commit on success, rollback on fail"""
 
-        getLogger(__name__).\
-                info('Apply oplog operation ts:%s' % str(start_ts))
-        compare_rec_ids = {} # {collection: {rec_ids: bool}}
-        self.oplog_query = prepare_oplog_request(start_ts)
-        self.oplog.make_new_request(self.oplog_query)
-        # create oplog parser. note: cb_insert doesn't need psql object
-        parser = OplogParser(self.oplog, self.schemas_path, \
-                    Callback(cb_insert, ext_arg=self.psql_schema),
-                    Callback(cb_update, ext_arg=(self.psql, self.psql_schema)),
-                    Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
-        # go over oplog, and apply all oplog pacthes starting from start_ts
-        last_ts = None
-        oplog_queries = parser.next()
-        while oplog_queries != None:
-            for oplog_query in oplog_queries:
-                if oplog_query.op == "u" or \
-                   oplog_query.op == "d" or \
-                   oplog_query.op == "i" or oplog_query.op == "ui":
-                    exec_insert(self.psql, oplog_query)
-                    collection_name = parser.item_info.schema_name
-                    rec_id = parser.item_info.rec_id
-                    last_ts = parser.item_info.ts
-                    self.comparator.add_to_compare(collection_name, rec_id)
+        do_again_counter = 0
+        do_again = True
+        while do_again:
+            # reset 'apply again', it's will be enabled again if needed
+            do_again = False
+            getLogger(__name__).\
+                    info('Apply oplog operation going after ts:%s' % str(start_ts))
+            js_oplog_query = prepare_oplog_request(start_ts)
+            self.oplog_reader.make_new_request(js_oplog_query)
+            # create oplog parser. note: cb_insert doesn't need psql object
+            parser = OplogParser(self.oplog_reader, self.schemas_path, \
+                        Callback(cb_insert, ext_arg=self.psql_schema),
+                        Callback(cb_update, ext_arg=(self.psql, self.psql_schema)),
+                        Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
+            # go over oplog, and apply all oplog pacthes starting from start_ts
+            last_ts = None
+            oplog_rec_counter = 0
             oplog_queries = parser.next()
-        # compare mongo data & psql data after self.oplog records applied
-        compare_res = self.comparator.compare_src_dest()
+            while oplog_queries != None:
+                for oplog_query in oplog_queries:
+                    if oplog_query.op == "u" or \
+                       oplog_query.op == "d" or \
+                       oplog_query.op == "i" or oplog_query.op == "ui":
+                        oplog_rec_counter += 1
+                        exec_insert(self.psql, oplog_query)
+                        collection_name = parser.item_info.schema_name
+                        rec_id = parser.item_info.rec_id
+                        last_ts = parser.item_info.ts
+                        self.comparator.add_to_compare(collection_name, rec_id)
+                oplog_queries = parser.next()
+            getLogger(__name__).info("handled %d oplog records" % oplog_rec_counter)
+            # compare mongo data & psql data after oplog records applied
+            compare_res = self.comparator.compare_src_dest()
+            # if result of comparison because if new oplog item had received
+            # during checking results (comparing all records) then do double checks
+            if not compare_res and last_ts and do_again_counter < 10:
+                do_again = True
+                do_again_counter += 1
+                start_ts = last_ts
+                getLogger(__name__).\
+                    warning('Do handling of newly added oplog records, attempt=%d' %
+                            do_again_counter)
         getLogger(__name__).\
-                info('oplog ts:%s operation applied res=%s' % (str(start_ts),
-                                                               str(compare_res)))
+                info('Last oplog rec applied is ts:%s with res=%s' % 
+                     (str(start_ts), str(compare_res)))
         if not doing_sync:
             if compare_res:
                 getLogger(__name__).info('COMMIT')
@@ -166,7 +182,7 @@ class OplogHighLevel:
             return OplogApplyRes(start_ts, True)
         else:
             if compare_res:
-                # oplog apply ok, return last appliued ts
+                # oplog apply ok, return last applied ts
                 return OplogApplyRes(last_ts, True)
             else:
                 # oplog apply error, return next ts candidate
@@ -254,8 +270,8 @@ class ComparatorMongoPsql:
     def add_to_compare(self, collection_name, rec_id):
         if collection_name not in self.recs_to_compare:
             self.recs_to_compare[collection_name] = {}
-        if rec_id not in self.recs_to_compare[collection_name]:
-            self.recs_to_compare[collection_name][rec_id] = False # by default
+        # every time item adding to compare list will reset old state
+        self.recs_to_compare[collection_name][rec_id] = False # by default
 
     def compare_one_src_dest(self, collection_name, rec_id):
         schema_engine = self.schema_engines[collection_name]
@@ -273,11 +289,13 @@ class ComparatorMongoPsql:
     def compare_src_dest(self):
         getLogger(__name__).info('Oplog ops applied. Compare following recs: %s'\
                                      % self.recs_to_compare )
-        # compare mongo data & psql data after self.oplog records applied
+        # compare mongo data & psql data after oplog records applied
         for collection_name, recs in self.recs_to_compare.iteritems():
             for rec_id in recs:
-                equal = self.compare_one_src_dest(collection_name, rec_id)
-                self.recs_to_compare[collection_name][rec_id] = equal
-                if not equal:
-                    return False
+                if not recs[rec_id]:
+                    # rec to compare has False(not equal) state
+                    equal = self.compare_one_src_dest(collection_name, rec_id)
+                    self.recs_to_compare[collection_name][rec_id] = equal
+                    if not equal:
+                        return False
         return True
