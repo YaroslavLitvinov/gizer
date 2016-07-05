@@ -7,6 +7,7 @@ import pprint
 from test_util import *
 from psycopg2.extensions import AsIs
 from psycopg2 import ProgrammingError
+from os import environ
 
 
 
@@ -109,10 +110,6 @@ def test_get_ids_list():
     model = {'id_oid': 'text'}
     assert get_ids_list(schema, 1) == model
 
-    schema = json.loads(open('test_data/test_schema5.txt').read())
-    # print('list', get_ids_list(schema))
-    # model = {'id_oid': 'text'}
-    # assert check_dict(get_ids_list(schema), model)
     print(TEST_INFO, 'get_ids_list', 'PASSED')
 
 
@@ -120,31 +117,31 @@ def test_get_ids_list():
 def test_get_tables_list():
 
     schema = json.loads(open('test_data/test_schema5.txt').read())
-    result = get_tables_list(schema, 'mains')
-    model = ['mains', 'main_personal_inf_fl_nam_SSNs', 'main_relatives', 'main_relative_contacts',
+    result = get_tables_structure(schema,'mains',{},{},1, '').keys()
+    model = ['mains', 'main_personal_info_fl_name_SSNs', 'main_relatives', 'main_relative_contacts',
              'main_relative_contact_phones', 'main_relative_jobs', 'main_indeces', 'main_dates']
     assert sorted(model) == sorted(result)
 
     schema = json.loads(open('test_data/test_schema4.txt').read())
-    result = get_tables_list(schema, 'table1')
-    model = ['table_personal_inf_full_nam_SSNs', 'table_relative_contact_phones', 'table_relative_contacts',
+    result = get_tables_structure(schema,'table1',{},{},1, '').keys()
+    model = ['table_personal_info_full_name_SSNs', 'table_relative_contact_phones', 'table_relative_contacts',
              'table_relatives', 'table1', 'table_indeces', 'table_dates']
     assert sorted(model) == sorted(result)
 
     schema = json.loads(open('test_data/test_schema3.txt').read())
-    result = get_tables_list(schema, 'table1')
+    result = get_tables_structure(schema,'table1',{},{},1, '').keys()
     model = ['table1', 'table_relative_contact_phones', 'table_relative_contacts', 'table_relatives',
              'table_indeces', 'table_dates']
     assert sorted(model) == sorted(result)
 
     schema = json.loads(open('test_data/test_schema6.txt').read())
-    result = get_tables_list(schema, 'table1')
+    result = get_tables_structure(schema,'table1',{},{},1, '').keys()
     model = ['table1']
     assert sorted(model) == sorted(result)
 
     schema = json.loads(open('test_data/schemas/rails4_mongoid_development/rated_posts.js').read())
-    result = get_tables_list([schema], 'rated_posts')
-    model = [u'rated_posts', u'rated_post_tests', u'rated_post_comments', u'rated_post_comment_tests', u'rated_post_comment_rates', u'rated_post_comment_rate_item_rates', u'rated_post_rates', u'rated_post_enclose_field_array']
+    result = get_tables_structure(schema,'rated_posts',{},{},1, '').keys()
+    model = [u'rated_posts', u'rated_post_tests', u'rated_post_comments', u'rated_post_comment_tests', u'rated_post_comment_rates', u'rated_post_comment_rate_item_rates', u'rated_post_rates', u'rated_post_enclosed_field_array']
     assert sorted(model) == sorted(result)
 
     print(TEST_INFO, 'get_tables_list', 'PASSED')
@@ -163,13 +160,6 @@ def test_get_conditions_list():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.3.phones.4'
     id = '0123456789abcdef'
-    # old model wit indexes starting from 0
-    # model = {
-    #     'target': {'persons_relatives_idx': '2', 'persons_relatives_contacts_idx': '3',
-    #                'persons_id_oid': '0123456789abcdef', 'idx': '4'},
-    #     'child': {'persons_relatives_idx': '2', 'persons_relatives_contacts_idx': '3',
-    #               'persons_id_oid': '0123456789abcdef', 'persons_relatives_contacts_phones_idx': '4'}
-    # }
     model = {
         'target': {'persons_relatives_idx': '3', 'persons_relatives_contacts_idx': '4',
                    'persons_id_oid': '0123456789abcdef', 'idx': '5'},
@@ -182,12 +172,6 @@ def test_get_conditions_list():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.3.phones'
     id = '0123456789abcdef'
-    # model = {
-    #     'target': {'persons_relatives_idx': '2', 'persons_relatives_contacts_idx': '3',
-    #                'persons_id_oid': '0123456789abcdef'},
-    #     'child': {'persons_relatives_idx': '2', 'persons_relatives_contacts_idx': '3',
-    #               'persons_id_oid': '0123456789abcdef'}
-    # }
     model = {
         'target': {'persons_relatives_idx': '3', 'persons_relatives_contacts_idx': '4',
                    'persons_id_oid': '0123456789abcdef'},
@@ -200,11 +184,6 @@ def test_get_conditions_list():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789abcdef'
-    # model = {
-    #     'target': {'persons_relatives_idx': '2', 'persons_id_oid': '0123456789abcdef', 'idx': '5'},
-    #     'child': {'persons_relatives_idx': '2', 'persons_id_oid': '0123456789abcdef',
-    #               'persons_relatives_contacts_idx': '5'}
-    # }
     model = {
         'target': {'persons_relatives_idx': '3', 'persons_id_oid': '0123456789abcdef', 'idx': '6'},
         'child': {'persons_relatives_idx': '3', 'persons_id_oid': '0123456789abcdef',
@@ -324,39 +303,10 @@ def test_gen_statements():
     }
     assert model == result
 
-    #SQL_prepare = 'INSERT INTO '
-    #TODO place insert preset rows HERE
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789ABCDEF'
     result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
-    # model = {
-    #     'upd': {
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=6 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '7', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=8 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '9', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=5 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '6', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '8', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=5 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '6', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=8 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '9', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=7 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '8', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=9 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '10', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=6 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '7', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=9 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '10', '2']},
-    #     'del': {
-    #         'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contacts WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '5', '0123456789ABCDEF', '2'],
-    #         'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contact_phones WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '5', '2']}}
     model = {
         'upd': {
             'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));':
@@ -390,33 +340,6 @@ def test_gen_statements():
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789ABCDEF'
     result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
-    # model = {
-    #     'upd': {
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=6 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '7', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=8 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '9', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=5 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '6', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '8', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=5 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '6', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=8 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '9', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=7 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '8', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=9 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '10', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET idx=6 WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '7', '0123456789ABCDEF', '2'],
-    #         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=9 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '10', '2']},
-    #     'del': {
-    #         'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contacts WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '5', '0123456789ABCDEF', '2'],
-    #         'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contact_phones WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #             '0123456789ABCDEF', '5', '2']}}
     model = {
         'upd': {
             'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
@@ -450,70 +373,6 @@ def test_gen_statements():
     path = 'persons.relatives.2'
     id = '0123456789ABCDEF'
     result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
-    # model = {'upd': {
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=6 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '7'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=5 WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['6', '0123456789ABCDEF'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_idx=2 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '3'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_idx=3 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '4'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET persons_relatives_idx=8 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '9'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=4 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '5'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '8'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_idx=6 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '7'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_idx=9 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '10'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=2 WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['3', '0123456789ABCDEF'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '8'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=8 WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['9', '0123456789ABCDEF'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET persons_relatives_idx=3 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '4'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET persons_relatives_idx=5 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '6'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET persons_relatives_idx=4 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '5'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=4 WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['5', '0123456789ABCDEF'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=9 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '10'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=3 WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['4', '0123456789ABCDEF'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_idx=4 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '5'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET persons_relatives_idx=2 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '3'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET persons_relatives_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '8'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET persons_relatives_idx=9 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '10'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=8 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '9'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=9 WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['10', '0123456789ABCDEF'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=7 WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['8', '0123456789ABCDEF'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=6 WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['7', '0123456789ABCDEF'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_idx=5 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '6'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=5 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '6'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_idx=8 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '9'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=2 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '3'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=3 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '4'],
-    #     'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contacts SET persons_relatives_idx=6 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '7']}, 'del': {
-    #     'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contact_phones WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '2'],
-    #     'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_jobs WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '2'],
-    #     'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relatives WHERE (idx=(%s)) and (persons_id_oid=(%s));': ['2', '0123456789ABCDEF'],
-    #     'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contacts WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '2']}}
     model = {'upd': {
         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));':            ['0123456789ABCDEF', '8'],
         'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=6 WHERE (idx=(%s)) and (persons_id_oid=(%s));':                                                    ['7', '0123456789ABCDEF'],
@@ -558,9 +417,6 @@ def test_gen_statements():
     path = 'persons.relatives.2.contacts.5.phones'
     id = '0123456789ABCDEF'
     result = gen_statements(dbreq, schema, path, id, '', '')
-    # model = {'upd': {}, 'del': {
-    #     'DELETE FROM person_relative_contact_phones WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
-    #         '0123456789ABCDEF', '5', '2']}}
     model = {'upd': {}, 'del': {
         'DELETE FROM person_relative_contact_phones WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
             '0123456789ABCDEF', '6', '3']}}
@@ -572,7 +428,6 @@ def test_gen_statements():
     model=  {'upd': {}, 'del': {}}
     result = gen_statements(dbreq, schema, path, id, '', '')
     assert model == result
-
 
     database_clear(dbreq)
 

@@ -1,5 +1,11 @@
 #!/usb/bin/env python
 """Tests."""
+
+__author__ = 'Volodymyr Varchuk'
+__email__ = "vladimir.varchuk@rackspace.com"
+
+
+
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.opupdate import *
 from update_test_data import *
@@ -18,8 +24,6 @@ def database_prepare():
     connector = psycopg2.connect(connstr)
     return connector
 
-def database_clear( connector ):
-    return 0
 
 def test_get_obj_id():
     oplog_data = loads(oplog_u_01)
@@ -61,7 +65,6 @@ def test_update():
 
     print('Test #1')
     oplog_data = loads(test_data_05)
-    # fixed indexes 1, 2 --> 2, 3
     model = [{'do $$    begin    UPDATE rated_post_comment_rates SET user_info_name=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_rates (idx, rated_posts_comments_idx, rated_posts_id_oid, user_info_name) VALUES( %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'Vasya', '3', '2', '56b8da59f9fcee1b00000014', '3', '2', '56b8da59f9fcee1b00000014', u'Vasya')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
@@ -74,15 +77,12 @@ def test_update():
 
     print('Test #3')
     oplog_data = loads(oplog_u_01)
-    # fixed indexes 5 --> 6
-    #TODO fix insert indexes 5 --> 6
     model = [{'do $$    begin    UPDATE post_comments SET body=(%s), created_at=(%s), id_bsontype=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO post_comments (idx, posts_id_oid, body, created_at, id_bsontype, id_oid, updated_at) VALUES( %s,  %s,  %s,  %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$':
                   [(u'comment6', d("2016-02-08T19:42:33.589Z", tz_info), 7, '56b8efa9f9fcee1b0000000f', d("2016-02-08T19:42:33.589Z", tz_info), '56b8da51f9fcee1b00000006', u'6', '6', '56b8da51f9fcee1b00000006', u'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info))]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #4')
-    # fixed indexes 5 --> 6
     model = [{'do $$    begin    UPDATE test_db.test_schema.post_comments SET body=(%s), created_at=(%s), id_bsontype=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO test_db.test_schema.post_comments (idx, posts_id_oid, body, created_at, id_bsontype, id_oid, updated_at) VALUES( %s,  %s,  %s,  %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info), '56b8da51f9fcee1b00000006', u'6', '6', '56b8da51f9fcee1b00000006', u'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info))]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, 'test_db', 'test_schema')
     assert sqls_to_dict(result) == sqls_to_dict(model)
@@ -101,7 +101,6 @@ def test_update():
 
 
     print('Test #6')
-    # fixed indexes
     oplog_data = loads(oplog_u_03)
     model = [
         {'DELETE FROM post_comments WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
@@ -112,7 +111,6 @@ def test_update():
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #7')
-    # fixed indexes
     oplog_data = loads(oplog_u_03)
     model = [
         {'DELETE FROM database.schema.post_comments WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
@@ -123,14 +121,12 @@ def test_update():
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #8')
-    # fixed indexes 1 --> 2
     oplog_data = loads(oplog_u_04)
     model = [{'do $$    begin    UPDATE post_comments SET body=(%s), created_at=(%s), id_bsontype=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO post_comments (idx, posts_id_oid, body, created_at, id_bsontype, id_oid, updated_at) VALUES( %s,  %s,  %s,  %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'commments2222', d('2016-02-08T19:58:06.008Z', tz_info), 7, '56b8f34ef9fcee1b00000019', d('2016-02-08T19:58:06.008Z', tz_info), '56b8da59f9fcee1b00000007', u'2', '2', '56b8da59f9fcee1b00000007', u'commments2222', d('2016-02-08T19:58:06.008Z', tz_info), 7, '56b8f34ef9fcee1b00000019', d('2016-02-08T19:58:06.008Z', tz_info)) ]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #9')
-    # fixed indexes 2 --> 3
     oplog_data = loads(oplog_u_05)
     model = [{'do $$    begin    UPDATE post_comments SET created_at=(%s), id_bsontype=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO post_comments (idx, posts_id_oid, created_at, id_bsontype, id_oid, updated_at) VALUES( %s,  %s,  %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$':
                   [(d('2016-02-08T19:58:22.847Z', tz_info), 7, '56b8f35ef9fcee1b0000001a', d('2016-02-08T19:58:22.847Z', tz_info), '56b8da59f9fcee1b00000007', u'3', '3', '56b8da59f9fcee1b00000007', d('2016-02-08T19:58:22.847Z', tz_info), 7, '56b8f35ef9fcee1b0000001a', d('2016-02-08T19:58:22.847Z', tz_info))]}]
