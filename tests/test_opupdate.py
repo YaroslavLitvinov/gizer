@@ -65,7 +65,7 @@ def test_update():
 
     print('Test #1')
     oplog_data = loads(test_data_05)
-    model = [{'do $$    begin    UPDATE rated_post_comment_rates SET user_info_name=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_rates (idx, rated_posts_comments_idx, rated_posts_id_oid, user_info_name) VALUES( %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'Vasya', '3', '2', '56b8da59f9fcee1b00000014', '3', '2', '56b8da59f9fcee1b00000014', u'Vasya')]}]
+    model = [{'do $$    begin    UPDATE "rated_post_comment_rates" SET "user_info_name"=(%s) WHERE "idx"=(%s) and "rated_posts_comments_idx"=(%s) and "rated_posts_id_oid"=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_comment_rates" ("idx", "rated_posts_comments_idx", "rated_posts_id_oid", "user_info_name") VALUES( %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'Vasya', '3', '2', '56b8da59f9fcee1b00000014', '3', '2', '56b8da59f9fcee1b00000014', u'Vasya')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
@@ -77,7 +77,7 @@ def test_update():
 
     print('Test #3')
     oplog_data = loads(oplog_u_01)
-    model = [{'do $$    begin    UPDATE post_comments SET body=(%s), created_at=(%s), id_bsontype=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO post_comments (idx, posts_id_oid, body, created_at, id_bsontype, id_oid, updated_at) VALUES( %s,  %s,  %s,  %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$':
+    model = [{'do $$    begin    UPDATE "post_comments" SET "body"=(%s), "created_at"=(%s), "id_bsontype"=(%s), "id_oid"=(%s), "updated_at"=(%s) WHERE "posts_id_oid"=(%s) and "idx"=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "post_comments" ("idx", "posts_id_oid", "body, created_at", "id_bsontype", "id_oid", "updated_at") VALUES( %s,  %s,  %s,  %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$':
                   [(u'comment6', d("2016-02-08T19:42:33.589Z", tz_info), 7, '56b8efa9f9fcee1b0000000f', d("2016-02-08T19:42:33.589Z", tz_info), '56b8da51f9fcee1b00000006', u'6', '6', '56b8da51f9fcee1b00000006', u'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info))]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert sqls_to_dict(result) == sqls_to_dict(model)
@@ -136,24 +136,24 @@ def test_update():
     print('Test #10')
     oplog_data = loads(oplog_u_06)
     model = [
-        {'DELETE FROM post_comments WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
-        {'DELETE FROM post_comment_tests WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
+        {'DELETE FROM "post_comments" WHERE ("posts_id_oid"=(%s));': [('56b8da59f9fcee1b00000007',)]},
+        {'DELETE FROM "post_comment_tests" WHERE ("posts_id_oid"=(%s));': [('56b8da59f9fcee1b00000007',)]},
         {u'INSERT INTO "post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
             [(None, d("2016-02-08T19:57:56.678Z", tz_info), 7, '56b8f344f9fcee1b00000018', '56b8da59f9fcee1b00000007', d("2016-02-08T19:57:56.678Z", tz_info), 1,),
              (None, d("2016-02-08T19:58:22.847Z", tz_info), 7, '56b8f35ef9fcee1b0000001a', '56b8da59f9fcee1b00000007', d("2016-02-08T19:58:22.847Z", tz_info), 2,)
             ]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #11')
     oplog_data = loads(oplog_u_07)
     model = [
-        {'DELETE FROM post_comments WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
-        {'DELETE FROM post_comment_tests WHERE (posts_id_oid=(%s));': [('56b8da59f9fcee1b00000007',)]},
+        {'DELETE FROM "post_comments" WHERE ("posts_id_oid"=(%s));': [('56b8da59f9fcee1b00000007',)]},
+        {'DELETE FROM "post_comment_tests" WHERE ("posts_id_oid"=(%s));': [('56b8da59f9fcee1b00000007',)]},
         {u'INSERT INTO "post_comments" ("body", "created_at", "id_bsontype", "id_oid", "posts_id_oid", "updated_at", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s);':
              [(None, d('2016-02-08T19:57:56.678Z', tz_info), 7, '56b8f344f9fcee1b00000018', '56b8da59f9fcee1b00000007', d('2016-02-08T19:57:56.678Z', tz_info), 1)]}]
     result = update(dbreq, schema_engine[oplog_data['ns'].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #12')
     oplog_data = loads(oplog_u_08)
@@ -193,13 +193,13 @@ def test_update():
 
     print('Test #15')
     oplog_data = loads(test_data_06)
-    model = [{'UPDATE rated_post_comments SET id_bsontype=(%s), id_oid=(%s) WHERE idx=(%s) and rated_posts_id_oid=(%s);': [(None, None, '3', '56b8da59f9fcee1b00000014')]}]
+    model = [{'UPDATE "rated_post_comments" SET "id_bsontype"=(%s), "id_oid"=(%s) WHERE "idx"=(%s) and "rated_posts_id_oid"=(%s);': [(None, None, '3', '56b8da59f9fcee1b00000014')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
     print('Test #16')
     oplog_data = loads(test_data_07)
-    model = [{'UPDATE rated_post_comment_rates SET user_info_last_name=(%s), user_info_name=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);': [(None, None, '9', '3', '56b8da59f9fcee1b00000015')]}]
+    model = [{'UPDATE "rated_post_comment_rates" SET "user_info_last_name"=(%s), "user_info_name"=(%s) WHERE "idx"=(%s) and "rated_posts_comments_idx"=(%s) and "rated_posts_id_oid"=(%s);': [(None, None, '9', '3', '56b8da59f9fcee1b00000015')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
@@ -210,14 +210,14 @@ def test_update():
         {'UPDATE rated_posts SET enclosed_field1=(%s), enclosed_field2=(%s), enclosed_field3=(%s), enclosed_id_bsontype=(%s), enclosed_id_oid=(%s) WHERE id_oid=(%s);': [(None, None, None, None, None, '56b8da59f9fcee1b00000015')]}
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
 
 
     print('Test #17')
     oplog_data = loads(test_data_08)
     model = [{'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', '10', '56b8da59f9fcee1b00000015')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #18')
     oplog_data = loads(test_data_09)
@@ -233,29 +233,29 @@ def test_update():
 
     print('Test #19')
     oplog_data = loads(test_data_10)
-    model = [{'DELETE FROM rated_post_comment_tests WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', '56b8da59f9fcee1b00000015')]}]
+    model = [{'DELETE FROM "rated_post_comment_tests" WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', '56b8da59f9fcee1b00000015')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
     print('Test #20')
     oplog_data = loads(test_data_11)
-    model = [{'UPDATE rated_posts SET id_bsontype=(%s), id_oid=(%s) WHERE id_oid=(%s);': [(None, None, '56b8da59f9fcee1b00000015')]}]
+    model = [{'UPDATE "rated_posts" SET "id_bsontype"=(%s), "id_oid"=(%s) WHERE "id_oid"=(%s);': [(None, None, '56b8da59f9fcee1b00000015')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
 
     print('Test #20.A')
     oplog_data = loads(test_data_12)
-    model = [{'DELETE FROM rated_post_tests WHERE (rated_posts_id_oid=(%s));': [('111111111111111111111111',)]}]
+    model = [{'DELETE FROM "rated_post_tests" WHERE (rated_posts_id_oid=(%s));': [('111111111111111111111111',)]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
 
     print('Test #21')
     oplog_data = loads(test_data_13)
     model = [
-        {'DELETE FROM rated_post_rates WHERE (rated_posts_id_oid=(%s));' : [('56b8da59f9fcee1b00000014', )]},
+        {'DELETE FROM "rated_post_rates" WHERE (rated_posts_id_oid=(%s));' : [('56b8da59f9fcee1b00000014', )]},
         {u'INSERT INTO "rated_post_rates" ("a_filed_with_id_bsontype", "a_filed_with_id_oid", "another_filed_with_id2_onemore_enclosed_level_bsontype", "another_filed_with_id2_onemore_enclosed_level_oid", "another_filed_with_id2_some_strange_field", "created_at", "id_bsontype", "id_oid", "rate", "rated_posts_id_oid", "updated_at", "user_id", "idx") VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);': [(None, None, None, None, None, None, 7, u'aaaaaaaaaaaaassssssssssasdas', 555, '56b8da59f9fcee1b00000014', None, u'444444rrwerr34r', 1), (None, None, None, None, None, None, 7, u'aaaaaaaaaaaaasasdsadasdasdasd', 7777, '56b8da59f9fcee1b00000014', None, u'987987978979', 2)]},
-        {'UPDATE rated_posts SET body=(%s), title=(%s) WHERE id_oid=(%s);' : [(u'Glory For Heroes', u'Glory For Ukraine', '56b8da59f9fcee1b00000014')]}
+        {'UPDATE "rated_posts" SET "body"=(%s), "title"=(%s) WHERE "id_oid"=(%s);' : [(u'Glory For Heroes', u'Glory For Ukraine', '56b8da59f9fcee1b00000014')]}
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
     assert result == model
@@ -263,9 +263,9 @@ def test_update():
     print('Test #22')
     oplog_data = loads(test_data_14)
     model = [
-        {'DELETE FROM rated_post_tests WHERE (rated_posts_id_oid=(%s));': [('56b8da59f9fcee1b00000013',)]},
+        {'DELETE FROM "rated_post_tests" WHERE (rated_posts_id_oid=(%s));': [('56b8da59f9fcee1b00000013',)]},
         {u'INSERT INTO "rated_post_tests" ("rated_posts_id_oid", "tests", "idx") VALUES(%s, %s, %s);': [('56b8da59f9fcee1b00000013', 123, 1), ('56b8da59f9fcee1b00000013', 4, 2), ('56b8da59f9fcee1b00000013', 8, 3)]},
-        {'DELETE FROM rated_post_enclosed_field_array WHERE (rated_posts_id_oid=(%s));': [('56b8da59f9fcee1b00000013',)]},
+        {'DELETE FROM "rated_post_enclosed_field_array" WHERE (rated_posts_id_oid=(%s));': [('56b8da59f9fcee1b00000013',)]},
         {u'INSERT INTO "rated_post_enclosed_field_array" ("field_array", "rated_posts_id_oid", "idx") VALUES(%s, %s, %s);': [(u'234', '56b8da59f9fcee1b00000013', 1), (u'ertret', '56b8da59f9fcee1b00000013', 2)]},
         {'UPDATE rated_posts SET body=(%s), number=(%s) WHERE id_oid=(%s);': [(u'SOME text', 33, '56b8da59f9fcee1b00000013')]},
         {'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));': [('2', '3', '56b8da59f9fcee1b00000013')]},
@@ -274,7 +274,7 @@ def test_update():
         {'do $$    begin    UPDATE rated_post_comment_rates SET user_id=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_rates (idx, rated_posts_comments_idx, rated_posts_id_oid, user_id) VALUES(%s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(u'B', '2', '2', '56b8da59f9fcee1b00000013', '2', '2', '56b8da59f9fcee1b00000013', u'B')]}
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
 
     print('Test #23')
     oplog_data = loads(test_data_15)
@@ -325,7 +325,7 @@ def test_update():
         {'UPDATE rated_post_comment_rates SET user_info_last_name=(%s), user_info_name=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);': [(None, None, '9', '3', '56b8da59f9fcee1b00000015')]}
     ]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
-    assert result == model
+    assert sqls_to_dict(result) == sqls_to_dict(model)
 
 
     print(TEST_INFO, 'update', 'PASSED')
