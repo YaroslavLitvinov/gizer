@@ -247,9 +247,9 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                                                                                                column_dest_name,
                                                                                                set_column_branch.data)
                 condition_str = ' and '.join(
-                    ['{column}=(%s)'.format(column=col) for col in sorted(branch.conditions_list['target'])])
+                    ['"{column}"=(%s)'.format(column=col) for col in sorted(branch.conditions_list['target'])])
                 statements_to_set_str = ', '.join(
-                    ['{column}=(%s)'.format(column=column_dest_name) for column_dest_name in
+                    ['"{column}"=(%s)'.format(column=column_dest_name) for column_dest_name in
                      sorted(dest_column_list_with_value)])
                 target_table_str = get_table_name_schema([database_name, schema_name, target_table])
                 upd_statement_template = UPDATE_TMPLT.format(table=target_table_str, statements=statements_to_set_str,
@@ -270,7 +270,7 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                                           dest_column_list_with_value[column_dest_name] for column_dest_name in
                                           sorted(dest_column_list_with_value)]
 
-                    columns_list_str = ', '.join(columns_list_ins)
+                    columns_list_str = ', '.join(['"{0}"'.format(col_name) for col_name in columns_list_ins])
                     values_list_str = ', '.join('%s' for el in columns_list_ins)
                     insert_statement_template = INSERT_TMPLT.format(table=target_table_str, columns=columns_list_str,
                                                                     values=values_list_str)
