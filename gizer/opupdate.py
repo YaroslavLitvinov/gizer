@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-"""Update callback."""
-
-import itertools
 import datetime
 
 from gizer.opinsert import *
@@ -14,9 +10,9 @@ from logging import getLogger
 
 import bson
 
-
-OplogBranch = namedtuple ('OplogBranch', ['oplog_path', 'normalized_path', 'data', 'conditions_list', 'parsed_path', "object_id_field"])
-ParsedObjPath = namedtuple ('ParsedObjPath', ['table_path', 'column'])
+OplogBranch = namedtuple('OplogBranch',
+                         ['oplog_path', 'normalized_path', 'data', 'conditions_list', 'parsed_path', "object_id_field"])
+ParsedObjPath = namedtuple('ParsedObjPath', ['table_path', 'column'])
 
 
 def locate_in_schema(schema_in, path):
@@ -42,7 +38,7 @@ def locate_in_schema(schema_in, path):
                 return locate_in_schema(next_element, new_path)
             else:
                 if new_path in next_element.keys():
-                    return  True
+                    return True
                 else:
                     return False
         else:
@@ -62,7 +58,7 @@ def get_part_schema(schema_in, path):
             if not el.isdigit():
                 w_path.append(el)
         # current_path = path[0]
-        current_path = w_path [0]
+        current_path = w_path[0]
     else:
         current_path = path
 
@@ -79,7 +75,7 @@ def get_part_schema(schema_in, path):
                 else:
                     return get_part_schema(schema[current_path], w_path[1:])
             else:
-                    return schema[current_path]
+                return schema[current_path]
         else:
             return schema[current_path]
 
@@ -90,9 +86,9 @@ def get_elements_list(schema, path, paths):
         if type(schema[el]) is dict:
             get_elements_list(schema[el], path + [el], paths)
         elif type(schema[el]) is list:
-            paths.append({gen_p:[]})
+            paths.append({gen_p: []})
         else:
-            paths.append({gen_p:None})
+            paths.append({gen_p: None})
     return paths
 
 
@@ -100,7 +96,7 @@ def normalize_unset_oplog_recursive(schema, oplog_data, parent_path, branch_list
     if type(oplog_data) is dict:
         for element in oplog_data:
             element_path = '.'.join(parent_path + element.split('.')).split('.')
-            parsed_path = parse_column_path( '.'.join([root_collection] + element_path))
+            parsed_path = parse_column_path('.'.join([root_collection] + element_path))
             element_conditios_list = get_conditions_list(schema, parsed_path.table_path, root_id.itervalues().next())
             if not locate_in_schema(schema, element_path):
                 getLogger(__name__).warning('{0} not in schema. SKIPPED!'.format(element_path))
@@ -119,54 +115,63 @@ def normalize_unset_oplog_recursive(schema, oplog_data, parent_path, branch_list
                 # full_paths = []
                 for el in elements_list:
                     # full_paths.append({element + '.' + el.iterkeys().next() :el.itervalues().next() })
-                    parsed_path = parse_column_path( '.'.join([root_collection, element, el.iterkeys().next()] ))
+                    parsed_path = parse_column_path('.'.join([root_collection, element, el.iterkeys().next()]))
                     # branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), oplog_data[element], element_conditios_list, parsed_path))
-                    branch_list.append( OplogBranch('', element + '.' + el.iterkeys().next(), el.itervalues().next(), element_conditios_list, parsed_path, None))
-                # print('paths', full_paths)
+                    branch_list.append(OplogBranch('', element + '.' + el.iterkeys().next(), el.itervalues().next(),
+                                                   element_conditios_list, parsed_path, None))
+                    # print('paths', full_paths)
             elif type(elements_to_set_null) is list:
-                parsed_path = parse_column_path( '.'.join([root_collection] + parent_path+[element]))
-                branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), [], element_conditios_list, parsed_path, None))
+                parsed_path = parse_column_path('.'.join([root_collection] + parent_path + [element]))
+                branch_list.append(
+                    OplogBranch('', '.'.join(parent_path + [element]), [], element_conditios_list, parsed_path, None))
             else:
-                parsed_path = parse_column_path( '.'.join([root_collection] + parent_path+[element]))
-                branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), None, element_conditios_list, parsed_path, None))
+                parsed_path = parse_column_path('.'.join([root_collection] + parent_path + [element]))
+                branch_list.append(
+                    OplogBranch('', '.'.join(parent_path + [element]), None, element_conditios_list, parsed_path, None))
 
-            # branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.oid']), str(oplog_data[element]), element_conditios_list, parsed_path_oid))
-            # if type(get_part_schema(schema, element_path)) is list:
-            #     if oplog_data[element] == None:
-            #        oplog_data[element] = []
+                # branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.oid']), str(oplog_data[element]), element_conditios_list, parsed_path_oid))
+                # if type(get_part_schema(schema, element_path)) is list:
+                #     if oplog_data[element] == None:
+                #        oplog_data[element] = []
     return branch_list
-
 
 
 def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list, root_id, root_collection):
     if type(oplog_data) is dict:
         for element in oplog_data:
             element_path = '.'.join(parent_path + element.split('.')).split('.')
-            parsed_path = parse_column_path( '.'.join([root_collection] + element_path))
+            parsed_path = parse_column_path('.'.join([root_collection] + element_path))
             element_conditios_list = get_conditions_list(schema, parsed_path.table_path, root_id.itervalues().next())
             if not locate_in_schema(schema, element_path):
                 getLogger(__name__).warning('{0} not in schema. SKIPPED!'.format(element_path))
                 continue
             if type(get_part_schema(schema, element_path)) is list:
                 if oplog_data[element] == None:
-                   oplog_data[element] = []
+                    oplog_data[element] = []
             if type(oplog_data[element]) is dict:
-                branch_list = normalize_oplog_recursive(schema, oplog_data[element], parent_path[:] + [element], branch_list, root_id, root_collection)
+                branch_list = normalize_oplog_recursive(schema, oplog_data[element], parent_path[:] + [element],
+                                                        branch_list, root_id, root_collection)
             else:
                 if type(oplog_data[element]) is bson.objectid.ObjectId:
                     # convert bson.objectid.ObjectId to two fileds _id.oid and _id.bsontype
-                    parsed_path_oid = parse_column_path( '.'.join([root_collection] + element_path + ['oid']))
-                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.oid']), str(oplog_data[element]), element_conditios_list, parsed_path_oid, oplog_data[element]))
-                    parsed_path_bsontype = parse_column_path( '.'.join([root_collection] + element_path + ['bsontype']))
-                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element+'.bsontype']),  7, element_conditios_list, parsed_path_bsontype, None))
+                    parsed_path_oid = parse_column_path('.'.join([root_collection] + element_path + ['oid']))
+                    branch_list.append(
+                        OplogBranch('', '.'.join(parent_path + [element + '.oid']), str(oplog_data[element]),
+                                    element_conditios_list, parsed_path_oid, oplog_data[element]))
+                    parsed_path_bsontype = parse_column_path('.'.join([root_collection] + element_path + ['bsontype']))
+                    branch_list.append(
+                        OplogBranch('', '.'.join(parent_path + [element + '.bsontype']), 7, element_conditios_list,
+                                    parsed_path_bsontype, None))
                 else:
-                    branch_list.append( OplogBranch('', '.'.join(parent_path+[element]), oplog_data[element], element_conditios_list, parsed_path, None))
+                    branch_list.append(
+                        OplogBranch('', '.'.join(parent_path + [element]), oplog_data[element], element_conditios_list,
+                                    parsed_path, None))
     else:
         print('SINGLE element')
         if locate_in_schema(schema, oplog_data):
-            parsed_path = parse_column_path( '.'.join([root_collection] + parent_path))
+            parsed_path = parse_column_path('.'.join([root_collection] + parent_path))
             element_conditios_list = get_conditions_list(schema, parsed_path.table_path, root_id.itervalues().next())
-            branch_list.append( OplogBranch( '.'.join(parent_path), '', oplog_data, element_conditios_list, None))
+            branch_list.append(OplogBranch('.'.join(parent_path), '', oplog_data, element_conditios_list, None))
     return branch_list
 
 
@@ -187,37 +192,43 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
     if '$set' in oplog_data['o'].keys():
         operation_type = 1
         oplog_data_set = oplog_data['o']['$set']
-        normalized_branch_list = normalize_oplog_recursive(schema,oplog_data_set,[],[],get_obj_id(oplog_data),root_table_name)
+        normalized_branch_list = normalize_oplog_recursive(schema, oplog_data_set, [], [], get_obj_id(oplog_data),
+                                                           root_table_name)
     else:
         operation_type = 2
         oplog_data_set = oplog_data['o']['$unset']
-        normalized_branch_list = normalize_unset_oplog_recursive(schema,oplog_data_set,[],[],oplog_data_object_id,root_table_name)
+        normalized_branch_list = normalize_unset_oplog_recursive(schema, oplog_data_set, [], [], oplog_data_object_id,
+                                                                 root_table_name)
 
     # grouping branches by target table
     grouped_branch_list = {}
     for branch in normalized_branch_list:
         if branch.parsed_path.table_path in grouped_branch_list.keys():
-            grouped_branch_list [branch.parsed_path.table_path].append(branch)
+            grouped_branch_list[branch.parsed_path.table_path].append(branch)
         else:
-            grouped_branch_list [branch.parsed_path.table_path] = [branch]
+            grouped_branch_list[branch.parsed_path.table_path] = [branch]
     # parse and join branches to single SQL statement to all updations to each single table and each single record
     # one branch set to one record
     for g_branch in grouped_branch_list:
-        g_branches =  grouped_branch_list[g_branch]
+        g_branches = grouped_branch_list[g_branch]
         for branch in g_branches:
             if type(branch.data) is list:
                 # added check datatype in schema.
                 if type(get_part_schema(schema, branch.normalized_path.split('.'))) is list:
-                    ret_val.extend(update_list(dbreq,schema_e, '.'.join([root_table_name] + [branch.normalized_path]) , {branch.normalized_path:branch.data}, oplog_data_object_id,database_name,schema_name))
+                    ret_val.extend(update_list(dbreq, schema_e, '.'.join([root_table_name] + [branch.normalized_path]),
+                                               {branch.normalized_path: branch.data}, oplog_data_object_id,
+                                               database_name, schema_name))
                 else:
-                    getLogger(__name__).warning('{0} specified as {1} in schema, but presented as list in data. SKIPPED!'.format(branch.normalized_path, get_part_schema(schema, branch.normalized_path.split('.'))))
+                    getLogger(__name__).warning(
+                        '{0} specified as {1} in schema, but presented as list in data. SKIPPED!'.format(
+                            branch.normalized_path, get_part_schema(schema, branch.normalized_path.split('.'))))
         for branch in g_branches:
             if not type(branch.data) is list:
                 target_table = get_table_name_from_list(branch.parsed_path.table_path.split('.'))
                 # columns from root_object
                 dest_column_list_with_value = {}
                 for set_column_branch in g_branches:
-                    if  not type(set_column_branch.data) is list:
+                    if not type(set_column_branch.data) is list:
                         # generating column name. Also in case of enclosed objects
                         col_list = []
                         if set_column_branch.parsed_path.column == '':
@@ -231,35 +242,54 @@ def update(dbreq, schema_e, oplog_data, database_name, schema_name):
                             col_list.append(get_field_name_without_underscore(col_part))
                         column_dest_name = '_'.join(col_list)
                         # make dictionary column_name:value with type checking
-                        dest_column_list_with_value[column_dest_name] = get_correct_type_value(tables_mappings,target_table,column_dest_name, set_column_branch.data)
-                condition_str = ' and '.join(['{column}=(%s)'.format(column=col) for col in sorted(branch.conditions_list['target'])])
-                statements_to_set_str = ', '.join(['{column}=(%s)'.format(column = column_dest_name) for column_dest_name in sorted(dest_column_list_with_value)])
+                        dest_column_list_with_value[column_dest_name] = get_correct_type_value(tables_mappings,
+                                                                                               target_table,
+                                                                                               column_dest_name,
+                                                                                               set_column_branch.data)
+                condition_str = ' and '.join(
+                    ['"{column}"=(%s)'.format(column=col) for col in sorted(branch.conditions_list['target'])])
+                statements_to_set_str = ', '.join(
+                    ['"{column}"=(%s)'.format(column=column_dest_name) for column_dest_name in
+                     sorted(dest_column_list_with_value)])
                 target_table_str = get_table_name_schema([database_name, schema_name, target_table])
-                upd_statement_template = UPDATE_TMPLT.format( table=target_table_str, statements=statements_to_set_str, conditions=condition_str)
-                upd_values = [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)] + [branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])]
+                upd_statement_template = UPDATE_TMPLT.format(table=target_table_str, statements=statements_to_set_str,
+                                                             conditions=condition_str)
+                upd_values = [dest_column_list_with_value[column_dest_name] for column_dest_name in
+                              sorted(dest_column_list_with_value)] + [branch.conditions_list['target'][col] for col in
+                                                                      sorted(branch.conditions_list['target'])]
                 # here is a question. is it possible to to make upset operation in mongo to unexisting enclosed record
                 if target_table != root_table_name and (operation_type != 2):
                     #  As we don`t know if updatetd object is already exist we are generating INSERT statements for
                     # enclosed objects in array and concatenate their with UPDATE statement to "UPSERT" operation for postgres
-                    columns_list_ins = [col for col in sorted(branch.conditions_list['target'])] + [column_dest_name for column_dest_name in sorted(dest_column_list_with_value)]
-                    values_list_ins = [ branch.conditions_list['target'][col] for col in sorted(branch.conditions_list['target'])] + [dest_column_list_with_value[column_dest_name] for column_dest_name in sorted(dest_column_list_with_value)]
+                    columns_list_ins = [col for col in sorted(branch.conditions_list['target'])] + [column_dest_name for
+                                                                                                    column_dest_name in
+                                                                                                    sorted(
+                                                                                                        dest_column_list_with_value)]
+                    values_list_ins = [branch.conditions_list['target'][col] for col in
+                                       sorted(branch.conditions_list['target'])] + [
+                                          dest_column_list_with_value[column_dest_name] for column_dest_name in
+                                          sorted(dest_column_list_with_value)]
 
-                    columns_list_str = ', '.join(columns_list_ins)
+                    columns_list_str = ', '.join(['"{0}"'.format(col_name) for col_name in columns_list_ins])
                     values_list_str = ', '.join('%s' for el in columns_list_ins)
-                    insert_statement_template = INSERT_TMPLT.format(table = target_table_str, columns=columns_list_str, values=values_list_str)
-                    upsert_statement_template = UPSERT_TMLPT.format(update=upd_statement_template, insert=insert_statement_template)
+                    insert_statement_template = INSERT_TMPLT.format(table=target_table_str, columns=columns_list_str,
+                                                                    values=values_list_str)
+                    upsert_statement_template = UPSERT_TMLPT.format(update=upd_statement_template,
+                                                                    insert=insert_statement_template)
                     ins_values = values_list_ins
                     upsert_values = upd_values + ins_values
-                    ret_val.append({upsert_statement_template:[tuple(upsert_values)]})
+                    ret_val.append({upsert_statement_template: [tuple(upsert_values)]})
                 else:
-                    ret_val.append({upd_statement_template:[tuple(upd_values)]})
+                    ret_val.append({upd_statement_template: [tuple(upd_values)]})
                 break
             else:
                 continue
     return ret_val
 
+
 def insert_wrapper(schema_e, oploda_data_set, oplog_data_object_id, schema_name):
-    get_tables_data_from_oplog_set = get_tables_data_from_oplog_set_command(schema_e, oploda_data_set,  oplog_data_object_id)
+    get_tables_data_from_oplog_set = get_tables_data_from_oplog_set_command(schema_e, oploda_data_set,
+                                                                            oplog_data_object_id)
     ins_stmnt = {}
     for set_el in get_tables_data_from_oplog_set:
         for name, table in set_el.tables.iteritems():
@@ -280,13 +310,13 @@ def parse_column_path(path):
         if elemnt.isdigit():
             last_digit_index = i
     if not last_digit_index == 0:
-        parsed_path = ParsedObjPath( '.'.join(w_path[:last_digit_index + 1]), '.'.join(w_path[last_digit_index + 1:]) )
+        parsed_path = ParsedObjPath('.'.join(w_path[:last_digit_index + 1]), '.'.join(w_path[last_digit_index + 1:]))
     else:
-        parsed_path = ParsedObjPath( '.'.join(w_path[:1]), '.'.join(w_path[1:]))
+        parsed_path = ParsedObjPath('.'.join(w_path[:1]), '.'.join(w_path[1:]))
     return parsed_path
 
 
-def update_list (dbreq, schema_e, upd_path_str, oplog_data_set, oplog_data_object_id, database_name, schema_name):
+def update_list(dbreq, schema_e, upd_path_str, oplog_data_set, oplog_data_object_id, database_name, schema_name):
     if type(schema_e) != dict:
         schema = schema_e.schema
     else:
@@ -297,11 +327,12 @@ def update_list (dbreq, schema_e, upd_path_str, oplog_data_set, oplog_data_objec
     for op in del_stmnt:
         if type(del_stmnt[op]) is dict:
             for k in del_stmnt[op]:
-                ret_val.append({k:[tuple(del_stmnt[op][k])]})
-    insert_stmnts = insert_wrapper (schema_e, oplog_data_set,oplog_data_object_id,schema_name)
+                ret_val.append({k: [tuple(del_stmnt[op][k])]})
+    insert_stmnts = insert_wrapper(schema_e, oplog_data_set, oplog_data_object_id, schema_name)
     if insert_stmnts != {}:
         ret_val.append(insert_stmnts)
-    return  ret_val
+    return ret_val
+
 
 def is_root_object(path):
     if type(path) is list:
@@ -314,8 +345,8 @@ def is_root_object(path):
             return False
     return True
 
-def get_correct_type_value(tables_mappings, table, column, value, ):
 
+def get_correct_type_value(tables_mappings, table, column, value, ):
     # def is_date(string):
     #     try:
     #         datetime.datetime.
@@ -323,19 +354,19 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
     #         return True
     #     except ValueError:
     #         return False
-        # 'STRING': 'text',
-        # 'INT': 'integer',
-        # 'BOOLEAN': 'boolean',
-        # 'LONG': 'bigint',
-        # 'TIMESTAMP': 'timestamp',
-        # 'DOUBLE': 'double',
-        # 'TINYINT': 'integer'
+    # 'STRING': 'text',
+    # 'INT': 'integer',
+    # 'BOOLEAN': 'boolean',
+    # 'LONG': 'bigint',
+    # 'TIMESTAMP': 'timestamp',
+    # 'DOUBLE': 'double',
+    # 'TINYINT': 'integer'
 
     types = {
-        'integer':int,
-        'boolean':bool,
-        'double precision':float,
-        'bigint':long,
+        'integer': int,
+        'boolean': bool,
+        'double precision': float,
+        'bigint': long,
         'timestamp': datetime.datetime
     }
     if value is None:
@@ -362,6 +393,7 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
 def get_obj_id(oplog_data):
     return get_obj_id_recursive(oplog_data["o2"], [], [])
 
+
 def get_obj_id_recursive(data, name, value_id):
     if type(data) is dict:
         next_column = data.iterkeys().next()
@@ -373,9 +405,10 @@ def get_obj_id_recursive(data, name, value_id):
         get_obj_id_recursive(data[next_column], name, value_id)
     else:
         value_id.append(data[next_column])
-    return {'_'.join(name):value_id[0]}
+    return {'_'.join(name): value_id[0]}
 
-def get_query_columns_with_nested (schema, u_data, parent_path, columns_list):
+
+def get_query_columns_with_nested(schema, u_data, parent_path, columns_list):
     for k in u_data:
         if parent_path <> '':
             column_name = parent_path + '_' + get_field_name_without_underscore(k)
@@ -387,8 +420,8 @@ def get_query_columns_with_nested (schema, u_data, parent_path, columns_list):
         #     print('update list {0}'.format(parent_path) )
         #     pass
         if type(u_data[k]) == bson.objectid.ObjectId:
-            columns_list[column_name+'_oid'] = str(u_data[k])
-            columns_list[column_name+'_bsontype'] = 7
+            columns_list[column_name + '_oid'] = str(u_data[k])
+            columns_list[column_name + '_bsontype'] = 7
         else:
             columns_list[column_name] = u_data[k]
     return columns_list
