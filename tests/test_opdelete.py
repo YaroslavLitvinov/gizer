@@ -271,14 +271,14 @@ def test_gen_statements():
     model = {
         'upd': {},
         'del': {
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'persons WHERE (id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_dates WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relatives WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_jobs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contacts WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contact_phones WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_personal_info_fl_name_SSNs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_indeces WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF']
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"persons" WHERE (id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_dates" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relatives" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relative_jobs" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relative_contacts" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relative_contact_phones" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_personal_info_fl_name_SSNs" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_indeces" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF']
         }
     }
 
@@ -291,14 +291,14 @@ def test_gen_statements():
     model = {
         'upd': {},
         'del': {
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'persons WHERE (id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_dates WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relatives WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_jobs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contacts WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contact_phones WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_personal_info_fl_name_SSNs WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_indeces WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF']
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"persons" WHERE (id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_dates" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relatives" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relative_jobs" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relative_contacts" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relative_contact_phones" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_personal_info_fl_name_SSNs" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF'],
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_indeces" WHERE (persons_id_oid=(%s));': ['0123456789ABCDEF']
         }
     }
     assert model == result
@@ -330,9 +330,9 @@ def test_gen_statements():
             'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=10 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
                 '0123456789ABCDEF', '11', '3']},
         'del': {
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contacts WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relative_contacts" WHERE (idx=(%s)) and (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));': [
                 '6', '0123456789ABCDEF', '3'],
-            'DELETE FROM '+'.'.join([db_name, schema_name])+'person_relative_contact_phones WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
+            'DELETE FROM '+'.'.join([db_name, schema_name])+'"person_relative_contact_phones" WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
                 '0123456789ABCDEF', '6', '3']}}
     assert sqls_to_dict(model) == sqls_to_dict(result)
 
@@ -418,7 +418,7 @@ def test_gen_statements():
     id = '0123456789ABCDEF'
     result = gen_statements(dbreq, schema, path, id, '', '')
     model = {'upd': {}, 'del': {
-        'DELETE FROM person_relative_contact_phones WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
+        'DELETE FROM "person_relative_contact_phones" WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
             '0123456789ABCDEF', '6', '3']}}
     assert model == result
 

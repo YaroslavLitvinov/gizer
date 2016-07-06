@@ -417,20 +417,20 @@ def sqls_to_dict(sql_dict):
                 if type(sql_dict[model_item]) == dict:
                     for sql in sql_dict[model_item]:
                         r = re.compile('UPDATE(.*?)WHERE')
-                        ext_key = str.strip(r.search(sql).group(1))
+                        ext_key = str.strip(r.search(sql).group(1)).replace('"', '')
                         parsed_dict['UPD_' + ext_key] = parse_upd(sql, sql_dict[model_item][sql])
             if model_item == 'del':
                 if type(sql_dict[model_item]) == dict:
                     for sql in sql_dict[model_item]:
                         r = re.compile('DELETE FROM(.*?)WHERE')
-                        ext_key = str.strip(r.search(sql).group(1))
+                        ext_key = str.strip(r.search(sql).group(1)).replace('"', '')
                         parsed_dict['DEL_' + ext_key] = parse_del({sql: sql_dict[model_item][sql]})
         else:
             q_item = model_item.iterkeys().next()
             q_vals = list(model_item.itervalues().next()[0])
             if q_item.startswith('DELETE FROM '):
                 r = re.compile('DELETE FROM(.*?)WHERE')
-                ext_key = str.strip(r.search(q_item).group(1))
+                ext_key = str.strip(r.search(q_item).group(1)).replace('"', '')
                 parsed_dict['DELETE_' + ext_key] = parse_del({q_item: model_item[q_item][0]})
             elif q_item.startswith('UPDATE '):
                 # for sql in sql_dict[model_item]:
@@ -468,7 +468,7 @@ def upsert_to_dict(tmplt, values):
 
 def parse_insert(sql_ins, values):
     sql = sql_ins
-    updated_table = re.search('INSERT INTO(.*?)\(', sql).group(1).strip()
+    updated_table = re.search('INSERT INTO(.*?)\(', sql).group(1).strip().replace('"', '')
     columns_strs = [ins_col.strip() for ins_col in re.search('\((.*?)\)', sql).group(1).split(',')]
     values_strs = [set_col.strip() for set_col in re.search('VALUES\((.*?)\);', sql).group(1).split(',')]
     assert len(columns_strs) == len(values_strs)
@@ -485,7 +485,7 @@ def parse_insert(sql_ins, values):
 
 def parse_upd(sql_upd, values):
     sql = sql_upd  # ql_upd.iterkeys().next()
-    updated_table = re.search('UPDATE(.*?)SET', sql).group(1).strip()
+    updated_table = re.search('UPDATE(.*?)SET', sql).group(1).strip().replace('"', '')
     set_strs = [set_col.strip() for set_col in re.search('SET(.*?)WHERE', sql).group(1).split(', ')]
     where_strs = [set_col.strip() for set_col in re.search('WHERE(.*?);', sql).group(1).split('and')]
     all_strs = set_strs + where_strs
@@ -504,14 +504,14 @@ def parse_upd(sql_upd, values):
     last_i = 0
     filled_values = 0
     for i, column in enumerate(set_strs):
-        set_value[column] = values[i]
+        set_value[column.replace('"', '')] = values[i]
         if not column.endswith('=(%s)'):
             filled_values = filled_values + 1
         last_i = i + 1
     last_i = last_i - filled_values
     where_value = {}
     for i, column in enumerate(where_strs):
-        where_value[column] = values[i + last_i]
+        where_value[column.replace('"', '')] = values[i + last_i]
     return {key: {'table': updated_table, 'set_value': set_value, 'where_dict': where_value}}
 
 
@@ -521,11 +521,11 @@ def parse_del(sql_upd):
     stmnt = sql_upd.iterkeys().next()
     values = sql_upd.itervalues().next()
     clauses = stmnt.split(' ')
-    updated_table = clauses[2]
+    updated_table = clauses[2].replace('"', '')
     where_clauses = [cl.replace(';', '') for cl in clauses[4:] if cl != 'and']
     where_dict = {}
     for i, cl in enumerate(where_clauses):
-        where_dict[cl] = values[i]
+        where_dict[cl.replace('"', '')] = values[i]
     return {'table': 'DELETE_' + updated_table, 'where_dict': where_dict}
 
 
