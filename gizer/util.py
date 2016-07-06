@@ -41,7 +41,8 @@ def isIdField(field_name):
 
 
 def get_table_name_schema(str_list):
-    return '.'.join(filter(None, str_list))
+    str_list_quotes = str_list[:-1] + ['"'+str_list[-1]+'"' ]
+    return '.'.join(filter(None, str_list_quotes))
 
 
 def get_postgres_type(type_name):
