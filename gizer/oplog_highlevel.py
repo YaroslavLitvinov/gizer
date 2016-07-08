@@ -34,7 +34,9 @@ from mongo_schema.schema_engine import log_table_errors
 
 Callback = namedtuple('Callback', ['cb', 'ext_arg'])
 OplogApplyRes = namedtuple('OplogApplyRes', 
-                           ['ts', # oplog timestamp
+                           ['handled_count', # handled oplog records (ops=u,i,d)
+                            'queries_count', # sql queries executed
+                            'ts', # oplog timestamp
                             'res' # True/False res
                             ])
 
@@ -140,21 +142,21 @@ class OplogHighLevel:
                         Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
             # go over oplog, and apply all oplog pacthes starting from start_ts
             last_ts = None
+            queries_counter = 0
             oplog_rec_counter = 0
             oplog_queries = parser.next()
             while oplog_queries != None:
+                oplog_rec_counter += 1
                 for oplog_query in oplog_queries:
-                    if oplog_query.op == "u" or \
-                       oplog_query.op == "d" or \
-                       oplog_query.op == "i" or oplog_query.op == "ui":
-                        oplog_rec_counter += 1
-                        exec_insert(self.psql, oplog_query)
-                        collection_name = parser.item_info.schema_name
-                        rec_id = parser.item_info.rec_id
-                        last_ts = parser.item_info.ts
-                        self.comparator.add_to_compare(collection_name, rec_id)
+                    queries_counter += 1
+                    exec_insert(self.psql, oplog_query)
+                    collection_name = parser.item_info.schema_name
+                    rec_id = parser.item_info.rec_id
+                    last_ts = parser.item_info.ts
+                    self.comparator.add_to_compare(collection_name, rec_id)
                 oplog_queries = parser.next()
-            getLogger(__name__).info("handled %d oplog records" % oplog_rec_counter)
+            getLogger(__name__).info("handled %d oplog records/ %d queries" % \
+                                         (oplog_rec_counter, queries_counter))
             # compare mongo data & psql data after oplog records applied
             compare_res = self.comparator.compare_src_dest()
             # if result of comparison because if new oplog item had received
@@ -179,14 +181,23 @@ class OplogHighLevel:
 
         if compare_res and not parser.first_handled_ts:
             # no oplog records to apply
-            return OplogApplyRes(start_ts, True)
+            return OplogApplyRes(handled_count=oplog_rec_counter,
+                                 queries_count=queries_counter,
+                                 ts=start_ts,
+                                 res=True)
         else:
             if compare_res:
                 # oplog apply ok, return last applied ts
-                return OplogApplyRes(last_ts, True)
+                return OplogApplyRes(handled_count=oplog_rec_counter,
+                                     queries_count=queries_counter,
+                                     ts=last_ts,
+                                     res=True)
             else:
                 # oplog apply error, return next ts candidate
-                return OplogApplyRes(parser.first_handled_ts, False)
+                return OplogApplyRes(handled_count=oplog_rec_counter,
+                                     queries_count=queries_counter,
+                                     ts=parser.first_handled_ts,
+                                     res=False)
 
     def do_oplog_sync(self, ts):
         """ Oplog sync is using local psql database with all data from main psql db
