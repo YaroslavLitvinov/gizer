@@ -66,6 +66,14 @@ WHERE {id_name}={id_val} {idx_order_by};'
         ext_tables_data[table_name] = []
         idx=0
         for record in src_dbreq.cursor:
+            record_decoded = []
+            if type(record) is tuple:
+                for titem in record:
+                    if type(titem) is str:
+                        record_decoded.append(titem.decode('utf-8'))
+                    else:
+                        record_decoded.append(titem)
+                record = tuple(record_decoded)
             getLogger(__name__).debug("result[%d]=%s" % (idx, str(record)))
             ext_tables_data[table_name].append(record)
             idx += 1
