@@ -132,7 +132,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_tmp.conn.rollback()
-                status_manager.oplog_use_finish(None, True)
+                status_manager.oplog_sync_finish(None, True)
                 res = -1
 
         elif (status.status == STATUS_OPLOG_SYNC or \
@@ -149,16 +149,22 @@ def main():
             try:
                 ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
                 if ts_res.res: # oplog apply ok
-                    status_manager.oplog_use_finish(ts_res.ts, False)
+                    status_manager.oplog_use_finish(ts_res.handled_count,
+                                                    ts_res.queries_count,
+                                                    ts_res.ts,
+                                                    False)
                     res= 0
                 else: # error
-                    status_manager.oplog_use_finish(ts_res.ts, True)
+                    status_manager.oplog_use_finish(ts_res.handled_count,
+                                                    ts_res.queries_count,
+                                                    ts_res.ts,
+                                                    True)
                     res = -1
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_main.conn.rollback()
-                status_manager.oplog_use_finish(None, True)
+                status_manager.oplog_use_finish(None, None, None, True)
                 res = -1
         else:
             # initial load is not performed 
