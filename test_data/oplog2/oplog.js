@@ -1,5 +1,15 @@
 [
 {
+
+  "ts": {"$timestamp": {"t": 1164278288, "i": 2}},
+  "op": "i",
+  "ns": "rails4_mongoid_development.guests",
+  "o": { 
+      "id": 13, 
+      "comment": "foo"
+  }
+},
+{
   "ts": {"$timestamp": {"t": 1164278289, "i": 1}},
   "t": 2,
   "h": "6498594270312035435",
@@ -221,4 +231,16 @@
     }
   }
 }
+,
+{
+
+  "ts": {"$timestamp": {"t": 1994278289, "i": 3}},
+  "op": "i",
+  "ns": "rails4_mongoid_development.guests",
+  "o": { 
+      "id": 777, 
+      "comment": "test"
+  }
+}
+
 ]

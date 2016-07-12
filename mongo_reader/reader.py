@@ -28,6 +28,10 @@ class MongoReader:
         self.failed = False
         self.attempts = 0
 
+    def reset_dataset(self):
+        """ For compatibility with mock interface """
+        pass
+
     def connauthreq(self):
         uri_fmt = "mongodb://{user}:{password}@{host}:{port}/{dbname}{params}"
         params = ""
