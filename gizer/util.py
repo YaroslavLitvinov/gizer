@@ -133,20 +133,39 @@ def get_ids_list(lst, is_root):
         list_it = lst[0]
     else:
         list_it = lst
+    # search for _id/id :{oid, id_bscon} struct
     ids_to_add = {}
-    for it in list_it:
-        if isIdField(it) and is_root:
-            if type(list_it[it]) is dict:
-                for id_item in list_it[it]:
-                    if isIdField(id_item) and is_root:
-                        ids_to_add[get_field_name_without_underscore(
-                            it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(
-                            list_it[it][id_item])
-            else:
-                ids_to_add[get_field_name_without_underscore(it)] = get_postgres_type(list_it[it])
-    if len(ids_to_add) == 0:
-        ids_to_add['idx'] = 'bigint'
+    for el in list_it:
+        if get_field_name_without_underscore(el) in ['id', '_id']:
+            if type(list_it[el]) is dict:
+                for e_el in list_it[el]:
+                    if get_field_name_without_underscore(e_el) in ["oid"]:
+                        ids_to_add[get_field_name_without_underscore(el)+"_"+get_field_name_without_underscore(e_el)] = get_postgres_type(list_it[el][e_el])
+    if len(ids_to_add) != 0:
+        return ids_to_add
+    # search for _id/id fields
+    for el in list_it:
+        if get_field_name_without_underscore(el) in ['id', '_id']:
+            ids_to_add[get_field_name_without_underscore(el)] = get_postgres_type(list_it[el])
+    if len(ids_to_add) != 0:
+        return ids_to_add
+    # set index column to idx if id_oid or id not found
+    ids_to_add['idx'] = 'bigint'
     return ids_to_add
+
+    # for it in list_it:
+    #     if isIdField(it) and is_root:
+    #         if type(list_it[it]) is dict:
+    #             for id_item in list_it[it]:
+    #                 if isIdField(id_item) and is_root:
+    #                     ids_to_add[get_field_name_without_underscore(
+    #                         it + '_' + get_field_name_without_underscore(id_item))] = get_postgres_type(
+    #                         list_it[it][id_item])
+    #         else:
+    #             ids_to_add[get_field_name_without_underscore(it)] = get_postgres_type(list_it[it])
+    # if len(ids_to_add) == 0:
+    #     ids_to_add['idx'] = 'bigint'
+    # return ids_to_add
 
 
 def get_tables_structure(schema, table, table_mappings, parent_tables_ids, root_table, parent_key):
