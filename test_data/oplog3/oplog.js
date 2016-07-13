@@ -74,7 +74,7 @@
   "op": "u",
   "ns": "rails4_mongoid_development.posts2",
   "o2": {
-    "_id": { "$oid": "56b8f05cf9fcee1b00001111" }
+    "_id": 33
   },
   "o": {
     "$set": {

@@ -1,5 +1,15 @@
 [
 {
+
+  "ts": {"$timestamp": {"t": 1164278288, "i": 2}},
+  "op": "i",
+  "ns": "rails4_mongoid_development.guests",
+  "o": { 
+      "id": 13, 
+      "comment": "foo"
+  }
+},
+{
   "ts": {"$timestamp": {"t": 1164278289, "i": 1}},
   "t": 2,
   "h": "6498594270312035435",
@@ -43,8 +53,6 @@
 			"_id": { "$oid": "56b8f344f9fcee1b00000018" },
         	"updated_at": {"$date": "2016-02-08T19:57:56.678Z"},
 		  	"created_at": {"$date": "2016-02-08T19:57:56.678Z"}
-        },
-        {
         }
       ]
     }
@@ -126,6 +134,7 @@
   },
   "o": {
     "$set": {
+      "body":"commments2222_2",
       "comments": [
         {
           "_id": { "$oid": "56b8f344f9fcee1b00000018" },
@@ -221,4 +230,16 @@
     }
   }
 }
+,
+{
+
+  "ts": {"$timestamp": {"t": 1994278289, "i": 3}},
+  "op": "i",
+  "ns": "rails4_mongoid_development.guests",
+  "o": { 
+      "id": 777, 
+      "comment": "test"
+  }
+}
+
 ]

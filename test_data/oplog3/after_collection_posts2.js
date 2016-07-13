@@ -1,6 +1,6 @@
 [
  {
-     "_id": { "$oid": "56b8f05cf9fcee1b00001111" },
+     "_id": 33,
      "title": "sada",
      "body": "body4",
      "user_id": "56b8d7caf9fcee1b00000001",
@@ -8,7 +8,7 @@
     "created_at": { "$date" : "2016-02-08T19:45:32.501Z"}
  },
  {
-     "_id": { "$oid": "56b8da59f9fcee1b00000007" },
+     "_id": 34,
      "updated_at" : { "$date" :"2016-02-08T19:52:23.883Z"},
      "comments": [
         {
