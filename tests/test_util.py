@@ -406,6 +406,76 @@ def test_get_column_type():
     assert model == result
     print('TEST', 'get_column_type', 'PASSED')
 
+def test_get_ids_list():
+    schema_str = """{
+    "id": {
+        "oid": "STRING",
+        "bsontype": "INT"
+    },
+    "comments": [{
+        "_id": {
+            "oid": "STRING",
+            "bsontype": "INT"
+        },
+        "body": "STRING"
+    }],
+    "_id": "INT"
+}"""
+    schema = json.loads(schema_str)
+    result = get_ids_list(schema,1)
+    model = {"id_oid":"text"}
+    assert result == model
+
+    schema_str = """{
+    "comments": [{
+        "_id": {
+            "oid": "STRING",
+            "bsontype": "INT"
+        },
+        "body": "STRING"
+    }],
+    "id": "INT"
+}"""
+    schema = json.loads(schema_str)
+    result = get_ids_list(schema,1)
+    model = {"id":"integer"}
+    assert result == model
+
+    schema_str = """{
+    "comments": [{
+        "_id": {
+            "oid": "STRING",
+            "bsontype": "INT"
+        },
+        "body": "STRING"
+    }],
+    "id": "INT",
+    "_id": {
+        "oid": "STRING",
+        "bsontype": "INT"
+    }
+}"""
+    schema = json.loads(schema_str)
+    result = get_ids_list(schema,1)
+    model = {"id_oid":"text"}
+    assert result == model
+
+    schema_str = """{
+    "comments": [{
+        "_id": {
+            "oid": "STRING",
+            "bsontype": "INT"
+        },
+        "body": "STRING"
+    }]
+}"""
+    schema = json.loads(schema_str)
+    result = get_ids_list(schema,1)
+    model = {"idx":"bigint"}
+    assert result == model
+
+    print('TEST', 'get_ids_list', 'PASSED')
+
 
 # functions for comparing SQL queries
 def sqls_to_dict(sql_dict):
@@ -571,6 +641,7 @@ def run_tests_():
     test_get_tables_structure()
     test_get_quotes_using()
     test_get_column_type()
+    test_get_ids_list()
 
 
 if __name__ == "__main__":
