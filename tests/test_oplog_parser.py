@@ -141,7 +141,6 @@ def test_oplog_sync():
     res = check_oplog_sync_point(oplog_test3, SCHEMAS_PATH)
     assert(res == True)
 
-    assert 0
     # oplog_test4 \
     #     = OplogTest("Timestamp(1364278289, 1))",
     #                 {'posts': 'test_data/oplog2/before_collection_posts.js',
