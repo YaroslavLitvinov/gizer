@@ -16,7 +16,6 @@ class MongoReaderMock:
         self.list_of_raw_bson_data = list_of_raw_bson_data
         self.query = query
         self.failed = False
-        self.any_loaded = False
         self.load_next_test_dataset()
 
     def next_dataset_idx(self):
@@ -31,7 +30,6 @@ class MongoReaderMock:
         if self.next_dataset_idx() is not None:
             self.current_raw_bson_data_idx = self.next_dataset_idx()
             self.rec_i = 0
-            self.any_loaded = False
             getLogger(__name__).info("MockMongoReader load dataset idx=%d"
                                      % self.current_raw_bson_data_idx)
             data =  loads(self.list_of_raw_bson_data[self.current_raw_bson_data_idx])
@@ -79,12 +77,9 @@ class MongoReaderMock:
             if self.rec_i < len(self.array_data):
                 rec = self.array_data[self.rec_i]
                 self.rec_i += 1
-        getLogger(__name__).info("MockMongoReader next rec=%s" % str(rec))
-        while not rec \
-                and not self.any_loaded \
-                and self.next_dataset_idx() is not None:
+        # return rec and if no ore recs just switch to next dataset
+        if rec:
+            self.any_loaded_from_dataset = True
+        elif self.next_dataset_idx() is not None:
             self.load_next_test_dataset()
-            rec = self.next()
-        else:
-            self.any_loaded = True
         return rec

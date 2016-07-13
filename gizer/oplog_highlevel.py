@@ -133,6 +133,7 @@ class OplogHighLevel:
 
         getLogger(__name__).\
             info('Apply oplog operation going after ts:%s' % str(start_ts))
+        start_ts_backup = start_ts
 
         # fetch parser.first_handled_ts and save to local first_handled_ts
         # to be able to return it as parser will miss that value at recreating
@@ -193,8 +194,8 @@ class OplogHighLevel:
 
         if compare_res and not first_handled_ts:
             # no oplog records to apply
-            getLogger(__name__).info("DoSync: already synced ts: %s" \
-                                         % str(start_ts))
+            getLogger(__name__).info("do_oplog_apply: Nothing applied, no records after ts: %s" \
+                                         % str(start_ts_backup))
             return OplogApplyRes(handled_count=oplog_rec_counter,
                                  queries_count=queries_counter,
                                  ts=start_ts,
@@ -202,16 +203,16 @@ class OplogHighLevel:
         else:
             if compare_res:
                 # oplog apply ok, return last applied ts
-                getLogger(__name__).info("DoSync: Sync point located ts: %s" \
-                                             % str(last_ts))
+                getLogger(__name__).info("do_oplog_apply: Applied start_ts: %s, last_ts: %s" \
+                                             % (str(start_ts_backup), str(last_ts)))
                 return OplogApplyRes(handled_count=oplog_rec_counter,
                                      queries_count=queries_counter,
                                      ts=last_ts,
                                      res=True)
             else:
                 # oplog apply error, return next ts candidate
-                getLogger(__name__).info("DoSync: can't sync, try next ts: %s" \
-                                             % str(first_handled_ts))
+                getLogger(__name__).info("do_oplog_apply: Bad apply for start_ts: %s, next candidate ts: %s" \
+                                             % (str(start_ts_backup), str(first_handled_ts)))
                 return OplogApplyRes(handled_count=oplog_rec_counter,
                                      queries_count=queries_counter,
                                      ts=first_handled_ts,
@@ -325,10 +326,6 @@ class ComparatorMongoPsql:
                     # rec to compare has False(not equal) state
                     equal = self.compare_one_src_dest(collection_name, rec_id)
                     self.recs_to_compare[collection_name][rec_id] = equal
-                    ###### TODO: test code MUST BE REMOVED ######
-                    if rec_id == loads('{ "$oid": "56b8da59f9fcee1b00000007" }'):
-                        equal = True
-                    ###### TODO: test code MUST BE REMOVED ######
                     if not equal:
                         return False
         return True

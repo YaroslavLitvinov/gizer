@@ -114,7 +114,7 @@ def test_oplog_sync():
 
     print('\ntest#2')
     oplog_test2 \
-        = OplogTest("Timestamp(1348478292, 3)",
+        = OplogTest("Timestamp(1164278289, 1)",
                     {'posts': 'test_data/oplog2/before_collection_posts.js',
                      'guests': 'test_data/oplog2/before_collection_guests.js'},
                     ['test_data/oplog2/oplog.js',
