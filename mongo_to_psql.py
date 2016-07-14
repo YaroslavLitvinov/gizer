@@ -69,6 +69,12 @@ def create_logger(logspath, name):
     logger.info('Created')
 
 
+def reinit_conn(config_settings, psql, status_manager):
+    # recreate conn used by status_manager, 
+    # for long running sync/apply
+    psql.reinit(psql_conn_from_settings(config_settings))
+    status_manager.status_table.replace_conn(psql)
+
 def main():
     """ main """
 
@@ -122,6 +128,7 @@ def main():
                  schemas_path, schema_engines, psql_schema)
             try:
                 ts = ohl.do_oplog_sync(status.ts)
+                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 if ts: # sync ok
                     status_manager.oplog_sync_finish(ts, False)
                     res = 0
@@ -132,6 +139,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_tmp.conn.rollback()
+                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 status_manager.oplog_sync_finish(None, True)
                 res = -1
 
@@ -148,6 +156,7 @@ def main():
                  schemas_path, schema_engines, psql_schema)
             try:
                 ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
+                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 if ts_res.res: # oplog apply ok
                     status_manager.oplog_use_finish(ts_res.handled_count,
                                                     ts_res.queries_count,
@@ -164,6 +173,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_main.conn.rollback()
+                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 status_manager.oplog_use_finish(None, None, None, True)
                 res = -1
         else:
