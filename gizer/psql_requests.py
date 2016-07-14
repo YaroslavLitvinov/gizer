@@ -21,6 +21,11 @@ class PsqlRequests:
         self.conn = conn
         self.cursor = conn.cursor()
 
+    def reinit(self, conn):
+        self.conn.close()
+        self.conn = conn
+        self.cursor = conn.cursor()
+
     def get_max_index(self, tablename, psqlschemaname, indexcolumn):
         if len(psqlschemaname):
             psqlschemaname += '.'

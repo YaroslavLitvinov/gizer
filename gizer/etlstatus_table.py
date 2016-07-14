@@ -49,6 +49,9 @@ class PsqlEtlStatusTable:
             self.drop_table()
         self.create_table()
 
+    def replace_conn(self, psql_requests):
+        self.cursor = psql_requests.cursor
+
     def drop_table(self):
         fmt = 'DROP TABLE IF EXISTS {schema}qmetlstatus;'
         self.cursor.execute( fmt.format(schema=self.schema_name) )
