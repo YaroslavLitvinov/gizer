@@ -69,14 +69,10 @@ def create_logger(logspath, name):
     logger.info('Created')
 
 
-def psql_conn(config, section_name):
-    psql_settings = psql_settings_from_config(config, section_name)
-    return psql_conn_from_settings(psql_settings)
-
-def reinit_conn(config, psql, status_manager, section_name):
+def reinit_conn(config_settings, psql, status_manager):
     # recreate conn used by status_manager, 
     # for long running sync/apply
-    psql.reinit(psql_conn(config, section_name))
+    psql.reinit(psql_conn_from_settings(config_settings))
     status_manager.status_table.replace_conn(psql)
 
 def main():
@@ -96,6 +92,8 @@ def main():
 
     mongo_settings = mongo_settings_from_config(config, 'mongo')
     oplog_settings = mongo_settings_from_config(config, 'mongo-oplog')
+    psql_settings = psql_settings_from_config(config, 'psql')
+    tmp_psql_settings = psql_settings_from_config(config, 'tmp-psql')
 
     mongo_readers = {}
     schema_engines = get_schema_engines_as_dict(schemas_path)
@@ -104,9 +102,9 @@ def main():
         mongo_readers[collection_name] = reader
     oplog_reader = mongo_reader_from_settings(oplog_settings, 'oplog.rs', {})
 
-    psql_main_etl_status = PsqlRequests(psql_conn(config, 'psql'))
-    psql_main = PsqlRequests(psql_conn(config, 'psql'))
-    psql_tmp = PsqlRequests(psql_conn(config, 'tmp-psql'))
+    psql_main_etl_status = PsqlRequests(psql_conn_from_settings(psql_settings))
+    psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
+    psql_tmp = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 
     status_table = PsqlEtlStatusTable(psql_main_etl_status.cursor, 
                                       config['psql']['psql-schema-name'])
@@ -130,7 +128,7 @@ def main():
                  schemas_path, schema_engines, psql_schema)
             try:
                 ts = ohl.do_oplog_sync(status.ts)
-                reinit_conn(config, psql_main_etl_status, status_manager, 'psql')
+                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 if ts: # sync ok
                     status_manager.oplog_sync_finish(ts, False)
                     res = 0
@@ -141,7 +139,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_tmp.conn.rollback()
-                reinit_conn(config, psql_main_etl_status, status_manager, 'psql')
+                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 status_manager.oplog_sync_finish(None, True)
                 res = -1
 
@@ -158,7 +156,7 @@ def main():
                  schemas_path, schema_engines, psql_schema)
             try:
                 ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
-                reinit_conn(config, psql_main_etl_status, status_manager, 'psql')
+                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 if ts_res.res: # oplog apply ok
                     status_manager.oplog_use_finish(ts_res.handled_count,
                                                     ts_res.queries_count,
@@ -175,7 +173,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_main.conn.rollback()
-                reinit_conn(config, psql_main_etl_status, status_manager, 'psql')
+                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 status_manager.oplog_use_finish(None, None, None, True)
                 res = -1
         else:
