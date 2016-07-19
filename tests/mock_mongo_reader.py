@@ -11,28 +11,28 @@ from logging import getLogger
 
 class MongoReaderMock:
     """ Similiar interface to MongoReader. For test purposes. """
-    def __init__(self, list_of_raw_bson_data, query=None):
-        self.current_raw_bson_data_idx = None
-        self.list_of_raw_bson_data = list_of_raw_bson_data
+    def __init__(self, datasets_list, query=None):
+        self.current_dataset_idx = None
+        self.datasets_list = datasets_list
         self.query = query
         self.failed = False
         self.load_next_test_dataset()
 
     def next_dataset_idx(self):
-        if self.current_raw_bson_data_idx is None:
+        if self.current_dataset_idx is None:
             return 0
-        elif self.current_raw_bson_data_idx+1 < len(self.list_of_raw_bson_data):
-            return self.current_raw_bson_data_idx + 1
+        elif self.current_dataset_idx+1 < len(self.datasets_list):
+            return self.current_dataset_idx + 1
         else:
             return None
 
     def load_next_test_dataset(self):
         if self.next_dataset_idx() is not None:
-            self.current_raw_bson_data_idx = self.next_dataset_idx()
+            self.current_dataset_idx = self.next_dataset_idx()
             self.rec_i = 0
             getLogger(__name__).info("MockMongoReader load dataset idx=%d"
-                                     % self.current_raw_bson_data_idx)
-            data =  loads(self.list_of_raw_bson_data[self.current_raw_bson_data_idx])
+                                     % self.current_dataset_idx)
+            data =  loads(self.datasets_list[self.current_dataset_idx])
             getLogger(__name__).info("MockMongoReader loaded dataset %d recs"  % len(data))
             self.array_data = data
             return data
@@ -42,7 +42,7 @@ class MongoReaderMock:
             return None
 
     def reset_dataset(self):
-        self.current_raw_bson_data_idx = None
+        self.current_dataset_idx = None
         self.load_next_test_dataset()
 
     def connauthreq(self):
