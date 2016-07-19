@@ -20,6 +20,7 @@ from gizer.psql_objects import insert_tables_data_into_dst_psql
 from gizer.psql_objects import create_truncate_psql_objects
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mock_mongo_reader import MongoReaderMock
+from mock_mongo_reader import MockReaderDataset
 from gizer.etlstatus_table import timestamp_str_to_object
 
 
@@ -37,11 +38,14 @@ OplogTest = namedtuple('OplogTest', ['ts_synced',
                                      'after'])
 
 def data_mock(mongo_data_path_list):
+    print mongo_data_path_list
     reader = None
     list_of_test_datasets = []
-    for mongo_data_path in mongo_data_path_list:
+    for path_and_exception in mongo_data_path_list:
+        mongo_data_path = path_and_exception[0]
         with open(mongo_data_path) as opfile:
-            list_of_test_datasets.append(opfile.read())
+            dataset = MockReaderDataset(opfile.read(), path_and_exception[1])
+            list_of_test_datasets.append(dataset)
             opfile.close()
     reader = MongoReaderMock(list_of_test_datasets)
     getLogger(__name__).info("prepared %d dataset/s" % len(list_of_test_datasets))
@@ -71,9 +75,10 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
 
     create_truncate_psql_objects(dbreq, schemas_path, psql_schema)
     dbreq.cursor.execute('COMMIT')
+    # do pseudo "init load", ignore inject_exception on this step
     for name, mongo_data_path in oplog_test.before.iteritems():
         load_mongo_data_to_psql(schema_engines[name],
-                                mongo_data_path, dbreq, psql_schema)
+                                mongo_data_path[0], dbreq, psql_schema)
     # recreate connection / cursor as rollback won't after commit
     del dbreq
     dbreq = PsqlRequests(psycopg2.connect(connstr))
@@ -112,30 +117,32 @@ def test_oplog_sync():
     # test applying oplog ops to initial data 'before_data' and then compare it 
     # with final 'after_data'
     print('\ntest#1')
+    location1_fmt = 'test_data/oplog1/%s_collection_%s.js'
     oplog_test1 \
         = OplogTest(None, #expected as already synchronized, 
                     # use None with DO_OPLOG_APPLY param
-                    {'posts': 'test_data/oplog1/before_collection_posts.js',
-                     'guests': 'test_data/oplog1/before_collection_guests.js'},
-                    ['test_data/oplog1/oplog.js'],
-                    {'posts': 'test_data/oplog1/after_collection_posts.js',
-                     'guests': 'test_data/oplog1/after_collection_guests.js'})
+                    {'posts': (location1_fmt % ('before', 'posts'), None),
+                     'guests': (location1_fmt % ('before', 'guests'), None)},
+                    [('test_data/oplog1/oplog.js', None)],
+                    {'posts': (location1_fmt % ('after', 'posts'), None),
+                     'guests': (location1_fmt % ('after', 'guests'), None)})
     res = run_oplog_engine_check(oplog_test1, DO_OPLOG_APPLY, SCHEMAS_PATH)
     assert(res == True)
-    
 
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
     # Sync point when located should be equal to timestamp param
     print('\ntest#2')
+    location2_fmt = 'test_data/oplog2/%s_collection_%s.js'
     oplog_test2 \
         = OplogTest("Timestamp(1164278289, 1)",
-                    {'posts': 'test_data/oplog2/before_collection_posts.js',
-                     'guests': 'test_data/oplog2/before_collection_guests.js'},
-                    ['test_data/oplog2/oplog.js',
-                     'test_data/oplog2/oplog_simulate_added_after_initload.js'],
-                    {'posts': 'test_data/oplog2/after_collection_posts.js',
-                     'guests': 'test_data/oplog2/after_collection_guests.js'})
+                    {'posts': (location2_fmt % ('before', 'posts'), None),
+                     'guests': (location2_fmt % ('before', 'guests'), None)},
+                    [('test_data/oplog2/oplog.js', None),
+                     ('test_data/oplog2/oplog_simulate_added_after_initload.js',
+                      None)],
+                    {'posts': (location2_fmt % ('after', 'posts'), None),
+                     'guests': (location2_fmt % ('after', 'guests'), None)})
     res = run_oplog_engine_check(oplog_test2, DO_OPLOG_SYNC, SCHEMAS_PATH)
     assert(res == True)
 
@@ -143,18 +150,21 @@ def test_oplog_sync():
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
     # Sync point when located should be equal to timestamp param
     print('\ntest#3')
+    location3_fmt = 'test_data/oplog3/%s_collection_%s.js'
     oplog_test3 \
         = OplogTest("Timestamp(1000000001, 1)",
-                    {'posts': 'test_data/oplog3/before_collection_posts.js',
-                     'guests': 'test_data/oplog3/before_collection_guests.js',
-                     'posts2': 'test_data/oplog3/before_collection_posts2.js',
-                     'rated_posts': 'test_data/oplog3/before_collection_rated_posts.js'
+                    {'posts': (location3_fmt % ('before', 'posts'), None),
+                     'guests': (location3_fmt % ('before', 'guests'), None),
+                     'posts2': (location3_fmt % ('before', 'posts2'), None),
+                     'rated_posts': (location3_fmt % ('before', 'rated_posts'), 
+                                     None)
                      },
-                    ['test_data/oplog3/oplog.js'],
-                    {'posts': 'test_data/oplog3/after_collection_posts.js',
-                     'guests': 'test_data/oplog3/after_collection_guests.js',
-                     'posts2': 'test_data/oplog3/after_collection_posts2.js',
-                     'rated_posts': 'test_data/oplog3/after_collection_rated_posts.js'
+                    [('test_data/oplog3/oplog.js', None)],
+                    {'posts': (location3_fmt % ('after', 'posts'), None),
+                     'guests': (location3_fmt % ('after', 'guests'), None),
+                     'posts2': (location3_fmt % ('after', 'posts2'), None),
+                     'rated_posts': (location3_fmt % ('after', 'rated_posts'), 
+                                     None)
                      })
     res = run_oplog_engine_check(oplog_test3, DO_OPLOG_SYNC, SCHEMAS_PATH)
     assert(res == True)
@@ -162,7 +172,7 @@ def test_oplog_sync():
 def test_compare_empty_compare_psql_and_mongo_records():
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
-    empty_mongo = 'test_data/oplog1/before_collection_posts.js'
+    empty_mongo = ('test_data/oplog1/before_collection_posts.js', None)
     mongo_reader = data_mock([empty_mongo])
     schemas_path = "./test_data/schemas/rails4_mongoid_development"
     schema_engines = get_schema_engines_as_dict(schemas_path)

@@ -8,12 +8,23 @@ import sys
 import bson
 from bson.json_util import loads
 from logging import getLogger
+from collections import namedtuple
+
+MockReaderDataset = namedtuple('MockReaderDataset', 
+                               ['data',  # raw bson data
+                                # inject_exception -- exception to raise
+                                # when trying to read from dataset.
+                                # None - no exceptions will be raised.
+                                'inject_exception' ])
 
 class MongoReaderMock:
-    """ Similiar interface to MongoReader. For test purposes. """
+    """ Similiar interface to MongoReader. For test purposes.
+    params:
+    -- datasets_list list of objects MockReaderDataset """
     def __init__(self, datasets_list, query=None):
         self.current_dataset_idx = None
         self.datasets_list = datasets_list
+        self.exception_to_inject = None
         self.query = query
         self.failed = False
         self.load_next_test_dataset()
@@ -32,12 +43,15 @@ class MongoReaderMock:
             self.rec_i = 0
             getLogger(__name__).info("MockMongoReader load dataset idx=%d"
                                      % self.current_dataset_idx)
-            data =  loads(self.datasets_list[self.current_dataset_idx])
-            getLogger(__name__).info("MockMongoReader loaded dataset %d recs"  % len(data))
-            self.array_data = data
-            return data
+            dataset = self.datasets_list[self.current_dataset_idx]
+            self.array_data = loads(dataset.data)
+            self.exception_to_inject = dataset.inject_exception
+            getLogger(__name__).info("MockMongoReader loaded dataset %d recs, \
+inject_exception=%s"  % (len(self.array_data), str(self.exception_to_inject)))
+            return self.array_data
         else:
             self.array_data = []
+            self.exception_to_inject = None
             getLogger(__name__).info('No more dataset available')
             return None
 
