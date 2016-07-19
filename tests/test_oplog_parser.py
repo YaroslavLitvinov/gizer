@@ -109,6 +109,8 @@ def test_oplog_sync():
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
+    # test applying oplog ops to initial data 'before_data' and then compare it 
+    # with final 'after_data'
     print('\ntest#1')
     oplog_test1 \
         = OplogTest(None, #expected as already synchronized, 
@@ -122,6 +124,9 @@ def test_oplog_sync():
     assert(res == True)
     
 
+    # test syncing oplog ops. specified DO_OPLOG_SYNC param.
+    # initdata 'before_data' is slightly ovarlaps with oplog ops data.
+    # Sync point when located should be equal to timestamp param
     print('\ntest#2')
     oplog_test2 \
         = OplogTest("Timestamp(1164278289, 1)",
@@ -134,6 +139,9 @@ def test_oplog_sync():
     res = run_oplog_engine_check(oplog_test2, DO_OPLOG_SYNC, SCHEMAS_PATH)
     assert(res == True)
 
+    # test syncing oplog ops. specified DO_OPLOG_SYNC param.
+    # initdata 'before_data' is slightly ovarlaps with oplog ops data.
+    # Sync point when located should be equal to timestamp param
     print('\ntest#3')
     oplog_test3 \
         = OplogTest("Timestamp(1000000001, 1)",
