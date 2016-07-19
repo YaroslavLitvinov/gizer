@@ -28,6 +28,9 @@ SCHEMAS_PATH = "./test_data/schemas/rails4_mongoid_development"
 TMP_SCHEMA_NAME = 'operational'
 MAIN_SCHEMA_NAME = ''
 
+DO_OPLOG_APPLY=1
+DO_OPLOG_SYNC=2
+
 OplogTest = namedtuple('OplogTest', ['ts_synced',
                                      'before',
                                      'oplog_dataset_path_list',
@@ -56,7 +59,7 @@ def load_mongo_data_to_psql(schema_engine, mongo_data_path, psql, psql_schema):
             psql.cursor.execute('COMMIT')
 
 
-def check_oplog_sync_point(oplog_test, schemas_path):
+def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
@@ -84,15 +87,21 @@ def check_oplog_sync_point(oplog_test, schemas_path):
                  schemas_path, schema_engines, psql_schema)
 
     #start syncing from very start of oplog
-    ts_synced = ohl.do_oplog_sync(None)
-    getLogger(__name__).info("sync res expected to be ts_synced=%s" \
-                                 % oplog_test.ts_synced)
-    if ts_synced == timestamp_str_to_object(oplog_test.ts_synced):
-        return True
-    elif ts_synced == True and oplog_test.ts_synced is None:
-        return True
+    if what_todo is DO_OPLOG_APPLY:
+        res = ohl.do_oplog_apply(start_ts=None, doing_sync=False)
+        return res.res
+    elif what_todo is DO_OPLOG_SYNC:
+        ts_synced = ohl.do_oplog_sync(None)
+        getLogger(__name__).info("sync res expected to be ts_synced=%s" \
+                                     % oplog_test.ts_synced)
+        if ts_synced == timestamp_str_to_object(oplog_test.ts_synced):
+            return True
+        elif ts_synced == True and oplog_test.ts_synced is None:
+            return True
+        else:
+            return False
     else:
-        return False
+        assert(0)
 
 
 def test_oplog_sync():
@@ -102,13 +111,14 @@ def test_oplog_sync():
 
     print('\ntest#1')
     oplog_test1 \
-        = OplogTest(None, #expected as already synchronized
+        = OplogTest(None, #expected as already synchronized, 
+                    # use None with DO_OPLOG_APPLY param
                     {'posts': 'test_data/oplog1/before_collection_posts.js',
                      'guests': 'test_data/oplog1/before_collection_guests.js'},
                     ['test_data/oplog1/oplog.js'],
                     {'posts': 'test_data/oplog1/after_collection_posts.js',
                      'guests': 'test_data/oplog1/after_collection_guests.js'})
-    res = check_oplog_sync_point(oplog_test1, SCHEMAS_PATH)
+    res = run_oplog_engine_check(oplog_test1, DO_OPLOG_APPLY, SCHEMAS_PATH)
     assert(res == True)
     
 
@@ -121,7 +131,7 @@ def test_oplog_sync():
                      'test_data/oplog2/oplog_simulate_added_after_initload.js'],
                     {'posts': 'test_data/oplog2/after_collection_posts.js',
                      'guests': 'test_data/oplog2/after_collection_guests.js'})
-    res = check_oplog_sync_point(oplog_test2, SCHEMAS_PATH)
+    res = run_oplog_engine_check(oplog_test2, DO_OPLOG_SYNC, SCHEMAS_PATH)
     assert(res == True)
 
     print('\ntest#3')
@@ -138,24 +148,8 @@ def test_oplog_sync():
                      'posts2': 'test_data/oplog3/after_collection_posts2.js',
                      'rated_posts': 'test_data/oplog3/after_collection_rated_posts.js'
                      })
-    res = check_oplog_sync_point(oplog_test3, SCHEMAS_PATH)
+    res = run_oplog_engine_check(oplog_test3, DO_OPLOG_SYNC, SCHEMAS_PATH)
     assert(res == True)
-
-    # oplog_test4 \
-    #     = OplogTest("Timestamp(1364278289, 1))",
-    #                 {'posts': 'test_data/oplog2/before_collection_posts.js',
-    #                  'guests': 'test_data/oplog2/before_collection_guests.js'},
-    #                 'test_data/oplog2/oplog.js',
-    #                 {'posts': 'test_data/oplog2/after_collection_posts.js',
-    #                  'guests': 'test_data/oplog2/after_collection_guests.js'})
-    # res = check_oplog_sync_point(oplog_test4)
-    # assert(res == True)
-
-    # temporarily disabled tests
-    #res = check_oplog_sync_point('6249008760904220673')
-    #assert(res == True)
-    #res = check_oplog_sync_point('6249012068029138000')
-    #assert(res == False)
 
 def test_compare_empty_compare_psql_and_mongo_records():
     connstr = os.environ['TEST_PSQLCONN']
@@ -192,5 +186,5 @@ if __name__ == '__main__':
                     empty_data_before,
                     [mongo_oplog],
                     data_after)
-    res = check_oplog_sync_point(oplog_test1, schemas_path)
+    res = run_oplog_engine_check(oplog_test1, schemas_path)
     assert(res == True)
