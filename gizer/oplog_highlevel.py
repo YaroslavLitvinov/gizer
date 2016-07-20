@@ -174,7 +174,7 @@ class OplogHighLevel:
             # result of comparison can be negative if new oplog item had received
             # during checking results (comparing all records) then do double checks
             # so handle that case:
-            if not compare_res and last_ts and do_again_counter < 10:
+            if not compare_res and last_ts and do_again_counter < 100:
                 do_again = True
                 do_again_counter += 1
                 start_ts = last_ts
@@ -194,7 +194,8 @@ class OplogHighLevel:
 
         if compare_res and not first_handled_ts:
             # no oplog records to apply
-            getLogger(__name__).info("do_oplog_apply: Nothing applied, no records after ts: %s" \
+            getLogger(__name__).info("do_oplog_apply: Nothing applied, \
+no records after ts: %s" \
                                          % str(start_ts_backup))
             return OplogApplyRes(handled_count=oplog_rec_counter,
                                  queries_count=queries_counter,
@@ -203,20 +204,34 @@ class OplogHighLevel:
         else:
             if compare_res:
                 # oplog apply ok, return last applied ts
-                getLogger(__name__).info("do_oplog_apply: Applied start_ts: %s, last_ts: %s" \
-                                             % (str(start_ts_backup), str(last_ts)))
+                getLogger(__name__).info("do_oplog_apply: Applied start_ts: %s, \
+last_ts: %s" \
+                                             % (str(start_ts_backup), 
+                                                str(last_ts)))
                 return OplogApplyRes(handled_count=oplog_rec_counter,
                                      queries_count=queries_counter,
                                      ts=last_ts,
                                      res=True)
             else:
-                # oplog apply error, return next ts candidate
-                getLogger(__name__).info("do_oplog_apply: Bad apply for start_ts: %s, next candidate ts: %s" \
-                                             % (str(start_ts_backup), str(first_handled_ts)))
-                return OplogApplyRes(handled_count=oplog_rec_counter,
-                                     queries_count=queries_counter,
-                                     ts=first_handled_ts,
-                                     res=False)
+                # if transport returned an error then keep the same ts_start
+                # and return True, as nothing applied
+                if self.oplog_reader.failed:
+                    getLogger(__name__).info("do_oplog_apply: \
+Keep the same ts as oplog transport failed")
+                    return OplogApplyRes(handled_count=oplog_rec_counter,
+                                         queries_count=queries_counter,
+                                         ts=start_ts_backup,
+                                         res=True)
+                else:
+                    # oplog apply error, return next ts candidate
+                    getLogger(__name__).info("do_oplog_apply: \
+Bad apply for start_ts: %s, next candidate ts: %s" \
+                                                 % (str(start_ts_backup), 
+                                                    str(first_handled_ts)))
+                    return OplogApplyRes(handled_count=oplog_rec_counter,
+                                         queries_count=queries_counter,
+                                         ts=first_handled_ts,
+                                         res=False)
 
     def do_oplog_sync(self, ts):
         """ Oplog sync is using local psql database with all data from main psql db

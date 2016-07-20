@@ -66,6 +66,9 @@ inject_exception=%s"  % (len(self.array_data), str(self.exception_to_inject)))
         self.query = query
 
     def next(self):
+        if self.exception_to_inject is not None:
+            self.failed = True
+            return None
         rec = None
         getLogger(__name__).info("reader.next query=" + str(self.query))
         if self.query and len(self.query):

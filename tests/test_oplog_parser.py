@@ -8,6 +8,7 @@ import os
 import sys
 import psycopg2
 import logging
+import pymongo
 from logging import getLogger
 from collections import namedtuple
 from bson.json_util import loads
@@ -109,6 +110,24 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
         assert(0)
 
 
+def check_dataset(name, operation, start_ts, oplog_params, params):
+    print '\ntest ', name, operation
+    location_fmt = 'test_data/'+name+'/%s_collection_%s.js'
+    before_params = {}
+    for collection in params:
+        before_params[collection] \
+            = (location_fmt % ('before', collection), None)
+    after_params = {}
+    for collection in params:
+        after_params[collection] \
+            = (location_fmt % ('after', collection), params[collection])
+    oplog_test \
+        = OplogTest(start_ts, # None = expected as already synchronized, 
+                    # use None with DO_OPLOG_APPLY param
+                    before_params, oplog_params, after_params)
+    res = run_oplog_engine_check(oplog_test, operation, SCHEMAS_PATH)
+    return res
+
 def test_oplog_sync():
     logging.basicConfig(level=logging.DEBUG,
                         stream=sys.stdout,
@@ -116,58 +135,47 @@ def test_oplog_sync():
 
     # test applying oplog ops to initial data 'before_data' and then compare it 
     # with final 'after_data'
-    print('\ntest#1')
-    location1_fmt = 'test_data/oplog1/%s_collection_%s.js'
-    oplog_test1 \
-        = OplogTest(None, #expected as already synchronized, 
-                    # use None with DO_OPLOG_APPLY param
-                    {'posts': (location1_fmt % ('before', 'posts'), None),
-                     'guests': (location1_fmt % ('before', 'guests'), None)},
-                    [('test_data/oplog1/oplog.js', None)],
-                    {'posts': (location1_fmt % ('after', 'posts'), None),
-                     'guests': (location1_fmt % ('after', 'guests'), None)})
-    res = run_oplog_engine_check(oplog_test1, DO_OPLOG_APPLY, SCHEMAS_PATH)
-    assert(res == True)
+    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
+                         [('test_data/oplog1/oplog1.js', None),
+                          ('test_data/oplog1/oplog2.js', None)],
+                         {'posts': None, 'guests': None}) == True)
 
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
     # Sync point when located should be equal to timestamp param
-    print('\ntest#2')
-    location2_fmt = 'test_data/oplog2/%s_collection_%s.js'
-    oplog_test2 \
-        = OplogTest("Timestamp(1164278289, 1)",
-                    {'posts': (location2_fmt % ('before', 'posts'), None),
-                     'guests': (location2_fmt % ('before', 'guests'), None)},
-                    [('test_data/oplog2/oplog.js', None),
-                     ('test_data/oplog2/oplog_simulate_added_after_initload.js',
-                      None)],
-                    {'posts': (location2_fmt % ('after', 'posts'), None),
-                     'guests': (location2_fmt % ('after', 'guests'), None)})
-    res = run_oplog_engine_check(oplog_test2, DO_OPLOG_SYNC, SCHEMAS_PATH)
-    assert(res == True)
+    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278289, 1)',
+                         [('test_data/oplog2/oplog.js', None),
+                          ('test_data/oplog2/\
+oplog_simulate_added_after_initload.js',
+                           None)],
+                         {'posts': None, 'guests': None}) == True)
 
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
     # Sync point when located should be equal to timestamp param
-    print('\ntest#3')
-    location3_fmt = 'test_data/oplog3/%s_collection_%s.js'
-    oplog_test3 \
-        = OplogTest("Timestamp(1000000001, 1)",
-                    {'posts': (location3_fmt % ('before', 'posts'), None),
-                     'guests': (location3_fmt % ('before', 'guests'), None),
-                     'posts2': (location3_fmt % ('before', 'posts2'), None),
-                     'rated_posts': (location3_fmt % ('before', 'rated_posts'), 
-                                     None)
-                     },
-                    [('test_data/oplog3/oplog.js', None)],
-                    {'posts': (location3_fmt % ('after', 'posts'), None),
-                     'guests': (location3_fmt % ('after', 'guests'), None),
-                     'posts2': (location3_fmt % ('after', 'posts2'), None),
-                     'rated_posts': (location3_fmt % ('after', 'rated_posts'), 
-                                     None)
-                     })
-    res = run_oplog_engine_check(oplog_test3, DO_OPLOG_SYNC, SCHEMAS_PATH)
-    assert(res == True)
+    assert(check_dataset('oplog3', DO_OPLOG_SYNC, 'Timestamp(1000000001, 1)',
+                         [('test_data/oplog3/oplog.js', None)],
+                         {'posts': None, 'posts2': None, 'rated_posts': None,
+                          'guests': None}) == True)
+
+    # inject error, it must do not raise error but to keep the same state
+    # return True, and as there no records were processed. It is supposed 
+    # that in next time it's will run normally
+    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
+                         [('test_data/oplog1/oplog1.js', None),
+                          ('test_data/oplog1/oplog2.js', 
+                           pymongo.errors.OperationFailure)],
+                         {'posts': None, 'guests': None}) == True)
+
+    # inject error, it must raise error always if happened during sync
+    # in real life it's will cause init load again
+    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278289, 1)',
+                         [('test_data/oplog2/oplog.js', None),
+                          ('test_data/oplog2/\
+oplog_simulate_added_after_initload.js',
+                           pymongo.errors.OperationFailure)],
+                         {'posts': None, 'guests': None}) == False)
+
 
 def test_compare_empty_compare_psql_and_mongo_records():
     connstr = os.environ['TEST_PSQLCONN']
