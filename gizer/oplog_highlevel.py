@@ -174,7 +174,7 @@ class OplogHighLevel:
             # result of comparison can be negative if new oplog item had received
             # during checking results (comparing all records) then do double checks
             # so handle that case:
-            if not compare_res and last_ts and do_again_counter < 100:
+            if not compare_res and last_ts and do_again_counter < 30:
                 do_again = True
                 do_again_counter += 1
                 start_ts = last_ts
@@ -215,9 +215,19 @@ last_ts: %s" \
             else:
                 # if transport returned an error then keep the same ts_start
                 # and return True, as nothing applied
-                if self.oplog_reader.failed:
-                    getLogger(__name__).info("do_oplog_apply: \
-Keep the same ts as oplog transport failed")
+                readers_failed = [(k, v.failed) for k,v in \
+                                    self.comparator.mongo_readers.iteritems() \
+                                    if v.failed]
+                if self.oplog_reader.failed or len(readers_failed):
+                    if self.oplog_reader.failed:
+                        getLogger(__name__).info("do_oplog_apply: \
+oplog transport failed")
+                    if len(readers_failed):
+                        getLogger(__name__).info("do_oplog_apply: \
+following mongo transports failed: %s" % (str(readers_failed)))
+                        Exception('test')
+
+                    getLogger(__name__).info('do_oplog_apply: Keep the same ts')
                     return OplogApplyRes(handled_count=oplog_rec_counter,
                                          queries_count=queries_counter,
                                          ts=start_ts_backup,

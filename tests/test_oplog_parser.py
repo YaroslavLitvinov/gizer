@@ -80,7 +80,7 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
     for name, mongo_data_path in oplog_test.before.iteritems():
         load_mongo_data_to_psql(schema_engines[name],
                                 mongo_data_path[0], dbreq, psql_schema)
-    # recreate connection / cursor as rollback won't after commit
+    # recreate connection / cursor as rollback won't work after commit
     del dbreq
     dbreq = PsqlRequests(psycopg2.connect(connstr))
     mongo_readers_after = {}
@@ -93,21 +93,26 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
                  schemas_path, schema_engines, psql_schema)
 
     #start syncing from very start of oplog
-    if what_todo is DO_OPLOG_APPLY:
-        res = ohl.do_oplog_apply(start_ts=None, doing_sync=False)
-        return res.res
-    elif what_todo is DO_OPLOG_SYNC:
-        ts_synced = ohl.do_oplog_sync(None)
-        getLogger(__name__).info("sync res expected to be ts_synced=%s" \
-                                     % oplog_test.ts_synced)
-        if ts_synced == timestamp_str_to_object(oplog_test.ts_synced):
-            return True
-        elif ts_synced == True and oplog_test.ts_synced is None:
-            return True
+    try:
+        if what_todo is DO_OPLOG_APPLY:
+            res = ohl.do_oplog_apply(start_ts=None, doing_sync=False)
+            return res.res
+        elif what_todo is DO_OPLOG_SYNC:
+            ts_synced = ohl.do_oplog_sync(None)
+            getLogger(__name__).info("sync res expected to be ts_synced=%s" \
+                                         % oplog_test.ts_synced)
+            if ts_synced == timestamp_str_to_object(oplog_test.ts_synced):
+                return True
+            elif ts_synced == True and oplog_test.ts_synced is None:
+                return True
+            else:
+                return False
         else:
-            return False
-    else:
-        assert(0)
+            assert(0)
+    except:
+        # close psql connection to have ability to run next tests
+        dbreq.conn.close()
+        raise
 
 
 def check_dataset(name, operation, start_ts, oplog_params, params):
@@ -167,8 +172,54 @@ oplog_simulate_added_after_initload.js',
                            pymongo.errors.OperationFailure)],
                          {'posts': None, 'guests': None}) == True)
 
-    # inject error, it must raise error always if happened during sync
-    # in real life it's will cause init load again
+    # raise pymongo.errors.OperationFailure exception which must be handled.
+    # Should not lead to error and Timestamp should not be changed.
+    # Must return True, just emulate case when no records were processed.
+    # It is supposed that in next time it's will run normally 
+    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
+                         [('test_data/oplog1/oplog1.js', None),
+                          ('test_data/oplog1/oplog2.js', None)],
+                         {'posts': pymongo.errors.OperationFailure,
+                          'guests': None}) == True)
+
+    # raise pymongo.errors.AutoReconnect exception which must be handled.
+    # Should not lead to error and Timestamp should not be changed.
+    # Must return True, just emulate case when no records were processed.
+    # It is supposed that in next time it's will run normally 
+    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
+                         [('test_data/oplog1/oplog1.js', None),
+                          ('test_data/oplog1/oplog2.js', None)],
+                         {'posts': pymongo.errors.AutoReconnect,
+                          'guests': None}) == True)
+
+    # inject error, it must raise an error which should not be bypassed
+    # False expected
+    try:
+        check_dataset('oplog1', DO_OPLOG_APPLY, None,
+                      [('test_data/oplog1/oplog1.js', pymongo.errors.InvalidURI),
+                       ('test_data/oplog1/oplog2.js', None)],
+                      {'posts': None,
+                       'guests': None})
+    except:
+        pass
+    else:
+        assert(0)
+
+    # inject error, it must raise an error which should not be bypassed
+    # False expected
+    try:
+        check_dataset('oplog1', DO_OPLOG_APPLY, None,
+                      [('test_data/oplog1/oplog1.js', None),
+                       ('test_data/oplog1/oplog2.js', None)],
+                      {'posts': pymongo.errors.InvalidURI,
+                       'guests': None})
+    except:
+        pass
+    else:
+        assert(0)
+
+    # inject error and error must be returnrned for sync operation
+    # Sync does not handling exceptions.
     assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278289, 1)',
                          [('test_data/oplog2/oplog.js', None),
                           ('test_data/oplog2/\

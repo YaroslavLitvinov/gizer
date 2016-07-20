@@ -6,6 +6,7 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import sys
 import bson
+import pymongo
 from bson.json_util import loads
 from logging import getLogger
 from collections import namedtuple
@@ -66,9 +67,13 @@ inject_exception=%s"  % (len(self.array_data), str(self.exception_to_inject)))
         self.query = query
 
     def next(self):
-        if self.exception_to_inject is not None:
-            self.failed = True
-            return None
+        if self.exception_to_inject:
+            if self.exception_to_inject is pymongo.errors.OperationFailure or \
+                    self.exception_to_inject is pymongo.errors.AutoReconnect:
+                self.failed = True
+                return None
+            else:
+                raise self.exception_to_inject
         rec = None
         getLogger(__name__).info("reader.next query=" + str(self.query))
         if self.query and len(self.query):
