@@ -32,6 +32,8 @@ from mongo_reader.prepare_mongo_request import prepare_oplog_request
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 
+DO_OPLOG_READ_ATTEMPTS_COUNT = 30
+
 Callback = namedtuple('Callback', ['cb', 'ext_arg'])
 OplogApplyRes = namedtuple('OplogApplyRes', 
                            ['handled_count', # handled oplog records (ops=u,i,d)
@@ -174,7 +176,8 @@ class OplogHighLevel:
             # result of comparison can be negative if new oplog item had received
             # during checking results (comparing all records) then do double checks
             # so handle that case:
-            if not compare_res and last_ts and do_again_counter < 30:
+            if not compare_res and last_ts \
+                    and do_again_counter <= DO_OPLOG_READ_ATTEMPTS_COUNT:
                 do_again = True
                 do_again_counter += 1
                 start_ts = last_ts
