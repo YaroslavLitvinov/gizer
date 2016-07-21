@@ -28,7 +28,7 @@ def test_psql_etl_status_table():
     connstr = os.environ['TEST_PSQLCONN']
     conn = psycopg2.connect(connstr)
     cursor = conn.cursor()
-    status_table = PsqlEtlStatusTable(cursor, 'operational', recreate=True)
+    status_table = PsqlEtlStatusTable(cursor, '', recreate=True)
     status_manager = PsqlEtlStatusTableManager(status_table)
     recent_status = status_table.get_recent()
     assert(recent_status == None)

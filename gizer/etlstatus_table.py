@@ -45,6 +45,8 @@ class PsqlEtlStatusTable:
         self.cursor = cursor
         if len(schema_name):
             self.schema_name = schema_name + '.'
+        else:
+            self.schema_name = ''
         if recreate:
             self.drop_table()
         self.create_table()

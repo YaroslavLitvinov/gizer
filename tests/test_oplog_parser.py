@@ -27,7 +27,6 @@ from gizer.etlstatus_table import timestamp_str_to_object
 
 SCHEMAS_PATH = "./test_data/schemas/rails4_mongoid_development"
 # THis schema must be precreated before running tests
-TMP_SCHEMA_NAME = 'operational'
 MAIN_SCHEMA_NAME = ''
 
 DO_OPLOG_APPLY=1
@@ -239,7 +238,7 @@ def test_compare_empty_compare_psql_and_mongo_records():
     #cmpare non existing record
     res = compare_psql_and_mongo_records(
         dbreq, mongo_reader, schema_engines['posts'], 
-        "111111111111111111111110", TMP_SCHEMA_NAME)
+        "111111111111111111111110", MAIN_SCHEMA_NAME)
     assert(res == True)
 
 
