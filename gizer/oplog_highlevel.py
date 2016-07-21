@@ -27,12 +27,17 @@ from gizer.oplog_handlers import cb_update
 from gizer.oplog_handlers import cb_delete
 from gizer.etlstatus_table import timestamp_str_to_object
 from gizer.all_schema_engines import get_schema_engines_as_dict
+from gizer.opmultiprocessing import FastQueueProcessor
+from gizer.etl_mongo_reader import EtlMongoReader
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
+from mongo_reader.prepare_mongo_request import prepare_mongo_request_for_list
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 
 DO_OPLOG_READ_ATTEMPTS_COUNT = 30
+MONGO_REC_PROCESSING_PROCESS_COUNT = 8
+FAST_QUEUE_SIZE = MONGO_REC_PROCESSING_PROCESS_COUNT*2
 
 Callback = namedtuple('Callback', ['cb', 'ext_arg'])
 OplogApplyRes = namedtuple('OplogApplyRes', 
@@ -42,43 +47,35 @@ OplogApplyRes = namedtuple('OplogApplyRes',
                             'res' # True/False res
                             ])
 
-def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
-                                   dst_schema_name):
+def async_worker_handle_mongo_rec(schema_engines,
+                                  rec_data_and_collection):
+    """ function intended to call by FastQueueProcessor.
+    process mongo record / bson data in separate process.
+    schema_engines -- dict {'collection name': SchemaEngine}. Here is
+    many schema engines to use every queue to handle items from any collection;
+    rec_data_and_collection - tuple('collection name', bson record)"""
+    rec = rec_data_and_collection[0]
+    collection = rec_data_and_collection[1]
+    return create_tables_load_bson_data(schema_engines[collection],
+                                        [rec])
+
+def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
     """ Return True/False. Compare actual mongo record with record's relational
     model from operational tables. Comparison of non existing objects gets True.
-    psql -- psql cursor wrapper
-    mongo_reader - mongo cursor wrapper tied to specific collection
-    schema_engine -- 'SchemaEngine' object
-    rec_id - record id to compare
-    dst_schema_name -- psql schema name where psql tables store that record"""
+    psql_tables_obj -- 
+    mongo_tables_obj -- """
     res = None
-    mongo_tables_obj = None
-    psql_tables_obj = load_single_rec_into_tables_obj(psql,
-                                                      schema_engine,
-                                                      dst_schema_name,
-                                                      rec_id)
-    # retrieve actual mongo record and transform it to relational data
-    query = prepare_mongo_request(schema_engine, rec_id)
-    mongo_reader.make_new_request(query)
-    rec = mongo_reader.next()
-    if not rec:
-        if psql_tables_obj.is_empty():
-            # comparison of non existing objects gets True
-            res= True
-        else:
-            res = False
+    if psql_tables_obj.is_empty() and mongo_tables_obj.is_empty():
+        # comparison of non existing objects gets True
+        res= True
     else:
-        mongo_tables_obj = create_tables_load_bson_data(schema_engine,
-                                                        [rec])
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         if not compare_res:
             collection_name = mongo_tables_obj.schema_engine.root_node.name
             log_table_errors("collection: %s data load from MONGO with errors:" \
-                                 % collection_name,
-                             mongo_tables_obj.errors)
+                                 % collection_name, mongo_tables_obj.errors)
             log_table_errors("collection: %s data load from PSQL with errors:" \
-                                 % collection_name, 
-                             psql_tables_obj.errors)
+                                 % collection_name, psql_tables_obj.errors)
             getLogger(__name__).debug('cmp rec=%s res=False mongo arg[1] data:' % 
                                       str(rec_id))
             for line in str(mongo_tables_obj.tables).splitlines():
@@ -324,6 +321,16 @@ class ComparatorMongoPsql:
         self.psql = psql
         self.psql_schema = psql_schema
         self.recs_to_compare = {}
+        self.recs_to_compare_copy = {}
+        self.etl_mongo_reader = EtlMongoReader(MONGO_REC_PROCESSING_PROCESS_COUNT,
+                                               FAST_QUEUE_SIZE,
+                                               async_worker_handle_mongo_rec,
+                                               #1st worker param
+                                               self.schema_engines, 
+                                               self.mongo_readers)
+
+    def __del__(self):
+        del self.etl_mongo_reader
 
     def add_to_compare(self, collection_name, rec_id):
         if collection_name not in self.recs_to_compare:
@@ -331,15 +338,12 @@ class ComparatorMongoPsql:
         # every time item adding to compare list will reset old state
         self.recs_to_compare[collection_name][rec_id] = False # by default
 
-    def compare_one_src_dest(self, collection_name, rec_id):
+    def compare_one_src_dest(self, collection_name, rec_id, 
+                             mongo_tables_obj, psql_tables_obj):
         schema_engine = self.schema_engines[collection_name]
         mongo_reader = self.mongo_readers[collection_name]
         getLogger(__name__).info("comparing... rec_id=" + str(rec_id))
-        equal = compare_psql_and_mongo_records(self.psql,
-                                               mongo_reader,
-                                               schema_engine,
-                                               rec_id,
-                                               self.psql_schema)
+        equal = cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj)
         getLogger(__name__).info("compare res=" + str(equal) + 
                                  " for rec_id=" + str(rec_id))
         return equal
@@ -347,13 +351,33 @@ class ComparatorMongoPsql:
     def compare_src_dest(self):
         getLogger(__name__).info('Oplog ops applied. Compare following recs: %s'\
                                      % self.recs_to_compare )
-        # compare mongo data & psql data after oplog records applied
+        # iterate mongo items belong to one collection
         for collection_name, recs in self.recs_to_compare.iteritems():
-            for rec_id in recs:
-                if not recs[rec_id]:
-                    # rec to compare has False(not equal) state
-                    equal = self.compare_one_src_dest(collection_name, rec_id)
-                    self.recs_to_compare[collection_name][rec_id] = equal
+            mongo_query = prepare_mongo_request_for_list(
+                self.schema_engines[collection_name], recs)
+            self.etl_mongo_reader.execute_query(collection_name, mongo_query)
+            # get and process records to compare
+            processed_recs = self.etl_mongo_reader.next_processed()
+            while processed_recs is not None:
+                # do cmp for every returned obj
+                for mongo_tables_obj in processed_recs:
+                    rec_id = mongo_tables_obj.rec_id()
+                    psql_tables_obj = load_single_rec_into_tables_obj(
+                        self.psql,
+                        self.schema_engines[collection_name],
+                        self.psql_schema,
+                        rec_id )
+                    equal = self.compare_one_src_dest(collection_name, 
+                                                      rec_id,
+                                                      mongo_tables_obj,
+                                                      psql_tables_obj)
                     if not equal:
+                        # skip all queued results
+                        while self.etl_mongo_reader.next_processed() is not None:
+                            pass
                         return False
+                processed_recs = self.etl_mongo_reader.next_processed()
         return True
+
+
+    

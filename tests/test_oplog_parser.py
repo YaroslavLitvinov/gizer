@@ -14,7 +14,7 @@ from collections import namedtuple
 from bson.json_util import loads
 from gizer.psql_requests import PsqlRequests
 from gizer.oplog_highlevel import OplogHighLevel
-from gizer.oplog_highlevel import compare_psql_and_mongo_records
+from gizer.psql_objects import compare_psql_and_mongo_records
 from gizer.oplog_parser import EMPTY_TS
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.psql_objects import insert_tables_data_into_dst_psql
@@ -38,7 +38,7 @@ OplogTest = namedtuple('OplogTest', ['ts_synced',
                                      'oplog_dataset_path_list',
                                      'after'])
 
-def data_mock(mongo_data_path_list):
+def data_mock(mongo_data_path_list, collection):
     print mongo_data_path_list
     reader = None
     list_of_test_datasets = []
@@ -48,7 +48,7 @@ def data_mock(mongo_data_path_list):
             dataset = MockReaderDataset(opfile.read(), path_and_exception[1])
             list_of_test_datasets.append(dataset)
             opfile.close()
-    reader = MongoReaderMock(list_of_test_datasets)
+    reader = MongoReaderMock(list_of_test_datasets, collection)
     getLogger(__name__).info("prepared %d dataset/s" % len(list_of_test_datasets))
     return reader
 
@@ -72,7 +72,7 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
 
     schema_engines = get_schema_engines_as_dict(schemas_path)
     getLogger(__name__).info("Loading oplog data...")
-    oplog_reader = data_mock(oplog_test.oplog_dataset_path_list)
+    oplog_reader = data_mock(oplog_test.oplog_dataset_path_list, None)
 
     create_truncate_psql_objects(dbreq, schemas_path, psql_schema)
     dbreq.cursor.execute('COMMIT')
@@ -87,7 +87,7 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
     getLogger(__name__).info("Loading mongo data after initload")
     for name, mongo_data_path in oplog_test.after.iteritems():
         # pass just one dataset as collection's test mongo data
-        mongo_readers_after[name] = data_mock([mongo_data_path])
+        mongo_readers_after[name] = data_mock([mongo_data_path], name)
 
     ohl = OplogHighLevel(dbreq, mongo_readers_after, oplog_reader,
                  schemas_path, schema_engines, psql_schema)
@@ -232,7 +232,7 @@ def test_compare_empty_compare_psql_and_mongo_records():
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
     empty_mongo = ('test_data/oplog1/before_collection_posts.js', None)
-    mongo_reader = data_mock([empty_mongo])
+    mongo_reader = data_mock([empty_mongo], None)
     schemas_path = "./test_data/schemas/rails4_mongoid_development"
     schema_engines = get_schema_engines_as_dict(schemas_path)
 
@@ -246,6 +246,8 @@ def test_compare_empty_compare_psql_and_mongo_records():
 if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
+    test_oplog_sync()
+    exit(0)
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     schemas_path = sys.argv[1]

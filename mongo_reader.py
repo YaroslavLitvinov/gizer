@@ -32,18 +32,15 @@ from gizer.opcreate import generate_drop_table_statement
 from gizer.opinsert import table_rows_list
 from gizer.opinsert import ENCODE_ONLY
 from gizer.opmultiprocessing import FastQueueProcessor
-from gizer.opconfig import MongoSettings
 from gizer.opconfig import mongo_settings_from_config
+from gizer.etl_mongo_reader import EtlMongoReader
+
 
 CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
 ETL_PROCESS_NUMBER = 8
 ETL_QUEUE_SIZE = ETL_PROCESS_NUMBER*2
-GET_QUEUE_SIZE = ETL_PROCESS_NUMBER*2
 
 TablesToSave = namedtuple('TablesToSave', ['rows', 'errors'])
-MongoSettings = namedtuple('MongoSettings',
-                           ['host', 'port', 'dbname', 'collection',
-                            'request'])
 
 def create_table(sqltable, psql_schema_name, table_prefix):
     """ get drop / create ddl statements """
@@ -89,25 +86,15 @@ def save_csvs(csm, tables_rows):
                                             tables_rows[table_name])
     return written
 
-def retrieve_mongo_record(mongo_reader):
-    """ get next record from mongo collection """
-    rec = mongo_reader.next()
-    count = 0
-    if not hasattr(retrieve_mongo_record, "mongo_count"):
-        retrieve_mongo_record.mongo_count = mongo_reader.cursor.count()
-    count = retrieve_mongo_record.mongo_count
-    if rec:
-        #message(".", crret="")
-        if mongo_reader.rec_i % 1000 == 0:
-            getLogger(__name__).info("%d of %d" % (mongo_reader.rec_i, count))
-    return rec
-
-def async_worker_handle_mongo_rec(schema_engine, rec):
+def async_worker_handle_mongo_rec(schema_engines, rec_collection):
     """ function intended to call by FastQueueProcessor.
     process mongo record / bson data in separate process.
     schema_engine -- SchemaEngine
-    rec - bson record"""
+    rec_collection - tuble(bson record, collection name)"""
     rows_as_dict = {}
+    collection = rec_collection[1]
+    rec = rec_collection[0]
+    schema_engine = schema_engines[collection]
     tables_obj = create_tables_load_bson_data(schema_engine, [rec])
     for table_name, table in tables_obj.tables.iteritems():
         rows = table_rows_list(table, ENCODE_ONLY, null_value=NULLVAL)
@@ -115,28 +102,6 @@ def async_worker_handle_mongo_rec(schema_engine, rec):
     return TablesToSave(rows=rows_as_dict, errors=tables_obj.errors)
 
 # Fast queue helpers
-
-
-def put_record_get_tables_async(fastqueue, rec):
-    """ Put mongo record into pipeline to do parallel work in multiple
-    processes. Get results asynchronously if available.
-    Pipeline queue size can never exceed specified limit.
-    fastqueue -- asyncronous pipeline object
-    rec -- mongo record to put into pipeline"""
-    finish = False
-    res = []
-    if rec:
-        fastqueue.put(rec)
-    get_all = fastqueue.count() \
-              or fastqueue.poll() or fastqueue.is_any_working()
-    while fastqueue.count() >= ETL_QUEUE_SIZE or fastqueue.poll() \
-            or (not rec and get_all and not finish):
-        async_res = fastqueue.get()
-        if async_res:
-            res.append(async_res)
-        else:
-            finish = True
-    return res
 
 def getargs():
     """ get args from cmdline """
@@ -213,39 +178,26 @@ def main():
     schema_engine = SchemaEngine(args.collection_name, [json.load(schema_file)])
     table_names = create_tables_load_bson_data(schema_engine, None).tables.keys()
     csm = CsvWriteManager(table_names, args.csv_path, CSV_CHUNK_SIZE)
-    mongo_rec_multiprocessing \
-        = FastQueueProcessor(async_worker_handle_mongo_rec,
-                             schema_engine,
-                             ETL_PROCESS_NUMBER)
+
+    etl_mongo_reader = EtlMongoReader(ETL_PROCESS_NUMBER,
+                                      ETL_QUEUE_SIZE,
+                                      async_worker_handle_mongo_rec,
+                                      #1st worker param
+                                      {args.collection_name: schema_engine}, 
+                                      {args.collection_name: mongo_reader})
+    etl_mongo_reader.execute_query(args.collection_name, json.loads(args.js_request))
+
     getLogger(__name__).info("Connecting to mongo server " + mongo_settings.host)
     errors = {}
     all_written = {}
-    etl_recs_count = 0
-    try:
-        record = retrieve_mongo_record(mongo_reader)
-        while True and not mongo_rec_multiprocessing.error:
-            tables_list = put_record_get_tables_async(mongo_rec_multiprocessing,
-                                                      record)
-#            print "loop.b", len(tables_list), mongo_rec_multiprocessing.count()
-            for tables in tables_list:
-                all_written = merge_dicts(all_written,
-                                          save_csvs(csm, tables.rows))
-                errors = merge_dicts(errors, tables.errors)
-            if not record:
-                break
-            else:
-                etl_recs_count += 1
-            record = retrieve_mongo_record(mongo_reader)
-
-    except:
-        mongo_reader.failed = True
-        del mongo_rec_multiprocessing
-        raise
-    #message("")
+    tables_list = etl_mongo_reader.next_processed()
+    while tables_list is not None:
+        for tables in tables_list:
+            all_written = merge_dicts(all_written,
+                                      save_csvs(csm, tables.rows))
+            errors = merge_dicts(errors, tables.errors)
+        tables_list = etl_mongo_reader.next_processed()
     
-    if mongo_rec_multiprocessing.error:
-        mongo_reader.failed = True
-
     save_ddl_create_statements(args.ddl_statements_file,
                                schema_engine,
                                schema_name,
@@ -255,11 +207,15 @@ def main():
 
     #for debugging purposes
     #print_profiler_stats(profiler)
-    print_etl_stats(errors, all_written, etl_recs_count)
+    print_etl_stats(errors, all_written, etl_mongo_reader.etl_recs_count)
     save_etl_stats(args.stats_file, all_written)
 
-    del mongo_rec_multiprocessing
-    exit(mongo_reader.failed)
+    exit_code = 0
+    if etl_mongo_reader.current_mongo_reader.failed or \
+            etl_mongo_reader.fast_queue.error:
+        exit_code = 1
+    del etl_mongo_reader
+    exit(exit_code)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,

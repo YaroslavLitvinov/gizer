@@ -22,12 +22,14 @@ class MongoReaderMock:
     """ Similiar interface to MongoReader. For test purposes.
     params:
     -- datasets_list list of objects MockReaderDataset """
-    def __init__(self, datasets_list, query=None):
+    def __init__(self, datasets_list, collection, query=None):
         self.current_dataset_idx = None
         self.datasets_list = datasets_list
         self.exception_to_inject = None
         self.query = query
         self.failed = False
+        self.array_data = []
+        self.collection = collection
         self.load_next_test_dataset()
 
     def next_dataset_idx(self):
@@ -64,7 +66,11 @@ inject_exception=%s"  % (len(self.array_data), str(self.exception_to_inject)))
         return None
 
     def make_new_request(self, query):
+        self.rec_i = 0
         self.query = query
+
+    def count(self):
+        return len(self.array_data)
 
     def next(self):
         if self.exception_to_inject:
@@ -79,19 +85,30 @@ inject_exception=%s"  % (len(self.array_data), str(self.exception_to_inject)))
         if self.query and len(self.query):
             for item_idx in xrange(len(self.array_data)):
                 item = self.array_data[item_idx]
-                if ('id' in item and item['id'] == self.query['id']) or \
-                   ('_id' in item and item['_id'] == self.query['_id']):
+                if ('id' in item and 'id' in self.query \
+                        and item['id'] == self.query['id']) or \
+                   ('_id' in item  and '_id' in self.query \
+                        and item['_id'] == self.query['_id']):
                     rec = item
                     break
-                elif 'ts' in self.query and '$gt' in self.query['ts'] and \
-                        'ts' in item and item['ts'] > self.query['ts']['$gt']:
-                    # emulate searching, hack query start iterating from next rec
-                    getLogger(__name__).info("MockMongoReader match query")
-                    getLogger(__name__).info("MockMongoReader req > %s rec=  %s" \
+                elif 'ts' in self.query and 'ts' in item and\
+                        '$gt' in self.query['ts']:
+                    if item['ts'] > self.query['ts']['$gt']:
+                        # emulate search, hack query start iterating from next rec
+                        getLogger(__name__).info("MockMongoReader match query")
+                        getLogger(__name__).info("MockMongoReader req > %s \
+rec= %s"
                                                  % (str(self.query['ts']['$gt']),
                                                     str(item['ts'])))
-                    self.rec_i = item_idx
-                    rec = self.array_data[self.rec_i]
+                        self.rec_i = item_idx
+                        rec = self.array_data[self.rec_i]
+                        self.query = None # reset query, just iterate results
+                        self.rec_i += 1 # next item to iterate
+                        break
+                else:
+                    # for this query just return all results
+                    if self.rec_i < len(self.array_data):
+                        rec = self.array_data[self.rec_i]
                     self.query = None # reset query, just iterate results
                     self.rec_i += 1 # next item to iterate
                     break
