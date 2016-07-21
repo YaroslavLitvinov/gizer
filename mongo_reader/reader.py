@@ -54,8 +54,12 @@ class MongoReader:
         mongo_collection = self.client[self.settings.dbname][self.collection]
         cursor = mongo_collection.find(query)
         cursor.batch_size(1000)
+        self.rec_i = 0
         self.cursor = cursor
         return cursor
+
+    def count(self):
+        return self.cursor.count()
 
     def next(self):
         if not self.cursor:

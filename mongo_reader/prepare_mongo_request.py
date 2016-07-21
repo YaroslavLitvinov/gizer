@@ -17,6 +17,12 @@ def prepare_mongo_request(schema_engine, rec_id):
         name = node.name
     return {name:rec_id}
 
+def prepare_mongo_request_for_list(schema_engine, recid_list):
+    request_list = []
+    for rec_id in recid_list:
+        request_list.append(prepare_mongo_request(schema_engine, rec_id))
+    return {"$or": request_list}
+
 def prepare_oplog_request(ts):
     if not ts:
         return {}

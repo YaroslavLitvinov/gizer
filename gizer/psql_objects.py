@@ -11,6 +11,58 @@ from gizer.opcreate import generate_drop_table_statement
 from gizer.opcreate import generate_create_table_statement
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_schema.schema_engine import create_tables_load_bson_data
+from mongo_reader.prepare_mongo_request import prepare_mongo_request
+
+def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
+                                   dst_schema_name):
+    """ Return True/False. Compare actual mongo record with record's relational
+    model from operational tables. Comparison of non existing objects gets True.
+    psql -- psql cursor wrapper
+    mongo_reader - mongo cursor wrapper tied to specific collection
+    schema_engine -- 'SchemaEngine' object
+    rec_id - record id to compare
+    dst_schema_name -- psql schema name where psql tables store that record"""
+    res = None
+    mongo_tables_obj = None
+    psql_tables_obj = load_single_rec_into_tables_obj(psql,
+                                                      schema_engine,
+                                                      dst_schema_name,
+                                                      rec_id)
+    # retrieve actual mongo record and transform it to relational data
+    query = prepare_mongo_request(schema_engine, rec_id)
+    mongo_reader.make_new_request(query)
+    rec = mongo_reader.next()
+    if not rec:
+        if psql_tables_obj.is_empty():
+            # comparison of non existing objects gets True
+            res= True
+        else:
+            res = False
+    else:
+        mongo_tables_obj = create_tables_load_bson_data(schema_engine,
+                                                        [rec])
+        compare_res = mongo_tables_obj.compare(psql_tables_obj)
+        if not compare_res:
+            collection_name = mongo_tables_obj.schema_engine.root_node.name
+            log_table_errors("collection: %s data load from MONGO with errors:" \
+                                 % collection_name,
+                             mongo_tables_obj.errors)
+            log_table_errors("collection: %s data load from PSQL with errors:" \
+                                 % collection_name, 
+                             psql_tables_obj.errors)
+            getLogger(__name__).debug('cmp rec=%s res=False mongo arg[1] data:' % 
+                                      str(rec_id))
+            for line in str(mongo_tables_obj.tables).splitlines():
+                getLogger(__name__).debug(line)
+            getLogger(__name__).debug('cmp rec=%s res=False psql arg[2] data:' % 
+                                      str(rec_id))
+            for line in str(psql_tables_obj.tables).splitlines():
+                getLogger(__name__).debug(line)
+
+        # save result of comparison
+        res = compare_res
+    return res
+
 
 def parent_id_name_and_quotes_for_table(sqltable):
     id_name = None
