@@ -21,6 +21,50 @@ class SectionKey:
         return "%s-%s" % (self.section_name, base_key_name)
 
 
+class StructureAcquire:
+    def __init__(self, divided_by):
+        self.divided_by = divided_by
+
+    def last(self, key):
+        splits = key.split(self.divided_by)
+        return self.divided_by.join(splits[:-1])
+        
+    def collect_recursively(self, key):
+        contents = {}
+        parent = self.last(key)
+        if len(parent):
+            contents = self.collect_recursively(parent)
+            contents[parent] = key
+        else:
+            contents[key] = key
+        return contents
+
+
+def get_structure(sections_list, delim):
+    res = {}
+    sta = StructureAcquire(delim)
+    for item in sections_list:
+        for k, v in sta.collect_recursively(item).iteritems():
+            if k not in res:
+                res[k] = [v]
+            elif v not in res[k]: 
+                res[k].append(v)
+    return res
+
+
+
+def section_groups(section_names, divided_by):
+    """ Returns dict containing oplog name as key 
+    and list of replicas connection settings as values. Like:
+    {'mongo-oplog': ['mongo-oplog']}  or
+    {'mongo-oplog-shard1': ['mongo-oplog-shard1-rs1', 'mongo-oplog-shard1-rs2'],
+     'mongo-oplog-shard2': ['mongo-oplog-shard2-rs1']}
+    """
+    pass
+
+def get_config_structure(config):
+    return get_structure(config.sections(), '-')
+
 def mongo_settings_from_config(config, section_name):
     mongo = SectionKey(section_name)
     conf = config[section_name]
@@ -43,3 +87,33 @@ def psql_settings_from_config(config, section_name):
                         schema=conf[psql.key('schema-name')].strip())
 
 
+
+def load_mongo_replicas_from_setting(config, conf_struct, mongo_section):
+    """ Return 
+    {'some-name' : [ MongoSetting(), ..., MongoSetting() ],
+     'some-name2' : [ MongoSetting() ]} """
+    sections = config.sections()
+    all_settings = {}
+    if mongo_section in sections:
+        # single mongo instance with single replica
+        settings = [mongo_settings_from_config(config, mongo_section)]
+        all_settings[mongo_section] = settings
+    else:
+        settings = []
+        # single mongo instance with many replicas
+        for setting_name in conf_struct[mongo_section]:
+            if setting_name in sections:
+                settings.append(mongo_settings_from_config(config, setting_name))
+        if len(settings):
+            all_settings[mongo_section] = settings
+        if not len(settings):
+            # many shards with many replicas
+            for setting_name in conf_struct[mongo_section]:
+                dict_set = load_mongo_replicas_from_setting(config, 
+                                                            conf_struct,
+                                                            setting_name)
+                if len(dict_set[setting_name]):
+                    all_settings[setting_name] = dict_set[setting_name]
+        if not len(all_settings):
+            Exception('To complicated config file')
+    return all_settings

@@ -139,10 +139,13 @@ def test_oplog_sync():
 
     # test applying oplog ops to initial data 'before_data' and then compare it 
     # with final 'after_data'
-    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
-                         [('test_data/oplog1/oplog1.js', None),
-                          ('test_data/oplog1/oplog2.js', None)],
-                         {'posts': None, 'guests': None}) == True)
+    oplog = {'shard1': {'rs1':[('test_data/oplog1/oplog1.js', None),
+                               ('test_data/oplog1/oplog2.js', None)
+                               ]
+                        }
+             }
+    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None, oplog,
+                          {'posts': None, 'guests': None}) == True)
 
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.

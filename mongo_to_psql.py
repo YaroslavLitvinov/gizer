@@ -38,7 +38,8 @@ from gizer.psql_requests import PsqlRequests
 from gizer.psql_requests import psql_conn_from_settings
 from gizer.opconfig import psql_settings_from_config
 from gizer.opconfig import mongo_settings_from_config
-
+from gizer.opconfig import get_config_structure
+from gizer.opconfig import load_mongo_replicas_from_setting
 
 def sectkey(section_name, base_key_name):
     """ Return key config value. Key name in file must be concatenation 
@@ -86,12 +87,15 @@ def main():
     
     config = configparser.ConfigParser()
     config.read_file(args.config_file)
+    config_structure = get_config_structure(config)
 
     schemas_path = config['misc']['schemas-dir']
     logspath = config['misc']['logs-dir']
 
+    oplog_settings = \
+        load_mongo_replicas_from_setting(config, config_structure, 'mongo-oplog')
+
     mongo_settings = mongo_settings_from_config(config, 'mongo')
-    oplog_settings = mongo_settings_from_config(config, 'mongo-oplog')
     psql_settings = psql_settings_from_config(config, 'psql')
     tmp_psql_settings = psql_settings_from_config(config, 'tmp-psql')
 
@@ -100,6 +104,16 @@ def main():
     for collection_name in schema_engines:
         reader = mongo_reader_from_settings(mongo_settings, collection_name, {})
         mongo_readers[collection_name] = reader
+
+    # create oplog read transport/s
+    oplog_readers = {}
+    for oplog_name, settings_list in oplog_settings:
+        # settings list is a replica set (must be at least one in list)
+        oplog_readers[oplog_name] = \
+            mongo_reader_from_settings(settings_list, 'oplog.rs', {})
+
+    oplog_settings = mongo_settings_from_config(config, 'mongo-oplog')
+
     oplog_reader = mongo_reader_from_settings(oplog_settings, 'oplog.rs', {})
 
     psql_main_etl_status = PsqlRequests(psql_conn_from_settings(psql_settings))

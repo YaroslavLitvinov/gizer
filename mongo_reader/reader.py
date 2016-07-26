@@ -14,12 +14,17 @@ from pymongo.cursor import CursorType
 
 
 def mongo_reader_from_settings(settings, collection_name, request):
-    return MongoReader(settings, collection_name, request)
+    """ Create transport to work with only one replica """
+    return MongoReader([settings], collection_name, request)
+
+def mongo_reader_from_settings_list(settings_list, collection_name, request):
+    """ Create transport to work with many replicas """
+    return MongoReader(settings_list, collection_name, request)
 
 class MongoReader:
 
-    def __init__(self, settings, collection, query):
-        self.settings = settings
+    def __init__(self, settings_list, collection, query):
+        self.settings_list = settings_list
         self.collection = collection
         self.query = query
         self.rec_i = 0
@@ -33,25 +38,29 @@ class MongoReader:
         pass
 
     def connauthreq(self):
-        uri_fmt = "mongodb://{user}:{password}@{host}:{port}/{dbname}{params}"
-        params = ""
-        if len(self.settings.params):
-            params = "?" + self.settings.params
-        
-        uri = uri_fmt.format(user=self.settings.user, 
-                             #password=urllib.quote_plus(self.settings.passw),
-                             password=self.settings.passw,
-                             host=self.settings.host, 
-                             port=self.settings.port,
-                             dbname=self.settings.dbname,
-                             params=params)
-        self.client = MongoClient(uri)
+        if len(self.settings_list) == 1:
+            settings = self.settings_list[0]
+            uri_fmt = "mongodb://{user}:{password}@{host}:{port}/{dbname}{params}"
+            params = ""
+            if len(settings.params):
+                params = "?" + settings.params
+            
+            uri = uri_fmt.format(user=settings.user, 
+                                 #password=urllib.quote_plus(self.settings.passw),
+                                 password=settings.passw,
+                                 host=settings.host, 
+                                 port=settings.port,
+                                 dbname=settings.dbname,
+                                 params=params)
+            self.client = MongoClient(uri)
         getLogger(__name__).info("Authenticated")
 
     def make_new_request(self, query):
+        # there are only one dbname for all replicas
+        dbname = self.settings_list[0].dbname
         if not self.client:
             self.connauthreq()
-        mongo_collection = self.client[self.settings.dbname][self.collection]
+        mongo_collection = self.client[dbname][self.collection]
         cursor = mongo_collection.find(query)
         cursor.batch_size(1000)
         self.rec_i = 0
