@@ -71,11 +71,15 @@ class OplogParser:
                 ts_min = (name, item['ts'])
             elif item and item['ts'] < ts_min[1]:
                 ts_min = (name, item['ts'])
-        # pop min item from cache
+        # return min item, pop it from cache
         if ts_min[1]:
+            getLogger(__name__).info("from oplog:%s ts:%s" % 
+                                     (ts_min[0], ts_min[1]) )
             tmp_ts = self.readers_cache[ts_min[0]]
             self.readers_cache[ts_min[0]] = None
             return tmp_ts
+        else:
+            return None
 
     def next_verified(self):
         """ next oplog records for one of ops=u,i,d """

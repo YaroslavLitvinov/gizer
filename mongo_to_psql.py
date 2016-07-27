@@ -112,10 +112,6 @@ def main():
         oplog_readers[oplog_name] = \
             mongo_reader_from_settings(settings_list, 'oplog.rs', {})
 
-    oplog_settings = mongo_settings_from_config(config, 'mongo-oplog')
-
-    oplog_reader = mongo_reader_from_settings(oplog_settings, 'oplog.rs', {})
-
     psql_main_etl_status = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_tmp = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))

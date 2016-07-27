@@ -34,7 +34,7 @@ DO_OPLOG_SYNC=2
 
 OplogTest = namedtuple('OplogTest', ['ts_synced',
                                      'before',
-                                     'oplog_dataset_path_list',
+                                     'oplog_dataset',
                                      'after'])
 
 def data_mock(mongo_data_path_list, collection):
@@ -71,7 +71,9 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
 
     schema_engines = get_schema_engines_as_dict(schemas_path)
     getLogger(__name__).info("Loading oplog data...")
-    oplog_reader = data_mock(oplog_test.oplog_dataset_path_list, None)
+    oplog_readers = {}
+    for name, oplog_datas in oplog_test.oplog_dataset.iteritems():
+        oplog_readers[name] = data_mock(oplog_datas, None)
 
     create_truncate_psql_objects(dbreq, schemas_path, psql_schema)
     dbreq.cursor.execute('COMMIT')
@@ -88,7 +90,7 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
         # pass just one dataset as collection's test mongo data
         mongo_readers_after[name] = data_mock([mongo_data_path], name)
 
-    ohl = OplogHighLevel(dbreq, mongo_readers_after, oplog_reader,
+    ohl = OplogHighLevel(dbreq, mongo_readers_after, oplog_readers,
                  schemas_path, schema_engines, psql_schema)
 
     #start syncing from very start of oplog
@@ -139,48 +141,56 @@ def test_oplog_sync():
 
     # test applying oplog ops to initial data 'before_data' and then compare it 
     # with final 'after_data'
-    oplog = {'shard1': {'rs1':[('test_data/oplog1/oplog1.js', None),
-                               ('test_data/oplog1/oplog2.js', None)
-                               ]
-                        }
+    oplog1 = {'shard1': [('test_data/oplog1/oplog1.js', None),
+                         ('test_data/oplog1/oplog2.js', None)
+                         ],
+              'shard2': [('test_data/oplog1/shard2-oplog1.js', None)
+                         ]
              }
-    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None, oplog,
+    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None, oplog1,
                           {'posts': None, 'guests': None}) == True)
 
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
     # Sync point when located should be equal to timestamp param
-    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278289, 1)',
-                         [('test_data/oplog2/oplog.js', None),
-                          ('test_data/oplog2/\
+    oplog2 = {'single-oplog': [('test_data/oplog2/oplog.js', None),
+                               ('test_data/oplog2/\
 oplog_simulate_added_after_initload.js',
-                           None)],
+                                None)],
+              }
+    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278289, 1)',
+                         oplog2,
                          {'posts': None, 'guests': None}) == True)
 
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
     # Sync point when located should be equal to timestamp param
+    oplog3 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
     assert(check_dataset('oplog3', DO_OPLOG_SYNC, 'Timestamp(1000000001, 1)',
-                         [('test_data/oplog3/oplog.js', None)],
+                         oplog3,
                          {'posts': None, 'posts2': None, 'rated_posts': None,
                           'guests': None}) == True)
 
     # inject error, it must do not raise error but to keep the same state
     # return True, and as there no records were processed. It is supposed 
     # that in next time it's will run normally
+    oplog11 = {'single-oplog': [('test_data/oplog1/oplog1.js', None),
+                                ('test_data/oplog1/oplog2.js', 
+                                 pymongo.errors.OperationFailure)]
+               }
     assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
-                         [('test_data/oplog1/oplog1.js', None),
-                          ('test_data/oplog1/oplog2.js', 
-                           pymongo.errors.OperationFailure)],
+                         oplog11,
                          {'posts': None, 'guests': None}) == True)
 
     # raise pymongo.errors.OperationFailure exception which must be handled.
     # Should not lead to error and Timestamp should not be changed.
     # Must return True, just emulate case when no records were processed.
     # It is supposed that in next time it's will run normally 
+    oplog12 = {'single-oplog': [('test_data/oplog1/oplog1.js', None),
+                                ('test_data/oplog1/oplog2.js', None)]
+               }
     assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
-                         [('test_data/oplog1/oplog1.js', None),
-                          ('test_data/oplog1/oplog2.js', None)],
+                         oplog12,
                          {'posts': pymongo.errors.OperationFailure,
                           'guests': None}) == True)
 
@@ -188,18 +198,22 @@ oplog_simulate_added_after_initload.js',
     # Should not lead to error and Timestamp should not be changed.
     # Must return True, just emulate case when no records were processed.
     # It is supposed that in next time it's will run normally 
+    oplog13 = {'single-oplog': [('test_data/oplog1/oplog1.js', None),
+                                ('test_data/oplog1/oplog2.js', None)]
+               }
     assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
-                         [('test_data/oplog1/oplog1.js', None),
-                          ('test_data/oplog1/oplog2.js', None)],
+                         oplog13,
                          {'posts': pymongo.errors.AutoReconnect,
                           'guests': None}) == True)
 
     # inject error, it must raise an error which should not be bypassed
     # False expected
     try:
+        oplog14 = {'single-oplog': [('test_data/oplog1/oplog1.js', 
+                                     pymongo.errors.InvalidURI),
+                                    ('test_data/oplog1/oplog2.js', None)]}
         check_dataset('oplog1', DO_OPLOG_APPLY, None,
-                      [('test_data/oplog1/oplog1.js', pymongo.errors.InvalidURI),
-                       ('test_data/oplog1/oplog2.js', None)],
+                      oplog14,
                       {'posts': None,
                        'guests': None})
     except:
@@ -222,11 +236,13 @@ oplog_simulate_added_after_initload.js',
 
     # inject error and error must be returnrned for sync operation
     # Sync does not handling exceptions.
-    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278289, 1)',
-                         [('test_data/oplog2/oplog.js', None),
-                          ('test_data/oplog2/\
+    oplog21 = {'single-oplog': [('test_data/oplog2/oplog.js', None),
+                                ('test_data/oplog2/\
 oplog_simulate_added_after_initload.js',
-                           pymongo.errors.OperationFailure)],
+                                 pymongo.errors.OperationFailure)]
+               }
+    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278289, 1)',
+                         oplog21,
                          {'posts': None, 'guests': None}) == False)
 
 
