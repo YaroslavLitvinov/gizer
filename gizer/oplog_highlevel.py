@@ -91,7 +91,7 @@ def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
 
 
 class OplogHighLevel:
-    def __init__(self, psql, mongo_readers, oplog,
+    def __init__(self, psql, mongo_readers, oplog_readers,
                  schemas_path, schema_engines, psql_schema):
         """ params:
         psql -- Postgres cursor wrapper
@@ -101,7 +101,7 @@ class OplogHighLevel:
         psql_schema -- psql schema whose tables data to patch."""
         self.psql = psql
         self.mongo_readers = mongo_readers
-        self.oplog_reader = oplog
+        self.oplog_readers = oplog_readers
         self.schemas_path = schemas_path
         self.schema_engines = schema_engines
         self.psql_schema = psql_schema
@@ -143,9 +143,10 @@ class OplogHighLevel:
             # reset 'apply again', it's will be enabled again if needed
             do_again = False
             js_oplog_query = prepare_oplog_request(start_ts)
-            self.oplog_reader.make_new_request(js_oplog_query)
+            for name in self.oplog_readers:
+                self.oplog_readers[name].make_new_request(js_oplog_query)
             # create oplog parser. note: cb_insert doesn't need psql object
-            parser = OplogParser(self.oplog_reader, self.schemas_path, \
+            parser = OplogParser(self.oplog_readers, self.schemas_path, \
                         Callback(cb_insert, ext_arg=self.psql_schema),
                         Callback(cb_update, ext_arg=(self.psql, self.psql_schema)),
                         Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
@@ -218,12 +219,12 @@ last_ts: %s" \
                 readers_failed = [(k, v.failed) for k,v in \
                                     self.comparator.mongo_readers.iteritems() \
                                     if v.failed]
-                if self.oplog_reader.failed or len(readers_failed):
-                    if self.oplog_reader.failed:
-                        getLogger(__name__).info("do_oplog_apply: \
+                if parser.is_failed() or len(readers_failed):
+                    if parser.is_failed():
+                        getLogger(__name__).warning("do_oplog_apply: \
 oplog transport failed")
                     if len(readers_failed):
-                        getLogger(__name__).info("do_oplog_apply: \
+                        getLogger(__name__).warning("do_oplog_apply: \
 following mongo transports failed: %s" % (str(readers_failed)))
                         Exception('test')
 
@@ -294,7 +295,8 @@ Bad apply for start_ts: %s, next candidate ts: %s" \
         Return True if able to locate and synchronize initially loaded data
         with oplog data, or return next ts candidate for syncing.
         start_ts -- Timestamp of oplog record to start sync tests"""
-        self.oplog_reader.reset_dataset() # will affect only mock test reader
+        for name in self.oplog_readers:
+            self.oplog_readers[name].reset_dataset() # will affect only mock test reader
         ts_sync = self.do_oplog_apply(test_ts, doing_sync=True)
         if ts_sync.res == True:
             # sync succesfull

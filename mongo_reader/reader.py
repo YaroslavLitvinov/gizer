@@ -38,29 +38,35 @@ class MongoReader:
         pass
 
     def connauthreq(self):
-        if len(self.settings_list) == 1:
-            settings = self.settings_list[0]
-            uri_fmt = "mongodb://{user}:{password}@{host}:{port}/{dbname}{params}"
-            params = ""
-            if len(settings.params):
-                params = "?" + settings.params
-            
-            uri = uri_fmt.format(user=settings.user, 
-                                 #password=urllib.quote_plus(self.settings.passw),
-                                 password=settings.passw,
-                                 host=settings.host, 
-                                 port=settings.port,
-                                 dbname=settings.dbname,
-                                 params=params)
-            self.client = MongoClient(uri)
+        uri_fmt = "mongodb://{user}:{password}@{host_port}/{dbname}{params}"
+        host_port_fmt = "{host}:{port}"
+        host_port = ''
+        for settings in self.settings_list:
+            if len(host_port):
+                host_port += ','
+            host_port += host_port_fmt.format(host=settings.host,
+                                              port=settings.port)
+        # for multiple repl sets all params will be derived from first
+        # setting from list except host, port
+        settings = self.settings_list[0]
+        # there are only one dbname for all replicas
+        self.dbname = self.settings_list[0].dbname
+        params = ""
+        if len(settings.params):
+            params = "?" + settings.params
+        uri = uri_fmt.format(user=settings.user, 
+                             #password=urllib.quote_plus(self.settings.passw),
+                             password=settings.passw,
+                             host_port=host_port,
+                             dbname=settings.dbname,
+                             params=params)
+        self.client = MongoClient(uri)
         getLogger(__name__).info("Authenticated")
 
     def make_new_request(self, query):
-        # there are only one dbname for all replicas
-        dbname = self.settings_list[0].dbname
         if not self.client:
             self.connauthreq()
-        mongo_collection = self.client[dbname][self.collection]
+        mongo_collection = self.client[self.dbname][self.collection]
         cursor = mongo_collection.find(query)
         cursor.batch_size(1000)
         self.rec_i = 0

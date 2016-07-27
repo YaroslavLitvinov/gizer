@@ -37,19 +37,49 @@ ItemInfo = namedtuple('ItemInfo', ['schema_name',
 class OplogParser:
     """ parse oplog data, apply oplog operations, execute resulted queries
     and verify patched results """
-    def __init__(self, reader, schemas_path,
+    def __init__(self, readers, schemas_path,
                  cb_ins, cb_upd, cb_del):
-        self.reader = reader
+        self.readers = readers
         self.first_handled_ts = None
         self.schema_engines = get_schema_engines_as_dict(schemas_path)
         self.item_info = None
         self.cb_insert = cb_ins
         self.cb_update = cb_upd
         self.cb_delete = cb_del
+        # init cache by Nones
+        self.readers_cache = {}
+        for name in readers:
+            self.readers_cache[name] = None
+
+    def is_failed(self):
+        failed = False
+        for name, oplog_reader in self.readers.iteritems():
+            getLogger(__name__).warning("oplog transport %s failed" % name)
+            if oplog_reader.failed:
+                failed = True
+        return failed
+
+    def next_all_readers(self):
+        # fill cache if empty
+        for name in self.readers:
+            if not self.readers_cache[name]:
+                self.readers_cache[name] = self.readers[name].next()
+        # locate item with min timestamp
+        ts_min = ('name', None)
+        for name, item in self.readers_cache.iteritems():
+            if not ts_min[1] and item:
+                ts_min = (name, item['ts'])
+            elif item and item['ts'] < ts_min[1]:
+                ts_min = (name, item['ts'])
+        # pop min item from cache
+        if ts_min[1]:
+            tmp_ts = self.readers_cache[ts_min[0]]
+            self.readers_cache[ts_min[0]] = None
+            return tmp_ts
 
     def next_verified(self):
         """ next oplog records for one of ops=u,i,d """
-        item = self.reader.next()
+        item = self.next_all_readers()
         while item:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
                 schema_name = item["ns"].split('.')[1]
@@ -59,7 +89,7 @@ class OplogParser:
                                 schema_name + ", skip ts:" + str(item["ts"]))
                 else:
                     return item
-            item = self.reader.next()
+            item = self.next_all_readers()
         return None
 
     def next(self):
