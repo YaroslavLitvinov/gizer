@@ -14,12 +14,13 @@ from pymongo.cursor import CursorType
 
 
 def mongo_reader_from_settings(settings, collection_name, request):
-    """ Create transport to work with only one replica """
-    return MongoReader([settings], collection_name, request)
-
-def mongo_reader_from_settings_list(settings_list, collection_name, request):
-    """ Create transport to work with many replicas """
-    return MongoReader(settings_list, collection_name, request)
+    """ Create mongo transport """
+    if type(settings) is list:
+        # single replica support
+        return MongoReader(settings, collection_name, request)
+    else:
+        # many replicas support
+        return MongoReader([settings], collection_name, request)
 
 class MongoReader:
 

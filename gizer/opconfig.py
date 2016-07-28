@@ -88,12 +88,13 @@ def psql_settings_from_config(config, section_name):
 
 
 
-def load_mongo_replicas_from_setting(config, conf_struct, mongo_section):
+def load_mongo_replicas_from_setting(config, mongo_section):
     """ Return 
     {'some-name' : [ MongoSetting(), ..., MongoSetting() ],
      'some-name2' : [ MongoSetting() ]} """
     sections = config.sections()
     all_settings = {}
+    conf_struct = get_config_structure(config)
     if mongo_section in sections:
         # single mongo instance with single replica
         settings = [mongo_settings_from_config(config, mongo_section)]
