@@ -101,6 +101,8 @@ def load_mongo_replicas_from_setting(config, mongo_section):
         all_settings[mongo_section] = settings
     else:
         settings = []
+        if not mongo_section in conf_struct:
+            Exception("Wrong config.")
         # single mongo instance with many replicas
         for setting_name in conf_struct[mongo_section]:
             if setting_name in sections:
