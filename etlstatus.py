@@ -90,6 +90,7 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
         oplog_settings = load_mongo_replicas_from_setting(config, 'mongo-oplog')
         ts_list = []
         for oplog_name, settings_list in oplog_settings.iteritems():
+            print 'Fetch timestamp from oplog: %s' % oplog_name
             # settings list is a replica set (must be at least one in list)
             reader = mongo_reader_from_settings(settings_list, 'oplog.rs', {})
             reader.connauthreq()
@@ -99,6 +100,7 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
             cursor.limit(1)
             obj = cursor.next()
             ts_list.append( str(obj['ts']) )
+            print 'get ts: %s from oplog: %s' % (str(obj['ts']), oplog_name)
         max_ts = sorted(ts_list)[-1]
         print "Initload timestamp:", max_ts
 
