@@ -12,7 +12,6 @@ from io import BytesIO
 from pprint import PrettyPrinter
 from gizer.opconfig import mongo_settings_from_config
 from gizer.opconfig import get_structure
-from gizer.opconfig import get_config_structure
 from gizer.opconfig import load_mongo_replicas_from_setting
 #from gizer.opconfig import mongo_oplog_structure_from_config
 
@@ -67,9 +66,7 @@ def test_config_load1():
     config = configparser.ConfigParser()
     config.read_file(test_config_file)
     pp = PrettyPrinter()
-    struct = get_config_structure(config)
     all_settings = load_mongo_replicas_from_setting(config, 
-                                                    struct, 
                                                     'mongo-oplog')
     pp.pprint(all_settings)
     assert(all_settings.keys() == ['mongo-oplog'])
@@ -90,9 +87,7 @@ def test_config_load2():
     config = configparser.ConfigParser()
     config.read_file(test_config_file)
     pp = PrettyPrinter()
-    struct = get_config_structure(config)
     all_settings = load_mongo_replicas_from_setting(config, 
-                                                    struct, 
                                                     'mongo-oplog')
     pp.pprint(all_settings)
     print all_settings.keys()
@@ -123,9 +118,7 @@ def test_config_load3():
     config = configparser.ConfigParser()
     config.read_file(test_config_file)
     pp = PrettyPrinter()
-    struct = get_config_structure(config)
     all_settings = load_mongo_replicas_from_setting(config, 
-                                                    struct, 
                                                     'mongo-oplog')
     pp.pprint(all_settings)
     assert(3 == len(all_settings.keys()))

@@ -111,7 +111,6 @@ def load_mongo_replicas_from_setting(config, mongo_section):
             # many shards with many replicas
             for setting_name in conf_struct[mongo_section]:
                 dict_set = load_mongo_replicas_from_setting(config, 
-                                                            conf_struct,
                                                             setting_name)
                 if len(dict_set[setting_name]):
                     all_settings[setting_name] = dict_set[setting_name]
