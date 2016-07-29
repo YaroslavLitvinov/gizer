@@ -94,7 +94,6 @@ def main():
 
     mongo_settings = mongo_settings_from_config(config, 'mongo')
     psql_settings = psql_settings_from_config(config, 'psql')
-    tmp_psql_settings = psql_settings_from_config(config, 'tmp-psql')
 
     mongo_readers = {}
     schema_engines = get_schema_engines_as_dict(schemas_path)
@@ -111,7 +110,6 @@ def main():
 
     psql_main_etl_status = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
-    psql_tmp = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 
     status_table = PsqlEtlStatusTable(psql_main_etl_status.cursor, 
                                       config['psql']['psql-schema-name'])
@@ -125,13 +123,20 @@ def main():
         if status.status == STATUS_INITIAL_LOAD \
            and status.time_end and not status.error:
             create_logger(logspath, 'oplogsync')
+            if 'tmp-psql' in config.sections():
+                # optionally,  use dedicated psql database(local) just for
+                # syncing as sync operation can do heavy load of main database
+                option_psql_stng = psql_settings_from_config(config, 'tmp-psql')
+                psql_sync = PsqlRequests(psql_conn_from_settings(option_psql_stng))
+            else:
+                psql_sync = psql_main
             # intial load done, now do oplog sync, in this stage will be used
             # temporary psql instance as result of operation is not a data
             # commited to DB, but only single timestamp from oplog.
             # save oplog sync status
             status_manager.oplog_sync_start(status.ts)
 
-            ohl = OplogHighLevel(psql_tmp, mongo_readers, oplog_reader,
+            ohl = OplogHighLevel(psql_sync, mongo_readers, oplog_reader,
                  schemas_path, schema_engines, psql_schema)
             try:
                 ts = ohl.do_oplog_sync(status.ts)

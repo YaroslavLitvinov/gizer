@@ -17,10 +17,14 @@ def main():
     config = configparser.ConfigParser()
     config.read_file(args.config_file)
 
-    if args.as_boolean:
-        print config[args.section_name].getboolean(args.key_name)
+    if args.section_name in config.sections():
+        if args.as_boolean:
+            print config[args.section_name].getboolean(args.key_name)
+        else:
+            print config[args.section_name][args.key_name]
+        exit(0)
     else:
-        print config[args.section_name][args.key_name]
+        exit(-1)
 
 if __name__ == "__main__":
     main()

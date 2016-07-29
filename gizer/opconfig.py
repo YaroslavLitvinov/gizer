@@ -66,8 +66,8 @@ def get_config_structure(config):
     return get_structure(config.sections(), '-')
 
 def mongo_settings_from_config(config, section_name):
-    mongo = SectionKey(section_name)
     conf = config[section_name]
+    mongo = SectionKey(section_name)
     return MongoSettings(ssl=conf.getboolean(mongo.key('ssl')),
                          host=conf[mongo.key('host')].strip(),
                          port=conf[mongo.key('port')].strip(),
@@ -77,8 +77,8 @@ def mongo_settings_from_config(config, section_name):
                          passw=conf[mongo.key('pass')].strip())
 
 def psql_settings_from_config(config, section_name):
-    psql = SectionKey(section_name)
     conf = config[section_name]
+    psql = SectionKey(section_name)
     return PsqlSettings(host=conf[psql.key('host')].strip(),
                         port=conf[psql.key('port')].strip(),
                         dbname=conf[psql.key('dbname')].strip(),
