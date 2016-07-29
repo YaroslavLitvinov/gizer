@@ -136,7 +136,7 @@ def main():
             # save oplog sync status
             status_manager.oplog_sync_start(status.ts)
 
-            ohl = OplogHighLevel(psql_sync, mongo_readers, oplog_reader,
+            ohl = OplogHighLevel(psql_sync, mongo_readers, oplog_readers,
                  schemas_path, schema_engines, psql_schema)
             try:
                 ts = ohl.do_oplog_sync(status.ts)
@@ -164,7 +164,7 @@ def main():
             getLogger(__name__).\
                 info('Sync point is ts:{ts}'.format(ts=status.ts))
             status_manager.oplog_use_start(status.ts)
-            ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
+            ohl = OplogHighLevel(psql_main, mongo_readers, oplog_readers,
                  schemas_path, schema_engines, psql_schema)
             try:
                 ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
