@@ -27,8 +27,9 @@ from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 from gizer.opcsv import CsvWriteManager
 from gizer.opcsv import NULLVAL
-from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_drop_table_statement
+from gizer.opcreate import generate_create_table_statement
+from gizer.opcreate import generate_create_index_statement
 from gizer.opinsert import table_rows_list
 from gizer.opinsert import ENCODE_ONLY
 from gizer.opmultiprocessing import FastQueueProcessor
@@ -44,11 +45,13 @@ TablesToSave = namedtuple('TablesToSave', ['rows', 'errors'])
 
 def create_table(sqltable, psql_schema_name, table_prefix):
     """ get drop / create ddl statements """
-    drop = generate_drop_table_statement(sqltable, psql_schema_name,
-                                         table_prefix)
-    create = generate_create_table_statement(sqltable, psql_schema_name,
-                                             table_prefix)
-    return drop + '\n' + create + '\n'
+    drop_t = generate_drop_table_statement(sqltable, psql_schema_name,
+                                           table_prefix)
+    create_t = generate_create_table_statement(sqltable, psql_schema_name,
+                                               table_prefix)
+    create_i = generate_create_index_statement(sqltable, psql_schema_name,
+                                               table_prefix)
+    return drop_t + '\n' + create_t + '\n' + create_i + '\n'
 
 def merge_dicts(store, append):
     """ merge two dicts, return merged dict. """
@@ -118,7 +121,7 @@ default=%s' % (default_request), type=str)
     parser.add_argument("-psql-table-prefix", help="", type=str)
     parser.add_argument("--ddl-statements-file",
                         help="File to save create table statements",
-                        type=argparse.FileType('w'), required=True)
+                        type=argparse.FileType('w'), required=False)
     parser.add_argument("-stats-file",
                         help="File to write written record counts",
                         type=argparse.FileType('w'))
@@ -198,10 +201,11 @@ def main():
             errors = merge_dicts(errors, tables.errors)
         tables_list = etl_mongo_reader.next_processed()
     
-    save_ddl_create_statements(args.ddl_statements_file,
-                               schema_engine,
-                               schema_name,
-                               args.psql_table_prefix)
+    if args.ddl_statements_file:
+        save_ddl_create_statements(args.ddl_statements_file,
+                                   schema_engine,
+                                   schema_name,
+                                   args.psql_table_prefix)
     # save csv files
     csm.finalize()
 

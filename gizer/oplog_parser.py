@@ -17,7 +17,6 @@ from bson.json_util import loads
 from collections import namedtuple
 from gizer.psql_objects import load_single_rec_into_tables_obj
 from gizer.psql_objects import insert_rec_from_one_tables_set_to_another
-from gizer.psql_objects import create_psql_tables
 from gizer.oplog_handlers import cb_insert
 from gizer.oplog_handlers import cb_update
 from gizer.oplog_handlers import cb_delete

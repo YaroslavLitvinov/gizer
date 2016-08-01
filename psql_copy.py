@@ -19,6 +19,7 @@ from mongo_schema.schema_engine import SchemaEngine
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from gizer.psql_requests import PsqlRequests
 from gizer.psql_objects import create_psql_table
+from gizer.psql_objects import create_psql_index
 from gizer.psql_requests import psql_conn_from_settings
 from gizer.opconfig import psql_settings_from_config
 
@@ -64,6 +65,7 @@ def main():
     dbreq = PsqlRequests(psql_conn_from_settings(psql_settings))
 
     create_psql_table(table, dbreq, schema_name, table_prefix, drop=True)
+    create_psql_index(table, dbreq, schema_name, table_prefix)
     dbreq.conn.commit()
 
     csv_files = [f \

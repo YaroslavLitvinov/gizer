@@ -5,10 +5,11 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 from logging import getLogger
-from gizer.opcreate import generate_create_table_statement
 from gizer.opinsert import generate_insert_queries
 from gizer.opcreate import generate_drop_table_statement
+from gizer.opcreate import generate_drop_index_statement
 from gizer.opcreate import generate_create_table_statement
+from gizer.opcreate import generate_create_index_statement
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
@@ -142,11 +143,8 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
     """ Do every insert as separate transaction, very slow approach """
     # insert fetched mongo rec into destination psql
     for table_name, table in tables_to_save.tables.iteritems():
-        # create table if not exist
-        create_query = generate_create_table_statement(table, 
-                                                       dst_schema_name, 
-                                                       dst_table_prefix)
-        dst_dbreq.cursor.execute(create_query)
+        create_psql_table(table, dst_dbreq, dst_schema_name, 
+                          dst_table_prefix, False)
         insert_query = generate_insert_queries(table, 
                                                dst_schema_name, 
                                                dst_table_prefix)
@@ -167,10 +165,7 @@ def insert_rec_from_one_tables_set_to_another(dbreq,
         dst_schema_name += '.'
 
     for table_name, table in tables_structure.tables.iteritems():
-        # create table if not exist
-        create_query = generate_create_table_statement(table,
-                                                       dst_schema_name, '')
-        dbreq.cursor.execute(create_query)
+        create_psql_table(table, dbreq, dst_schema_name, '', False)
         id_name, quotes = parent_id_name_and_quotes_for_table(table)
         if quotes:
             id_val = "'" + str(rec_id) + "'"
@@ -199,7 +194,13 @@ def create_psql_table(table, dbreq, psql_schema, prefix, drop):
                                             prefix)
     getLogger(__name__).info("EXECUTE: " + query)
     dbreq.cursor.execute(query)
-    
+
+def create_psql_index(table, dbreq, psql_schema, prefix):
+    query = generate_create_index_statement(table, 
+                                            psql_schema, 
+                                            prefix)
+    getLogger(__name__).info("EXECUTE: " + query)
+    dbreq.cursor.execute(query)
 
 def create_psql_tables(tables_obj, dbreq, psql_schema, prefix, drop):
     for table_name, table in tables_obj.tables.iteritems():
