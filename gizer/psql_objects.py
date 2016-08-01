@@ -7,7 +7,6 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 from logging import getLogger
 from gizer.opinsert import generate_insert_queries
 from gizer.opcreate import generate_drop_table_statement
-from gizer.opcreate import generate_drop_index_statement
 from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_create_index_statement
 from gizer.all_schema_engines import get_schema_engines_as_dict
