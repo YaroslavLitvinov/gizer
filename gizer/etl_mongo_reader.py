@@ -37,6 +37,10 @@ class EtlMongoReader:
         self.current_mongo_reader = self.mongo_readers[collection]
         self.current_mongo_reader.make_new_request(query)
 
+    def skip_all_processed_recs(self):
+        while self.next_processed() is not None:
+            pass
+
     def next_processed(self):
         processed_list = None        
         if self.no_more_recs:

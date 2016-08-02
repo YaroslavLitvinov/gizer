@@ -9,6 +9,7 @@ import sys
 import psycopg2
 import logging
 import pymongo
+import gizer
 from logging import getLogger
 from collections import namedtuple
 from bson.json_util import loads
@@ -35,7 +36,9 @@ DO_OPLOG_SYNC=2
 OplogTest = namedtuple('OplogTest', ['ts_synced',
                                      'before',
                                      'oplog_dataset',
-                                     'after'])
+                                     'after',
+                                     'max_attempts'])
+INFINITE_ATTEMPTS_CNT = 1000
 
 def data_mock(mongo_data_path_list, collection):
     print mongo_data_path_list
@@ -90,6 +93,8 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
         # pass just one dataset as collection's test mongo data
         mongo_readers_after[name] = data_mock([mongo_data_path], name)
 
+    gizer.oplog_highlevel.DO_OPLOG_READ_ATTEMPTS_COUNT \
+        = oplog_test.max_attempts
     ohl = OplogHighLevel(dbreq, mongo_readers_after, oplog_readers,
                  schemas_path, schema_engines, psql_schema)
 
@@ -116,7 +121,8 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
         raise
 
 
-def check_dataset(name, operation, start_ts, oplog_params, params):
+def check_dataset(name, operation, start_ts, oplog_params, params, 
+                  max_attempts=INFINITE_ATTEMPTS_CNT):
     print '\ntest ', name, operation
     location_fmt = 'test_data/'+name+'/%s_collection_%s.js'
     before_params = {}
@@ -130,7 +136,8 @@ def check_dataset(name, operation, start_ts, oplog_params, params):
     oplog_test \
         = OplogTest(start_ts, # None = expected as already synchronized, 
                     # use None with DO_OPLOG_APPLY param
-                    before_params, oplog_params, after_params)
+                    before_params, oplog_params, after_params,
+                    max_attempts)
     res = run_oplog_engine_check(oplog_test, operation, SCHEMAS_PATH)
     return res
 
@@ -141,14 +148,14 @@ def test_oplog_sync():
 
     # test applying oplog ops to initial data 'before_data' and then compare it 
     # with final 'after_data'
-    oplog1 = {'shard1': [('test_data/oplog1/oplog1.js', None),
-                         ('test_data/oplog1/oplog2.js', None)
+    oplog1 = {'shard1': [('test_data/oplog1/oplog1.js', None), # attempt 0
+                         ('test_data/oplog1/oplog2.js', None)  # attempt 1
                          ],
               'shard2': [('test_data/oplog1/shard2-oplog1.js', None)
                          ]
              }
     assert(check_dataset('oplog1', DO_OPLOG_APPLY, None, oplog1,
-                          {'posts': None, 'guests': None}) == True)
+                         {'posts': None, 'guests': None}) == True)
 
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
@@ -170,6 +177,60 @@ oplog_simulate_added_after_initload.js',
                          oplog3,
                          {'posts': None, 'posts2': None, 'rated_posts': None,
                           'guests': None}) == True)
+
+    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
+                               ('test_data/oplog4/oplog2.js', None), # attempt 1
+                               ('test_data/oplog4/oplog3.js', None), # attempt 2
+                               ('test_data/oplog4/oplog4.js', None), # attempt 3
+                               ('test_data/oplog4/oplog5.js', None), # attempt 4
+                               ('test_data/oplog4/oplog6.js', None), # attempt 5
+                               ('test_data/oplog4/oplog7.js', None), # attempt 6
+                               ('test_data/oplog4/oplog8.js', None), # attempt 7
+                               ('test_data/oplog4/oplog9.js', None) # attempt 8
+                               ]}
+    assert(check_dataset('oplog4', DO_OPLOG_APPLY, None,
+                         oplog4, 
+                         {'posts': None} # don't raise error while reading posts
+                         ) == True)
+
+    # prove that test will fail without last part
+    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
+                               ('test_data/oplog4/oplog2.js', None), # attempt 1
+                               ('test_data/oplog4/oplog3.js', None), # attempt 2
+                               ('test_data/oplog4/oplog4.js', None), # attempt 3
+                               ('test_data/oplog4/oplog5.js', None), # attempt 4
+                               ('test_data/oplog4/oplog6.js', None), # attempt 5
+                               ('test_data/oplog4/oplog7.js', None), # attempt 6
+                               ('test_data/oplog4/oplog8.js', None) # attempt 7
+                               ]}
+    assert(check_dataset('oplog4', DO_OPLOG_APPLY, None,
+                         oplog4, 
+                         {'posts': None}, # don't raise error while reading posts
+                         100 # - max attempts count to re-read oplog
+                         ) == False)
+
+    # provide max attempt count - oplog parts to read, 
+    # When oplog re-reads count is more than specified count and if can't
+    # compare only recs from last read it's will stop read and return True
+    # Note: In real life max count value is a big number like 300,
+    # and if oplog parser getting false when comparing all records from latest
+    # oplg re-read and recs from previous oplog read attempts are ok, so this is
+    # not a problem of comparing but only because flow of data is endless.
+    # So parser is just commiting all the data and return True for operation.
+    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
+                               ('test_data/oplog4/oplog2.js', None), # attempt 1
+                               ('test_data/oplog4/oplog3.js', None), # attempt 2
+                               ('test_data/oplog4/oplog4.js', None), # attempt 3
+                               ('test_data/oplog4/oplog5.js', None), # attempt 4
+                               ('test_data/oplog4/oplog6.js', None), # attempt 5
+                               ('test_data/oplog4/oplog7.js', None), # attempt 6
+                               ('test_data/oplog4/oplog8.js', None) # attempt 7
+                               ]}
+    assert(check_dataset('oplog4', DO_OPLOG_APPLY, None,
+                         oplog4, 
+                         {'posts': None}, # don't raise error while reading posts
+                         6 # - max attempts count to re-read oplog
+                         ) == True)
 
     # inject error, it must do not raise error but to keep the same state
     # return True, and as there no records were processed. It is supposed 
@@ -282,6 +343,7 @@ if __name__ == '__main__':
         = OplogTest(None, 
                     empty_data_before,
                     [mongo_oplog],
-                    data_after)
+                    data_after,
+                    INFINITE_ATTEMPTS_CNT)
     res = run_oplog_engine_check(oplog_test1, schemas_path)
     assert(res == True)

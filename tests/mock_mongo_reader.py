@@ -113,6 +113,7 @@ rec= %s"
                     self.rec_i += 1 # next item to iterate
                     break
         else:
+            self.query = None # reset query, just iterate results
             if self.rec_i < len(self.array_data):
                 rec = self.array_data[self.rec_i]
                 self.rec_i += 1

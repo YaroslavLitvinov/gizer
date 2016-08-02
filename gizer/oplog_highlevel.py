@@ -34,10 +34,11 @@ from mongo_reader.prepare_mongo_request import prepare_mongo_request_for_list
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 
-DO_OPLOG_READ_ATTEMPTS_COUNT = 30
+DO_OPLOG_READ_ATTEMPTS_COUNT = 300
 MONGO_REC_PROCESSING_PROCESS_COUNT = 8
 FAST_QUEUE_SIZE = MONGO_REC_PROCESSING_PROCESS_COUNT*2
 
+CompareRes = namedtuple('CompareRes', ['rec_id', 'flag', 'attempt'])
 Callback = namedtuple('Callback', ['cb', 'ext_arg'])
 OplogApplyRes = namedtuple('OplogApplyRes', 
                            ['handled_count', # handled oplog records (ops=u,i,d)
@@ -162,7 +163,8 @@ class OplogHighLevel:
                     collection_name = parser.item_info.schema_name
                     rec_id = parser.item_info.rec_id
                     last_ts = parser.item_info.ts
-                    self.comparator.add_to_compare(collection_name, rec_id)
+                    self.comparator.add_to_compare(collection_name, rec_id,
+                                                   do_again_counter)
                 oplog_queries = parser.next()
             getLogger(__name__).info("handled %d oplog records/ %d queries" % \
                                          (oplog_rec_counter, queries_counter))
@@ -173,14 +175,27 @@ class OplogHighLevel:
             # result of comparison can be negative if new oplog item had received
             # during checking results (comparing all records) then do double checks
             # so handle that case:
-            if not compare_res and last_ts \
-                    and do_again_counter <= DO_OPLOG_READ_ATTEMPTS_COUNT:
-                do_again = True
-                do_again_counter += 1
-                start_ts = last_ts
-                getLogger(__name__).\
-                    warning('Do handling of newly added oplog records, attempt=%d' %
-                            do_again_counter)
+            if not compare_res and last_ts:
+                if do_again_counter < DO_OPLOG_READ_ATTEMPTS_COUNT:
+                    do_again = True
+                    do_again_counter += 1
+                    start_ts = last_ts
+                    getLogger(__name__).warning('Do handling of newly added\
+ oplog records, attempt=%d' % do_again_counter)
+                else:
+                    getLogger(__name__).warning('max attempt reads exceded %d' %
+                                                DO_OPLOG_READ_ATTEMPTS_COUNT)
+                    failed_attempts = self.comparator.get_failed_cmp_attempts()
+                    getLogger(__name__).warning('failed attempts= %s' %
+                                                str(failed_attempts))
+                    # if compare failed just for most recent oplog data
+                    # and for any other attempts compare is successfull
+                    # then we can suppose that next cmp is also will be good
+                    if len(failed_attempts) == 1 \
+                            and do_again_counter in failed_attempts:
+                        compare_res = True
+                        getLogger(__name__).warning('Finish endless comparisons.\
+ Force compare_res to be True.')
         getLogger(__name__).\
                 info('Last oplog rec applied is ts:%s with res=%s' % 
                      (str(start_ts), str(compare_res)))
@@ -333,11 +348,14 @@ class ComparatorMongoPsql:
     def __del__(self):
         del self.etl_mongo_reader
 
-    def add_to_compare(self, collection_name, rec_id):
+    def add_to_compare(self, collection_name, rec_id, attempt):
         if collection_name not in self.recs_to_compare:
             self.recs_to_compare[collection_name] = {}
         # every time item adding to compare list will reset old state
-        self.recs_to_compare[collection_name][rec_id] = False # by default
+        # distinguish dict key and rec_id as rec_id can be a mongo object
+        getLogger(__name__).info("%s is rec_id attempt=%d" % (str(rec_id), attempt))
+        self.recs_to_compare[collection_name][str(rec_id)] \
+            = CompareRes(rec_id, False, attempt)
 
     def compare_one_src_dest(self, collection_name, rec_id, 
                              mongo_tables_obj, psql_tables_obj):
@@ -352,22 +370,23 @@ class ComparatorMongoPsql:
     def compare_src_dest(self):
         getLogger(__name__).info('Oplog ops applied. Compare following recs: %s'\
                                      % self.recs_to_compare )
+        cmp_res = True
         # iterate mongo items belong to one collection
-        for collection_name, recs in self.recs_to_compare.iteritems():
+        for collection, recs in self.recs_to_compare.iteritems():
             # comparison strategy: filter out previously compared recs;
             # so will be compared only that items which never compared or
             # prev comparison gave False
             filtered_recs_list_cmp = []
-            for rec_id, flag in recs.iteritems():
-                if not flag:
-                    filtered_recs_list_cmp.append(rec_id)
+            for rec_id, compare_res in recs.iteritems():
+                if not compare_res.flag:
+                    filtered_recs_list_cmp.append(compare_res.rec_id)
             # prepare query
             mongo_query = prepare_mongo_request_for_list(
-                self.schema_engines[collection_name], 
+                self.schema_engines[collection], 
                 filtered_recs_list_cmp)
             getLogger(__name__).info('mongo query to fetch recs to compare: %s',
                                      mongo_query)
-            self.etl_mongo_reader.execute_query(collection_name, mongo_query)
+            self.etl_mongo_reader.execute_query(collection, mongo_query)
             # get and process records to compare
             processed_recs = self.etl_mongo_reader.next_processed()
             while processed_recs is not None:
@@ -376,20 +395,34 @@ class ComparatorMongoPsql:
                     rec_id = mongo_tables_obj.rec_id()
                     psql_tables_obj = load_single_rec_into_tables_obj(
                         self.psql,
-                        self.schema_engines[collection_name],
+                        self.schema_engines[collection],
                         self.psql_schema,
                         rec_id )
-                    equal = self.compare_one_src_dest(collection_name, 
+                    equal = self.compare_one_src_dest(collection,
                                                       rec_id,
                                                       mongo_tables_obj,
                                                       psql_tables_obj)
                     if not equal:
-                        # skip all queued results
-                        while self.etl_mongo_reader.next_processed() is not None:
-                            pass
-                        return False
+                        cmp_res = False
+                    # update cmp result in main dict
+                    key = str(rec_id)
+                    attempt = 0
+                    # this check makes sence ony for mock transport as it 
+                    # will return all records and not only requested
+                    if key in self.recs_to_compare[collection]:
+                        attempt = self.recs_to_compare[collection][key].attempt
+                    self.recs_to_compare[collection][key] = \
+                        CompareRes(rec_id, equal, attempt)
                 processed_recs = self.etl_mongo_reader.next_processed()
-        return True
+        return cmp_res
 
-
+    def get_failed_cmp_attempts(self):
+        failed_attempts_list = []
+        for collection, recs in self.recs_to_compare.iteritems():
+            for rec_id, compare_res in recs.iteritems():
+                if not compare_res.flag and \
+                        compare_res.attempt not in failed_attempts_list:
+                    failed_attempts_list.append(compare_res.attempt)
+        failed_attempts_list.sort()
+        return failed_attempts_list
     
