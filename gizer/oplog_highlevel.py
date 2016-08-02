@@ -354,8 +354,19 @@ class ComparatorMongoPsql:
                                      % self.recs_to_compare )
         # iterate mongo items belong to one collection
         for collection_name, recs in self.recs_to_compare.iteritems():
+            # comparison strategy: filter out previously compared recs;
+            # so will be compared only that items which never compared or
+            # prev comparison gave False
+            filtered_recs_list_cmp = []
+            for rec_id, flag in recs.iteritems():
+                if not flag:
+                    filtered_recs_list_cmp.append(rec_id)
+            # prepare query
             mongo_query = prepare_mongo_request_for_list(
-                self.schema_engines[collection_name], recs)
+                self.schema_engines[collection_name], 
+                filtered_recs_list_cmp)
+            getLogger(__name__).info('mongo query to fetch recs to compare: %s',
+                                     mongo_query)
             self.etl_mongo_reader.execute_query(collection_name, mongo_query)
             # get and process records to compare
             processed_recs = self.etl_mongo_reader.next_processed()
