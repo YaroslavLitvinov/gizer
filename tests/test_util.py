@@ -5,25 +5,25 @@ import json
 import re
 
 
-def test_get_field_name_without_underscore():
+def test_get_cleaned_field_name():
     field_name = '_test_'
-    assert get_field_name_without_underscore(field_name) == 'test_'
+    assert get_cleaned_field_name(field_name) == 'test_'
     field_name = '__test_'
-    assert get_field_name_without_underscore(field_name) == 'test_'
+    assert get_cleaned_field_name(field_name) == 'test_'
     field_name = '_ _test'
-    assert get_field_name_without_underscore(field_name) == 'test'
+    assert get_cleaned_field_name(field_name) == 'test'
     field_name = '_ _3_test'
-    assert get_field_name_without_underscore(field_name) == 'test'
+    assert get_cleaned_field_name(field_name) == 'test'
     print('TEST', 'get_field_name_without_underscore', 'PASSED')
 
 
 def test_isIdField():
     field_names = ['id', 'oid', '_id', '_oid', '_id_oid', 'id_oid']
     for field_name in field_names:
-        assert isIdField(field_name)
+        assert is_id_field(field_name)
     field_names = ['___id', 'oid_aaaa', 'ID']
     for field_name in field_names:
-        assert not isIdField(field_name)
+        assert not is_id_field(field_name)
     print('TEST', 'isIdField', 'PASSED')
 
 
@@ -422,7 +422,7 @@ def test_get_ids_list():
     "_id": "INT"
 }"""
     schema = json.loads(schema_str)
-    result = get_ids_list(schema,1)
+    result = get_ids_list(schema)
     model = {"id_oid":"text"}
     assert result == model
 
@@ -437,7 +437,7 @@ def test_get_ids_list():
     "id": "INT"
 }"""
     schema = json.loads(schema_str)
-    result = get_ids_list(schema,1)
+    result = get_ids_list(schema)
     model = {"id":"integer"}
     assert result == model
 
@@ -456,7 +456,7 @@ def test_get_ids_list():
     }
 }"""
     schema = json.loads(schema_str)
-    result = get_ids_list(schema,1)
+    result = get_ids_list(schema)
     model = {"id_oid":"text"}
     assert result == model
 
@@ -470,7 +470,7 @@ def test_get_ids_list():
     }]
 }"""
     schema = json.loads(schema_str)
-    result = get_ids_list(schema,1)
+    result = get_ids_list(schema)
     model = {"idx":"bigint"}
     assert result == model
 
@@ -630,7 +630,7 @@ def sql_pretty_print(sqls):
 
 
 def run_tests_():
-    test_get_field_name_without_underscore()
+    test_get_cleaned_field_name()
     test_isIdField()
     test_get_postgres_type()
     test_get_table_name_from_list()
