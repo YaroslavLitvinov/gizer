@@ -3,8 +3,6 @@ Implementation of "delete" operation for "realtime" etl process for
 transferring data from MongoDB nested collections to PostgreSQL flat data
 with using pregenerated schema and tailing records (events) in oplog.rs
 collection.
-
-
 """
 
 __author__ = 'Volodymyr Varchuk'
