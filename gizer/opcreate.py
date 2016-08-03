@@ -6,9 +6,9 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
-INDEX_ID_IDXS = 'INDEX_ID_IDXS'
-INDEX_ID_PARENT_IDXS = 'INDEX_ID_PARENT_IDXS'
-INDEX_ID_ONLY = 'INDEX_ID_ONLY'
+INDEX_ID_IDXS = 'a'
+INDEX_ID_PARENT_IDXS = 'b'
+INDEX_ID_ONLY = 'c'
 
 def generate_drop_table_statement(table, psql_schema_name, table_name_prefix):
     """ return drop table statement.
@@ -87,7 +87,7 @@ def generate_create_index_statement(table,
     if len(psql_schema_name) and psql_schema_name.find('.') == -1:
         psql_schema_name += '.'
     psql_index_columns.sort() # to have a determenistic order
-    query = 'CREATE INDEX "index_{type}_{prefix}{table}" ON {schema}"{prefix}{table}"\
+    query = 'CREATE INDEX "i{type}_{prefix}{table}" ON {schema}"{prefix}{table}"\
  ({index_columns});'.format( schema=psql_schema_name,
                              prefix=table_name_prefix,
                              table=table.table_name,
