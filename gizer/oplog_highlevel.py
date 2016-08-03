@@ -380,6 +380,9 @@ class ComparatorMongoPsql:
             for rec_id, compare_res in recs.iteritems():
                 if not compare_res.flag:
                     filtered_recs_list_cmp.append(compare_res.rec_id)
+            # if nothing to compare just skip current collection
+            if not filtered_recs_list_cmp:
+                continue
             # prepare query
             mongo_query = prepare_mongo_request_for_list(
                 self.schema_engines[collection], 
