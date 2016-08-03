@@ -9,6 +9,9 @@ from gizer.opinsert import generate_insert_queries
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_create_index_statement
+from gizer.opcreate import INDEX_ID_IDXS
+from gizer.opcreate import INDEX_ID_PARENT_IDXS
+from gizer.opcreate import INDEX_ID_ONLY
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
@@ -195,11 +198,29 @@ def create_psql_table(table, dbreq, psql_schema, prefix, drop):
     dbreq.cursor.execute(query)
 
 def create_psql_index(table, dbreq, psql_schema, prefix):
+    #index 1
     query = generate_create_index_statement(table, 
                                             psql_schema, 
-                                            prefix)
+                                            prefix,
+                                            INDEX_ID_IDXS)
     getLogger(__name__).info("EXECUTE: " + query)
     dbreq.cursor.execute(query)
+    # index 2
+    query = generate_create_index_statement(table, 
+                                            psql_schema, 
+                                            prefix,
+                                            INDEX_ID_ONLY)
+    getLogger(__name__).info("EXECUTE: " + query)
+    dbreq.cursor.execute(query)
+    # index 3
+    query = generate_create_index_statement(table, 
+                                            psql_schema, 
+                                            prefix,
+                                            INDEX_ID_PARENT_IDXS)
+    getLogger(__name__).info("EXECUTE: " + query)
+    dbreq.cursor.execute(query)
+    
+
 
 def create_psql_tables(tables_obj, dbreq, psql_schema, prefix, drop):
     for table_name, table in tables_obj.tables.iteritems():

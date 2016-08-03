@@ -30,6 +30,7 @@ from gizer.opcsv import NULLVAL
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opcreate import generate_create_table_statement
 from gizer.opcreate import generate_create_index_statement
+from gizer.opcreate import INDEX_ID_IDXS
 from gizer.opinsert import table_rows_list
 from gizer.opinsert import ENCODE_ONLY
 from gizer.opmultiprocessing import FastQueueProcessor
@@ -49,8 +50,10 @@ def create_table(sqltable, psql_schema_name, table_prefix):
                                            table_prefix)
     create_t = generate_create_table_statement(sqltable, psql_schema_name,
                                                table_prefix)
-    create_i = generate_create_index_statement(sqltable, psql_schema_name,
-                                               table_prefix)
+    create_i = generate_create_index_statement(sqltable, 
+                                               psql_schema_name,
+                                               table_prefix,
+                                               INDEX_ID_IDXS)
     return drop_t + '\n' + create_t + '\n' + create_i + '\n'
 
 def merge_dicts(store, append):
