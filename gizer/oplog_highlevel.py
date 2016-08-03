@@ -34,7 +34,7 @@ from mongo_reader.prepare_mongo_request import prepare_mongo_request_for_list
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 
-DO_OPLOG_READ_ATTEMPTS_COUNT = 300
+DO_OPLOG_READ_ATTEMPTS_COUNT = 100
 MONGO_REC_PROCESSING_PROCESS_COUNT = 8
 FAST_QUEUE_SIZE = MONGO_REC_PROCESSING_PROCESS_COUNT*2
 
