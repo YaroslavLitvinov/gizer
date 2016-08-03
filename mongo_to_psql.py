@@ -150,7 +150,7 @@ def main():
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
-                psql_tmp.conn.rollback()
+                psql_sync.conn.rollback()
                 reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 status_manager.oplog_sync_finish(None, True)
                 res = -1
