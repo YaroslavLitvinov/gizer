@@ -110,7 +110,83 @@ class OplogHighLevel:
                                               psql,
                                               psql_schema)
 
-    def do_oplog_apply(self, start_ts, doing_sync):
+    def get_ts_rec_ids(self, start_ts):
+        getLogger(__name__).\
+            info('get_ts_rec_ids from timestamps located after ts:%s' \
+                     % str(start_ts))
+        ts_rec_ids = {}
+        js_oplog_query = prepare_oplog_request(start_ts)
+        for name in self.oplog_readers:
+            self.oplog_readers[name].make_new_request(js_oplog_query)
+        # create oplog parser. note: cb_insert doesn't need psql object
+        parser = OplogParser(self.oplog_readers, self.schemas_path, \
+                    Callback(cb_insert, ext_arg=self.psql_schema),
+                    Callback(cb_update, ext_arg=(self.psql, self.psql_schema)),
+                    Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
+        # go over oplog get just rec ids for timestamps that can be handled
+        oplog_queries = parser.next()
+        while oplog_queries != None:
+            collection_name = parser.item_info.schema_name
+            rec_id = parser.item_info.rec_id
+            if collection_name not in ts_rec_ids:
+                ts_rec_ids[collection_name] = []
+            if rec_id not in ts_rec_ids[collection_name]:
+                ts_rec_ids[collection_name].append(rec_id)
+            oplog_queries = parser.next()
+        return ts_rec_ids
+
+    def _sync_single_rec_id(self, start_ts, collection, rec_id):
+        """ do sync for single rec id, startinf just after start_ts.
+        all timestamps not related to specified rec_id will be skipped """
+        getLogger(__name__).info("sync single %s rec_id=%s"
+                                 % (collection, rec_id))
+        test_ts = start_ts
+        for name in self.oplog_readers:
+            # will affect only mock test reader
+            self.oplog_readers[name].reset_dataset() 
+        ts_sync = self.do_oplog_apply(test_ts, collection, rec_id,
+                                      doing_sync=True)
+        while True:
+            if not ts_sync.res and not ts_sync.ts:
+                break
+            if ts_sync.res:
+                break
+            getLogger(__name__).info("sync single next iteration")
+            self.psql.conn.rollback()
+            test_ts = ts_sync.ts
+            for name in self.oplog_readers:
+                # will affect only mock test reader
+                self.oplog_readers[name].reset_dataset() 
+            ts_sync = self.do_oplog_apply(test_ts, collection, rec_id,
+                                          doing_sync=True)
+        res = None
+        if ts_sync.res:
+            res = test_ts
+        getLogger(__name__).info("sync single res %s, ts:%s"
+                                 % (str(ts_sync.res), str(res)))
+
+        return res
+        
+
+    def fast_sync_oplog(self, start_ts):
+        """ do sync sequentually for every rec id in separate"""
+        min_ts = None
+        ts_rec_ids = self.get_ts_rec_ids(start_ts)
+        getLogger(__name__).info("all rec ids to sync: %s" % str(ts_rec_ids))
+        for collection in ts_rec_ids:
+            while ts_rec_ids[collection]:
+                rec_id = ts_rec_ids[collection].pop()
+                ts = self._sync_single_rec_id(start_ts, collection, rec_id)
+                if not min_ts or (ts and ts < min_ts):
+                    getLogger(__name__).info("fast: min_ts %s < ts %s" % (ts, min_ts))
+                    min_ts = ts
+        # certainly located either sync point or much closest point to sync
+        return min_ts
+
+    def do_oplog_apply(self, start_ts, 
+                       filter_collection, 
+                       filter_rec_id, 
+                       doing_sync):
         """ Read oplog operations starting just after timestamp start_ts.
         Apply oplog operations to psql db. After all records are applied do
         consistency check by comparing source (mongo) and dest(psql) records.
@@ -157,12 +233,25 @@ class OplogHighLevel:
             oplog_queries = parser.next()
             while oplog_queries != None:
                 oplog_rec_counter += 1
+                collection_name = parser.item_info.schema_name
+                rec_id = parser.item_info.rec_id
+                last_ts = parser.item_info.ts
+                # filter out not matched recs
+                if filter_collection and filter_rec_id:
+                    if collection_name == filter_collection \
+                            and rec_id == filter_rec_id:
+                        if not first_handled_ts:
+                            first_handled_ts = parser.item_info.ts
+                        getLogger(__name__).info("fast first_handled_ts %s %s" 
+                                                 % (str(parser.item_info.ts),
+                                                    str(first_handled_ts)))
+                    else:
+                        oplog_queries = parser.next()
+                        continue
                 for oplog_query in oplog_queries:
                     queries_counter += 1
                     exec_insert(self.psql, oplog_query)
-                    collection_name = parser.item_info.schema_name
-                    rec_id = parser.item_info.rec_id
-                    last_ts = parser.item_info.ts
+                    #last_ts = parser.item_info.ts
                     self.comparator.add_to_compare(collection_name, rec_id,
                                                    do_again_counter)
                 oplog_queries = parser.next()
@@ -250,9 +339,9 @@ following mongo transports failed: %s" % (str(readers_failed)))
                 else:
                     # oplog apply error, return next ts candidate
                     getLogger(__name__).info("do_oplog_apply: \
-Bad apply for start_ts: %s, next candidate ts: %s" \
-                                                 % (str(start_ts_backup), 
-                                                    str(first_handled_ts)))
+Bad apply for start_ts: %s, next candidate ts: %s"
+                                             % (str(start_ts_backup), 
+                                                str(first_handled_ts)))
                     return OplogApplyRes(handled_count=oplog_rec_counter,
                                          queries_count=queries_counter,
                                          ts=first_handled_ts,
@@ -270,13 +359,17 @@ Bad apply for start_ts: %s, next candidate ts: %s" \
     
         getLogger(__name__).\
                 info('Start oplog synchronising from ts:%s' % str(ts))
-        schema_engines = get_schema_engines_as_dict(self.schemas_path)
-    
         # oplog_ts_to_test is timestamp starting from which oplog records
         # should be applied to psql tables to locate ts which corresponds to
         # initially loaded psql data;
         # None - means oplog records should be tested starting from beginning
         oplog_ts_to_test = ts
+        fast_ts = self.fast_sync_oplog(ts)
+        getLogger(__name__).info("fast_sync ts is: %s" % fast_ts)
+        if fast_ts:
+            oplog_ts_to_test = fast_ts
+        # with high probability ts is already located now
+        # but to be sure run slow sync
         sync_res = self._sync_oplog(oplog_ts_to_test)
         while True:
             if sync_res is False or sync_res is True:
@@ -285,8 +378,8 @@ Bad apply for start_ts: %s, next candidate ts: %s" \
                 oplog_ts_to_test = sync_res
             sync_res = self._sync_oplog(oplog_ts_to_test)
         getLogger(__name__).\
-            info('oplog ts:%s sync res=%s' % (str(ts),
-                                              str(sync_res)))
+            info('Located sync ts:%s (fast ts:%s) sync res=%s' 
+                 % (str(oplog_ts_to_test), str(fast_ts), str(sync_res)))
         if sync_res:
             # if oplog sync point is located at None, then all oplog ops
             # must be applied starting from first ever ts
@@ -311,7 +404,7 @@ Bad apply for start_ts: %s, next candidate ts: %s" \
         start_ts -- Timestamp of oplog record to start sync tests"""
         for name in self.oplog_readers:
             self.oplog_readers[name].reset_dataset() # will affect only mock test reader
-        ts_sync = self.do_oplog_apply(test_ts, doing_sync=True)
+        ts_sync = self.do_oplog_apply(test_ts, None, None, doing_sync=True)
         if ts_sync.res == True:
             # sync succesfull
             getLogger(__name__).info('COMMIT')
@@ -390,33 +483,55 @@ class ComparatorMongoPsql:
             getLogger(__name__).info('mongo query to fetch recs to compare: %s',
                                      mongo_query)
             self.etl_mongo_reader.execute_query(collection, mongo_query)
+            received_list = []
             # get and process records to compare
             processed_recs = self.etl_mongo_reader.next_processed()
             while processed_recs is not None:
                 # do cmp for every returned obj
                 for mongo_tables_obj in processed_recs:
                     rec_id = mongo_tables_obj.rec_id()
+                    received_list.append(rec_id)
                     psql_tables_obj = load_single_rec_into_tables_obj(
                         self.psql,
                         self.schema_engines[collection],
                         self.psql_schema,
                         rec_id )
-                    equal = self.compare_one_src_dest(collection,
-                                                      rec_id,
-                                                      mongo_tables_obj,
-                                                      psql_tables_obj)
-                    if not equal:
-                        cmp_res = False
-                    # update cmp result in main dict
-                    key = str(rec_id)
-                    attempt = 0
                     # this check makes sence ony for mock transport as it 
                     # will return all records and not only requested
-                    if key in self.recs_to_compare[collection]:
-                        attempt = self.recs_to_compare[collection][key].attempt
+                    key = str(rec_id)
+                    if key in self.recs_to_compare[collection] and \
+                            not self.recs_to_compare[collection][key].flag:
+                        equal = self.compare_one_src_dest(collection,
+                                                          rec_id,
+                                                          mongo_tables_obj,
+                                                          psql_tables_obj)
+                        if not equal:
+                            cmp_res = False
+                    else:
+                        continue
+                    # update cmp result in main dict
+                    attempt = self.recs_to_compare[collection][key].attempt
+                    # update cmp result in main dict
                     self.recs_to_compare[collection][key] = \
                         CompareRes(rec_id, equal, attempt)
                 processed_recs = self.etl_mongo_reader.next_processed()
+            # should return True for deleted items (non existing items)
+            for rec_id in filtered_recs_list_cmp:
+                if rec_id not in received_list:
+                    psql_tables_obj = load_single_rec_into_tables_obj(
+                        self.psql,
+                        self.schema_engines[collection],
+                        self.psql_schema,
+                        rec_id )
+                    # if psql data also doesn't exist
+                    if psql_tables_obj.is_empty():
+                        key = str(rec_id)
+                        attempt = self.recs_to_compare[collection][key].attempt
+                        self.recs_to_compare[collection][key] = \
+                            CompareRes(rec_id, True, attempt)                    
+                        getLogger(__name__).info("cmp non existing rec_id %s."
+                                                 % (str(rec_id)))
+
         return cmp_res
 
     def get_failed_cmp_attempts(self):

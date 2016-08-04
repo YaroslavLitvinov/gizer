@@ -101,7 +101,10 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
     #start syncing from very start of oplog
     try:
         if what_todo is DO_OPLOG_APPLY:
-            res = ohl.do_oplog_apply(start_ts=None, doing_sync=False)
+            res = ohl.do_oplog_apply(start_ts=None, 
+                                     filter_collection=None, 
+                                     filter_rec_id=None, 
+                                     doing_sync=False)
             return res.res
         elif what_todo is DO_OPLOG_SYNC:
             ts_synced = ohl.do_oplog_sync(None)
@@ -306,7 +309,6 @@ oplog_simulate_added_after_initload.js',
                          oplog21,
                          {'posts': None, 'guests': None}) == False)
 
-
 def test_compare_empty_compare_psql_and_mongo_records():
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
@@ -325,8 +327,6 @@ def test_compare_empty_compare_psql_and_mongo_records():
 if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
-    test_oplog_sync()
-    exit(0)
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     schemas_path = sys.argv[1]

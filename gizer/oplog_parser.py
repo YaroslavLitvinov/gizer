@@ -53,8 +53,8 @@ class OplogParser:
     def is_failed(self):
         failed = False
         for name, oplog_reader in self.readers.iteritems():
-            getLogger(__name__).warning("oplog transport %s failed" % name)
             if oplog_reader.failed:
+                getLogger(__name__).warning("oplog transport %s failed" % name)
                 failed = True
         return failed
 

@@ -48,23 +48,23 @@ def test_create_indexes():
     sqltable1 = tables[collection_name]
     indexes1 = generate_create_index_statement(sqltable1, '', 'PREFIX_', INDEX_ID_IDXS)
     print indexes1
-    expect = 'CREATE INDEX "index_INDEX_ID_IDXS_PREFIX_a_inserts" ON "PREFIX_a_inserts" ("id_oid");'
+    expect = 'CREATE INDEX "ia_PREFIX_a_inserts" ON "PREFIX_a_inserts" ("id_oid");'
     assert( indexes1 == expect )
     # table 2
     sqltable2 = tables[collection_name[:-1]+'_comments']
     indexes2 = generate_create_index_statement(sqltable2, '', 'PREFIX_', INDEX_ID_IDXS)
     print indexes2
-    expect = 'CREATE INDEX "index_INDEX_ID_IDXS_PREFIX_a_insert_comments" ON "PREFIX_a_insert_comments" ("a_inserts_id_oid", "idx");'
+    expect = 'CREATE INDEX "ia_PREFIX_a_insert_comments" ON "PREFIX_a_insert_comments" ("a_inserts_id_oid", "idx");'
     assert( indexes2 == expect )
     # table 3
     sqltable3 = tables[collection_name[:-1]+'_comment_items']
     indexes3 = generate_create_index_statement(sqltable3, '', 'PREFIX_', INDEX_ID_IDXS)
     print indexes3
-    expect = 'CREATE INDEX "index_INDEX_ID_IDXS_PREFIX_a_insert_comment_items" ON "PREFIX_a_insert_comment_items" ("a_inserts_comments_idx", "a_inserts_id_oid", "idx");'
+    expect = 'CREATE INDEX "ia_PREFIX_a_insert_comment_items" ON "PREFIX_a_insert_comment_items" ("a_inserts_comments_idx", "a_inserts_id_oid", "idx");'
     assert( indexes3 == expect )
     # table 4
     sqltable4 = tables[collection_name[:-1]+'_comment_slugs']
     indexes4 = generate_create_index_statement(sqltable4, '', 'PREFIX_', INDEX_ID_IDXS)
     print indexes4
-    expect = 'CREATE INDEX "index_INDEX_ID_IDXS_PREFIX_a_insert_comment_slugs" ON "PREFIX_a_insert_comment_slugs" ("a_inserts_comments_idx", "a_inserts_id_oid", "idx");'
+    expect = 'CREATE INDEX "ia_PREFIX_a_insert_comment_slugs" ON "PREFIX_a_insert_comment_slugs" ("a_inserts_comments_idx", "a_inserts_id_oid", "idx");'
     assert( indexes4 == expect )
