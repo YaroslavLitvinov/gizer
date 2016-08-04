@@ -100,15 +100,15 @@ def database_prepare():
 def test_get_ids_list():
     schema = json.loads(open('test_data/test_schema.txt').read())
     model = {'idx': 'bigint'}
-    assert get_ids_list(schema, 0) == model
+    assert get_ids_list(schema) == model
 
     schema = json.loads(open('test_data/test_schema2.txt').read())
     model = {'id': 'text'}
-    assert get_ids_list(schema, 1) == model
+    assert get_ids_list(schema) == model
 
     schema = json.loads(open('test_data/test_schema3.txt').read())
     model = {'id_oid': 'text'}
-    assert get_ids_list(schema, 1) == model
+    assert get_ids_list(schema) == model
 
     print(TEST_INFO, 'get_ids_list', 'PASSED')
 
@@ -267,7 +267,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, schema_name[:-1])
+    result = gen_statements(dbreq, schema, path, id, DatabaseInfo(db_name, schema_name[:-1]))
     model = {
         'upd': {},
         'del': {
@@ -287,7 +287,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
+    result = gen_statements(dbreq, schema, path, id, DatabaseInfo(db_name, SCHEMA_NAME))
     model = {
         'upd': {},
         'del': {
@@ -306,7 +306,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
+    result = gen_statements(dbreq, schema, path, id, DatabaseInfo(db_name, SCHEMA_NAME))
     model = {
         'upd': {
             'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));':
@@ -339,7 +339,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
+    result = gen_statements(dbreq, schema, path, id, DatabaseInfo(db_name, SCHEMA_NAME))
     model = {
         'upd': {
             'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_contact_phones SET persons_relatives_contacts_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
@@ -372,7 +372,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, db_name, SCHEMA_NAME)
+    result = gen_statements(dbreq, schema, path, id, DatabaseInfo(db_name, SCHEMA_NAME))
     model = {'upd': {
         'UPDATE '+'.'.join([db_name, schema_name])+'person_relative_jobs SET persons_relatives_idx=7 WHERE (persons_id_oid=(%s)) and (persons_relatives_idx=(%s));':            ['0123456789ABCDEF', '8'],
         'UPDATE '+'.'.join([db_name, schema_name])+'person_relatives SET idx=6 WHERE (idx=(%s)) and (persons_id_oid=(%s));':                                                    ['7', '0123456789ABCDEF'],
@@ -416,7 +416,7 @@ def test_gen_statements():
     schema = json.loads(open('test_data/test_schema5.txt').read())
     path = 'persons.relatives.2.contacts.5.phones'
     id = '0123456789ABCDEF'
-    result = gen_statements(dbreq, schema, path, id, '', '')
+    result = gen_statements(dbreq, schema, path, id, DatabaseInfo('', ''))
     model = {'upd': {}, 'del': {
         'DELETE FROM "person_relative_contact_phones" WHERE (persons_id_oid=(%s)) and (persons_relatives_contacts_idx=(%s)) and (persons_relatives_idx=(%s));': [
             '0123456789ABCDEF', '6', '3']}}
@@ -426,7 +426,7 @@ def test_gen_statements():
     path = 'persons.relatives.3.some_table'
     id = 'AABBCCDDEEFF'
     model=  {'upd': {}, 'del': {}}
-    result = gen_statements(dbreq, schema, path, id, '', '')
+    result = gen_statements(dbreq, schema, path, id, DatabaseInfo('', ''))
     assert model == result
 
     database_clear(dbreq)
