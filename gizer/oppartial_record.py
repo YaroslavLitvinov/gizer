@@ -75,7 +75,7 @@ bson_object_id_name_value=%s" % (schema_engine.root_node.name,
         node = node_by_components(schema_engine, components)
         whole_partial_bson = node.json_inject_data(bson_value,
                                                    obj_id_name, obj_id_val)
-        getLogger(__name__).info("whole_partial_bson=%s" % (whole_partial_bson))
+        getLogger(__name__).debug("whole_partial_bson=%s" % (whole_partial_bson))
         table_obj = Tables(schema_engine, whole_partial_bson)
         table_obj.load_all()
         # exclude parent tables if they have no data

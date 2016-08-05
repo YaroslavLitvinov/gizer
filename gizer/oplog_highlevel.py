@@ -119,10 +119,13 @@ class OplogHighLevel:
         for name in self.oplog_readers:
             self.oplog_readers[name].make_new_request(js_oplog_query)
         # create oplog parser. note: cb_insert doesn't need psql object
-        parser = OplogParser(self.oplog_readers, self.schemas_path, \
-                    Callback(cb_insert, ext_arg=self.psql_schema),
-                    Callback(cb_update, ext_arg=(self.psql, self.psql_schema)),
-                    Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
+        parser = OplogParser(self.oplog_readers, self.schemas_path,
+                             Callback(cb_insert, ext_arg=self.psql_schema),
+                             Callback(cb_update, 
+                                      ext_arg=(self.psql, self.psql_schema)),
+                             Callback(cb_delete, 
+                                      ext_arg=(self.psql, self.psql_schema)),
+                             dry_run = True)
         # go over oplog get just rec ids for timestamps that can be handled
         oplog_queries = parser.next()
         while oplog_queries != None:
@@ -222,10 +225,13 @@ class OplogHighLevel:
             for name in self.oplog_readers:
                 self.oplog_readers[name].make_new_request(js_oplog_query)
             # create oplog parser. note: cb_insert doesn't need psql object
-            parser = OplogParser(self.oplog_readers, self.schemas_path, \
-                        Callback(cb_insert, ext_arg=self.psql_schema),
-                        Callback(cb_update, ext_arg=(self.psql, self.psql_schema)),
-                        Callback(cb_delete, ext_arg=(self.psql, self.psql_schema)))
+            parser = OplogParser(self.oplog_readers, self.schemas_path,
+                                 Callback(cb_insert, ext_arg=self.psql_schema),
+                                 Callback(cb_update, 
+                                          ext_arg=(self.psql, self.psql_schema)),
+                                 Callback(cb_delete, 
+                                          ext_arg=(self.psql, self.psql_schema)),
+                                 dry_run = False)
             # go over oplog, and apply all oplog pacthes starting from start_ts
             last_ts = None
             queries_counter = 0

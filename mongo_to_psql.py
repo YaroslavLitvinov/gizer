@@ -63,7 +63,7 @@ def create_logger(logspath, name):
                                            date=today.strftime('%Y-%m-%d'))
     logfilename = os.path.join(logspath, logfilename)
     logging.basicConfig(filename=logfilename,
-                        level=logging.DEBUG,
+                        level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     logger = getLogger(__name__)
     logger.info('Created')
@@ -167,7 +167,7 @@ def main():
             ohl = OplogHighLevel(psql_main, mongo_readers, oplog_readers,
                  schemas_path, schema_engines, psql_schema)
             try:
-                ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
+                ts_res = ohl.do_oplog_apply(status.ts, None, None, doing_sync=False)
                 reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 if ts_res.res: # oplog apply ok
                     status_manager.oplog_use_finish(ts_res.handled_count,

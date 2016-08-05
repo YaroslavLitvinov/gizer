@@ -20,6 +20,7 @@ from gizer.psql_objects import insert_rec_from_one_tables_set_to_another
 from gizer.oplog_handlers import cb_insert
 from gizer.oplog_handlers import cb_update
 from gizer.oplog_handlers import cb_delete
+from gizer.oplog_handlers import OplogQuery
 from gizer.etlstatus_table import timestamp_str_to_object
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
@@ -37,7 +38,7 @@ class OplogParser:
     """ parse oplog data, apply oplog operations, execute resulted queries
     and verify patched results """
     def __init__(self, readers, schemas_path,
-                 cb_ins, cb_upd, cb_del):
+                 cb_ins, cb_upd, cb_del, dry_run):
         self.readers = readers
         self.first_handled_ts = None
         self.schema_engines = get_schema_engines_as_dict(schemas_path)
@@ -45,6 +46,7 @@ class OplogParser:
         self.cb_insert = cb_ins
         self.cb_update = cb_upd
         self.cb_delete = cb_del
+        self.dry_run = dry_run
         # init cache by Nones
         self.readers_cache = {}
         for name in readers:
@@ -128,7 +130,9 @@ class OplogParser:
             getLogger(__name__).\
                 info("op=" + item["op"] + ", ts=" + str(item['ts']) +
                     ", name=" + schema_name + ", rec_id=" + str(rec_id))
-            if item["op"] == "i":
+            if self.dry_run: # dry run will not do actual processing
+                res = OplogQuery("i", 'SELECT 1;') # query not for execute
+            elif item["op"] == "i":
                 # insert is ALWAYS expects array of records
                 res = self.cb_insert.cb(self.cb_insert.ext_arg,
                                         ts_field, ns_field, schema,
@@ -148,6 +152,6 @@ def exec_insert(psql, oplog_query):
     query = oplog_query.query
     fmt_string = query[0]
     for sqlparams in query[1]:
-        getLogger(__name__).debug('EXECUTE: ' + str(fmt_string) + str(sqlparams))
+        getLogger(__name__).info('EXECUTE: ' + str(fmt_string) + str(sqlparams))
         psql.cursor.execute(fmt_string, sqlparams)
         
