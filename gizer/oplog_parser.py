@@ -24,7 +24,6 @@ from gizer.oplog_handlers import OplogQuery
 from gizer.etlstatus_table import timestamp_str_to_object
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
-from mongo_reader.prepare_mongo_request import prepare_oplog_request
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
 EMPTY_TS = 'empty_ts'

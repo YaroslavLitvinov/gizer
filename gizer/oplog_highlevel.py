@@ -30,6 +30,7 @@ from gizer.opmultiprocessing import FastQueueProcessor
 from gizer.etl_mongo_reader import EtlMongoReader
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
+from mongo_reader.prepare_mongo_request import prepare_oplog_request_filter
 from mongo_reader.prepare_mongo_request import prepare_mongo_request_for_list
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors

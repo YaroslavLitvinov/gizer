@@ -30,10 +30,7 @@ def prepare_oplog_request(ts):
         return {"ts": {"$gt": ts}}
 
 def prepare_oplog_request_filter(ts, dbname, collection, rec_id):
-    ts_query = {}
-    if ts:
-        ts_query = {"ts": {"$gt": ts}}
-
+    ts_query = prepare_oplog_request(ts)
     if collection and rec_id:
         query = { "$and": [ {"ns": dbname+"."+collection}, 
                             {"$or": [ { "o2": {"_id" : rec_id} }, 
