@@ -169,19 +169,29 @@ class OplogHighLevel:
                                  % (str(ts_sync.res), str(res)))
 
         return res
-        
 
     def fast_sync_oplog(self, start_ts):
         """ do sync sequentually for every rec id in separate"""
+        def recs_count(dict_list):
+            count = 0
+            for key in dict_list:
+                count += len(dict_list[key])
+            return count
+
         min_ts = None
         ts_rec_ids = self.get_ts_rec_ids(start_ts)
+        total = recs_count( ts_rec_ids )
         getLogger(__name__).info("all rec ids to sync: %s" % str(ts_rec_ids))
         for collection in ts_rec_ids:
             while ts_rec_ids[collection]:
                 rec_id = ts_rec_ids[collection].pop()
                 ts = self._sync_single_rec_id(start_ts, collection, rec_id)
+                rest = recs_count( ts_rec_ids )
+                getLogger(__name__).info("sync single progress %d / %d" %
+                                         (total - rest, total))
                 if not min_ts or (ts and ts < min_ts):
-                    getLogger(__name__).info("fast: min_ts %s < ts %s" % (ts, min_ts))
+                    getLogger(__name__).info("fast: min_ts %s < ts %s" %
+                                             (ts, min_ts))
                     min_ts = ts
         # certainly located either sync point or much closest point to sync
         return min_ts
@@ -217,11 +227,20 @@ class OplogHighLevel:
         # to be able to return it as parser will miss that value at recreating
         first_handled_ts = None
         do_again_counter = 0
+        temp_data = self.oplog_readers[self.oplog_readers.keys()[0]]
         do_again = True
         while do_again:
             # reset 'apply again', it's will be enabled again if needed
             do_again = False
-            js_oplog_query = prepare_oplog_request(start_ts)
+            if filter_collection and filter_rec_id and not temp_data.array_data:
+                # temp_data.array_data only attribute of mock transport
+                dbname = temp_data.settings_list[0].dbname
+                js_oplog_query = prepare_oplog_request_filter(start_ts, 
+                                                              dbname, 
+                                                              filter_collection, 
+                                                              filter_rec_id)
+            else:
+                js_oplog_query = prepare_oplog_request(start_ts)
             for name in self.oplog_readers:
                 self.oplog_readers[name].make_new_request(js_oplog_query)
             # create oplog parser. note: cb_insert doesn't need psql object
