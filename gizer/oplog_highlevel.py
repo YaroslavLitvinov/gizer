@@ -228,14 +228,14 @@ class OplogHighLevel:
         # to be able to return it as parser will miss that value at recreating
         first_handled_ts = None
         do_again_counter = 0
-        temp_data = self.oplog_readers[self.oplog_readers.keys()[0]]
+        temp_data = self.mongo_readers[self.mongo_readers.keys()[0]]
+        dbname = temp_data.settings_list[0].dbname
         do_again = True
         while do_again:
             # reset 'apply again', it's will be enabled again if needed
             do_again = False
             if filter_collection and filter_rec_id and temp_data.real_transport():
                 # section not for mock
-                dbname = temp_data.settings_list[0].dbname
                 js_oplog_query = prepare_oplog_request_filter(start_ts, 
                                                               dbname, 
                                                               filter_collection, 

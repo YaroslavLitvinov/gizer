@@ -83,9 +83,15 @@ class OplogParser:
 
     def next_verified(self):
         """ next oplog records for one of ops=u,i,d """
+        cnt = 0
         item = self.next_all_readers()
         while item:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
+                if 'fromMigrate' in item and item['fromMigrate'] is True:
+                    cnt += 1
+                    if cnt % 1000:
+                        getLogger(__name__).info("Skip 1000 timestamps fromMigrate:True ")
+                    continue
                 schema_name = item["ns"].split('.')[1]
                 if schema_name not in self.schema_engines:
                     getLogger(__name__).\

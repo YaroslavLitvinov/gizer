@@ -39,4 +39,5 @@ def prepare_oplog_request_filter(ts, dbname, collection, rec_id):
         if ts_query:
             query["$and"].append(ts_query)
     else:
-        return ts_query
+        query = ts_query
+    return query
