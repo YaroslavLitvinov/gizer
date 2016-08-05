@@ -38,6 +38,9 @@ class MongoReader:
         """ For compatibility with mock interface """
         pass
 
+    def real_transport(self):
+        return True
+
     def connauthreq(self):
         uri_fmt = "mongodb://{user}:{password}@{host_port}/{dbname}{params}"
         host_port_fmt = "{host}:{port}"

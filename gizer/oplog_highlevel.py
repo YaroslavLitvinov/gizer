@@ -232,8 +232,8 @@ class OplogHighLevel:
         while do_again:
             # reset 'apply again', it's will be enabled again if needed
             do_again = False
-            if filter_collection and filter_rec_id and not temp_data.array_data:
-                # temp_data.array_data only attribute of mock transport
+            if filter_collection and filter_rec_id and temp_data.real_transport():
+                # section not for mock
                 dbname = temp_data.settings_list[0].dbname
                 js_oplog_query = prepare_oplog_request_filter(start_ts, 
                                                               dbname, 

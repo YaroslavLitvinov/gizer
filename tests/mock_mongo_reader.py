@@ -32,6 +32,9 @@ class MongoReaderMock:
         self.collection = collection
         self.load_next_test_dataset()
 
+    def real_transport(self):
+        return False
+
     def next_dataset_idx(self):
         if self.current_dataset_idx is None:
             return 0
