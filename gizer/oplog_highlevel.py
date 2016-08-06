@@ -150,19 +150,20 @@ class OplogHighLevel:
             self.oplog_readers[name].reset_dataset() 
         ts_sync = self.do_oplog_apply(test_ts, collection, rec_id,
                                       doing_sync=True)
+        self.psql.conn.rollback()
         while True:
             if not ts_sync.res and not ts_sync.ts:
                 break
             if ts_sync.res:
                 break
             getLogger(__name__).info("sync single next iteration")
-            self.psql.conn.rollback()
             test_ts = ts_sync.ts
             for name in self.oplog_readers:
                 # will affect only mock test reader
                 self.oplog_readers[name].reset_dataset() 
             ts_sync = self.do_oplog_apply(test_ts, collection, rec_id,
                                           doing_sync=True)
+            self.psql.conn.rollback()
         res = None
         if ts_sync.res:
             res = test_ts
@@ -172,6 +173,12 @@ class OplogHighLevel:
         return res
 
     def fast_sync_oplog(self, start_ts):
+        """ Find syncronization point of oplog and psql data
+        (which usually is initially loaded data.)
+        Return timestamp if synchronization successfull, or None if not.
+        It's syncing sequentually every rec id in separate.
+        start_ts -- Timestamp of oplog record to start sync tests"""
+
         """ do sync sequentually for every rec id in separate"""
         def recs_count(dict_list):
             count = 0
@@ -228,14 +235,14 @@ class OplogHighLevel:
         # to be able to return it as parser will miss that value at recreating
         first_handled_ts = None
         do_again_counter = 0
-        temp_data = self.mongo_readers[self.mongo_readers.keys()[0]]
-        dbname = temp_data.settings_list[0].dbname
+        temp_transport = self.mongo_readers[self.mongo_readers.keys()[0]]
         do_again = True
         while do_again:
             # reset 'apply again', it's will be enabled again if needed
             do_again = False
-            if filter_collection and filter_rec_id and temp_data.real_transport():
+            if filter_collection and filter_rec_id and temp_transport.real_transport():
                 # section not for mock
+                dbname = temp_transport.settings_list[0].dbname
                 js_oplog_query = prepare_oplog_request_filter(start_ts, 
                                                               dbname, 
                                                               filter_collection, 
@@ -374,15 +381,12 @@ Bad apply for start_ts: %s, next candidate ts: %s"
                                          res=False)
 
     def do_oplog_sync(self, ts):
-        """ Oplog sync is using local psql database with all data from main psql db
-        for applying test patches from mongodb oplog. It's expected high intensive
-        queries execution flow. The result of synchronization would be a single
-        timestamp from oplog which is last operation applied to data which resides
-        in main psql database. If TS is not located then synchronization failed.
-        do oplog sync, return ts - last ts which is part of initilly loaded data
+        """ Sync oplog and postgres. The result of synchronization is a single
+        timestamp from oplog. So if do apply to psql all timestamps going after
+        that sync point and then compare affected psql and mongo records 
+        they should be equal.  If TS is not located then synchronization failed.
         params:
-        ts -- oplog timestamp which is start point to locate sync point"""
-    
+        ts -- oplog timestamp which is start pos to find sync point"""
         getLogger(__name__).\
                 info('Start oplog synchronising from ts:%s' % str(ts))
         # oplog_ts_to_test is timestamp starting from which oplog records
@@ -390,63 +394,18 @@ Bad apply for start_ts: %s, next candidate ts: %s"
         # initially loaded psql data;
         # None - means oplog records should be tested starting from beginning
         oplog_ts_to_test = ts
-        fast_ts = self.fast_sync_oplog(ts)
-        getLogger(__name__).info("fast_sync ts is: %s" % fast_ts)
-        if fast_ts:
-            oplog_ts_to_test = fast_ts
-        # with high probability ts is already located now
-        # but to be sure run slow sync
-        sync_res = self._sync_oplog(oplog_ts_to_test)
-        while True:
-            if sync_res is False or sync_res is True:
-                break
-            else:
-                oplog_ts_to_test = sync_res
-            sync_res = self._sync_oplog(oplog_ts_to_test)
-        getLogger(__name__).\
-            info('Located sync ts:%s (fast ts:%s) sync res=%s' 
-                 % (str(oplog_ts_to_test), str(fast_ts), str(sync_res)))
-        if sync_res:
-            # if oplog sync point is located at None, then all oplog ops
-            # must be applied starting from first ever ts
-            if not oplog_ts_to_test:
-                getLogger(__name__).\
-                    info('Already synchronised ts:%s' % str(ts))
-                return True
-            else:
-                getLogger(__name__).\
-                    info('Sync point located ts:%s' % str(oplog_ts_to_test))
-                return oplog_ts_to_test
+        sync_ts = self.fast_sync_oplog(ts)
+        getLogger(__name__).info("sync ts is: %s" % sync_ts)
+        if sync_ts == ts:
+            getLogger(__name__).info('Already synchronised')
+            return True
+        elif sync_ts:
+            getLogger(__name__).info('Synced at ts:%s' % str(sync_ts))
+            return sync_ts
         else:
             getLogger(__name__).error('Sync failed.')
             return None
-    
 
-    def _sync_oplog(self, test_ts):
-        """ Find syncronization point of oplog and psql data
-        (which usually is initially loaded data.)
-        Return True if able to locate and synchronize initially loaded data
-        with oplog data, or return next ts candidate for syncing.
-        start_ts -- Timestamp of oplog record to start sync tests"""
-        for name in self.oplog_readers:
-            self.oplog_readers[name].reset_dataset() # will affect only mock test reader
-        ts_sync = self.do_oplog_apply(test_ts, None, None, doing_sync=True)
-        if ts_sync.res == True:
-            # sync succesfull
-            getLogger(__name__).info('COMMIT')
-            self.psql.conn.commit()
-            return True
-        else:
-            # continue syncing, revert to original data
-            getLogger(__name__).info('ROLLBACK')
-            self.psql.conn.rollback()
-            if ts_sync.ts:
-                getLogger(__name__).info("Bad sync candidate ts:" + str(test_ts) +
-                                         ", try next ts=" + str(ts_sync.ts))
-                # next sync iteration, must start after ts_sync.ts
-                return ts_sync.ts
-            else:
-                return False
 
 class ComparatorMongoPsql:
 

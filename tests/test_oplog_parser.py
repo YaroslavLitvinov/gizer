@@ -168,7 +168,7 @@ def test_oplog_sync():
 oplog_simulate_added_after_initload.js',
                                 None)],
               }
-    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278289, 1)',
+    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278288, 2)',
                          oplog2,
                          {'posts': None, 'guests': None}) == True)
 
