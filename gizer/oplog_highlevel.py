@@ -189,15 +189,15 @@ class OplogHighLevel:
                 count += len(dict_list[key])
             return count
 
+        empty_set = True
         min_ts = None
         ts_rec_ids = self.get_ts_rec_ids(start_ts)
         total = recs_count( ts_rec_ids )
         getLogger(__name__).info("all rec ids to sync: %s" % str(ts_rec_ids))
-        if not ts_rec_ids:
-            min_ts = start_ts
         for collection in ts_rec_ids:
             while ts_rec_ids[collection]:
                 rec_id = ts_rec_ids[collection].pop()
+                empty_set = False
                 ts = self._sync_single_rec_id(start_ts, collection, rec_id)
                 rest = recs_count( ts_rec_ids )
                 getLogger(__name__).info("sync single progress %d / %d" %
@@ -206,6 +206,8 @@ class OplogHighLevel:
                     getLogger(__name__).info("fast: min_ts %s < ts %s" %
                                              (ts, min_ts))
                     min_ts = ts
+        if empty_set:
+            min_ts = start_ts
         # certainly located either sync point or much closest point to sync
         return min_ts
 
