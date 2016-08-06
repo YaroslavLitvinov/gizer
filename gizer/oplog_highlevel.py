@@ -403,7 +403,7 @@ Bad apply for start_ts: %s, next candidate ts: %s"
         getLogger(__name__).info("sync ts is: %s" % sync_ts)
         if sync_ts == ts:
             getLogger(__name__).info('Already synchronised')
-            return True
+            return ts
         elif sync_ts:
             getLogger(__name__).info('Synced at ts:%s' % str(sync_ts))
             return sync_ts
