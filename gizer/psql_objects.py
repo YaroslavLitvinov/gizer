@@ -5,10 +5,13 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 from logging import getLogger
-from gizer.opcreate import generate_create_table_statement
 from gizer.opinsert import generate_insert_queries
 from gizer.opcreate import generate_drop_table_statement
 from gizer.opcreate import generate_create_table_statement
+from gizer.opcreate import generate_create_index_statement
+from gizer.opcreate import INDEX_ID_IDXS
+from gizer.opcreate import INDEX_ID_PARENT_IDXS
+from gizer.opcreate import INDEX_ID_ONLY
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
@@ -113,7 +116,7 @@ WHERE {id_name}={id_val} {idx_order_by};'
                                        id_name = id_name,
                                        id_val = id_val,
                                        idx_order_by = idx_order_by)
-        getLogger(__name__).debug("Get psql data: "+select_req)
+        getLogger(__name__).info("Get psql data: "+select_req)
         src_dbreq.cursor.execute(select_req)
         ext_tables_data[table_name] = []
         idx=0
@@ -142,11 +145,8 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
     """ Do every insert as separate transaction, very slow approach """
     # insert fetched mongo rec into destination psql
     for table_name, table in tables_to_save.tables.iteritems():
-        # create table if not exist
-        create_query = generate_create_table_statement(table, 
-                                                       dst_schema_name, 
-                                                       dst_table_prefix)
-        dst_dbreq.cursor.execute(create_query)
+        create_psql_table(table, dst_dbreq, dst_schema_name, 
+                          dst_table_prefix, False)
         insert_query = generate_insert_queries(table, 
                                                dst_schema_name, 
                                                dst_table_prefix)
@@ -167,10 +167,7 @@ def insert_rec_from_one_tables_set_to_another(dbreq,
         dst_schema_name += '.'
 
     for table_name, table in tables_structure.tables.iteritems():
-        # create table if not exist
-        create_query = generate_create_table_statement(table,
-                                                       dst_schema_name, '')
-        dbreq.cursor.execute(create_query)
+        create_psql_table(table, dbreq, dst_schema_name, '', False)
         id_name, quotes = parent_id_name_and_quotes_for_table(table)
         if quotes:
             id_val = "'" + str(rec_id) + "'"
@@ -199,7 +196,31 @@ def create_psql_table(table, dbreq, psql_schema, prefix, drop):
                                             prefix)
     getLogger(__name__).info("EXECUTE: " + query)
     dbreq.cursor.execute(query)
+
+def create_psql_index(table, dbreq, psql_schema, prefix):
+    #index 1
+    query = generate_create_index_statement(table, 
+                                            psql_schema, 
+                                            prefix,
+                                            INDEX_ID_IDXS)
+    getLogger(__name__).info("EXECUTE: " + query)
+    dbreq.cursor.execute(query)
+    # index 2
+    query = generate_create_index_statement(table, 
+                                            psql_schema, 
+                                            prefix,
+                                            INDEX_ID_ONLY)
+    getLogger(__name__).info("EXECUTE: " + query)
+    dbreq.cursor.execute(query)
+    # index 3
+    query = generate_create_index_statement(table, 
+                                            psql_schema, 
+                                            prefix,
+                                            INDEX_ID_PARENT_IDXS)
+    getLogger(__name__).info("EXECUTE: " + query)
+    dbreq.cursor.execute(query)
     
+
 
 def create_psql_tables(tables_obj, dbreq, psql_schema, prefix, drop):
     for table_name, table in tables_obj.tables.iteritems():

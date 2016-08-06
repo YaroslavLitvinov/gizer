@@ -8,6 +8,7 @@ from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 from gizer.opdelete import op_delete_stmts
 from gizer.opupdate import update
+from gizer.util import DatabaseInfo
 
 OplogQuery = namedtuple('OplogQuery', ['op', 'query'])
 
@@ -30,7 +31,8 @@ def cb_update(ext_arg, schema_engine, bson_data):
     dbreq = ext_arg[0]
     psql_schema = ext_arg[1]
     res = []
-    cb_res = update(dbreq, schema_engine, bson_data, '', psql_schema)
+    cb_res = update(dbreq, schema_engine, bson_data, DatabaseInfo('',
+                                                                  psql_schema))
     for it in cb_res:
         for op in it:
             res.append(OplogQuery('u', (op, it[op])))
@@ -41,7 +43,8 @@ def cb_delete(ext_arg, ts, ns, schema, bson_data):
     dbreq = ext_arg[0]
     psql_schema = ext_arg[1]
     id_str = str(bson_data['_id'])
-    cb_res = op_delete_stmts(dbreq, schema.schema,ns.split('.')[-1],id_str, '', psql_schema)
+    cb_res = op_delete_stmts(dbreq, schema.schema,ns.split('.')[-1],id_str,
+                             DatabaseInfo('', psql_schema))
     res = []
     for oper in cb_res:
         for stmnt in cb_res[oper]:

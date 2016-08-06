@@ -38,7 +38,7 @@ from gizer.psql_requests import PsqlRequests
 from gizer.psql_requests import psql_conn_from_settings
 from gizer.opconfig import psql_settings_from_config
 from gizer.opconfig import mongo_settings_from_config
-
+from gizer.opconfig import load_mongo_replicas_from_setting
 
 def sectkey(section_name, base_key_name):
     """ Return key config value. Key name in file must be concatenation 
@@ -63,7 +63,7 @@ def create_logger(logspath, name):
                                            date=today.strftime('%Y-%m-%d'))
     logfilename = os.path.join(logspath, logfilename)
     logging.basicConfig(filename=logfilename,
-                        level=logging.DEBUG,
+                        level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     logger = getLogger(__name__)
     logger.info('Created')
@@ -90,21 +90,28 @@ def main():
     schemas_path = config['misc']['schemas-dir']
     logspath = config['misc']['logs-dir']
 
+    oplog_settings = load_mongo_replicas_from_setting(config, 'mongo-oplog')
+
     mongo_settings = mongo_settings_from_config(config, 'mongo')
-    oplog_settings = mongo_settings_from_config(config, 'mongo-oplog')
     psql_settings = psql_settings_from_config(config, 'psql')
-    tmp_psql_settings = psql_settings_from_config(config, 'tmp-psql')
 
     mongo_readers = {}
     schema_engines = get_schema_engines_as_dict(schemas_path)
     for collection_name in schema_engines:
         reader = mongo_reader_from_settings(mongo_settings, collection_name, {})
         mongo_readers[collection_name] = reader
-    oplog_reader = mongo_reader_from_settings(oplog_settings, 'oplog.rs', {})
+        mongo_readers[collection_name].set_name(collection_name)
+
+    # create oplog read transport/s
+    oplog_readers = {}
+    for oplog_name, settings_list in oplog_settings.iteritems():
+        # settings list is a replica set (must be at least one in list)
+        oplog_readers[oplog_name] = \
+            mongo_reader_from_settings(settings_list, 'oplog.rs', {})
+        oplog_readers[oplog_name].set_name(oplog_name)
 
     psql_main_etl_status = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
-    psql_tmp = PsqlRequests(psql_conn_from_settings(tmp_psql_settings))
 
     status_table = PsqlEtlStatusTable(psql_main_etl_status.cursor, 
                                       config['psql']['psql-schema-name'])
@@ -118,13 +125,20 @@ def main():
         if status.status == STATUS_INITIAL_LOAD \
            and status.time_end and not status.error:
             create_logger(logspath, 'oplogsync')
+            if 'tmp-psql' in config.sections():
+                # optionally,  use dedicated psql database(local) just for
+                # syncing as sync operation can do heavy load of main database
+                option_psql_stng = psql_settings_from_config(config, 'tmp-psql')
+                psql_sync = PsqlRequests(psql_conn_from_settings(option_psql_stng))
+            else:
+                psql_sync = psql_main
             # intial load done, now do oplog sync, in this stage will be used
             # temporary psql instance as result of operation is not a data
             # commited to DB, but only single timestamp from oplog.
             # save oplog sync status
             status_manager.oplog_sync_start(status.ts)
 
-            ohl = OplogHighLevel(psql_tmp, mongo_readers, oplog_reader,
+            ohl = OplogHighLevel(psql_sync, mongo_readers, oplog_readers,
                  schemas_path, schema_engines, psql_schema)
             try:
                 ts = ohl.do_oplog_sync(status.ts)
@@ -138,7 +152,7 @@ def main():
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
-                psql_tmp.conn.rollback()
+                psql_sync.conn.rollback()
                 reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 status_manager.oplog_sync_finish(None, True)
                 res = -1
@@ -152,10 +166,10 @@ def main():
             getLogger(__name__).\
                 info('Sync point is ts:{ts}'.format(ts=status.ts))
             status_manager.oplog_use_start(status.ts)
-            ohl = OplogHighLevel(psql_main, mongo_readers, oplog_reader,
+            ohl = OplogHighLevel(psql_main, mongo_readers, oplog_readers,
                  schemas_path, schema_engines, psql_schema)
             try:
-                ts_res = ohl.do_oplog_apply(status.ts, doing_sync=False)
+                ts_res = ohl.do_oplog_apply(status.ts, None, None, doing_sync=False)
                 reinit_conn(psql_settings, psql_main_etl_status, status_manager)
                 if ts_res.res: # oplog apply ok
                     status_manager.oplog_use_finish(ts_res.handled_count,

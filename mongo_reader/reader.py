@@ -14,36 +14,59 @@ from pymongo.cursor import CursorType
 
 
 def mongo_reader_from_settings(settings, collection_name, request):
-    return MongoReader(settings, collection_name, request)
+    """ Create mongo transport """
+    if type(settings) is list:
+        # single replica support
+        return MongoReader(settings, collection_name, request)
+    else:
+        # many replicas support
+        return MongoReader([settings], collection_name, request)
 
 class MongoReader:
 
-    def __init__(self, settings, collection, query):
-        self.settings = settings
+    def __init__(self, settings_list, collection, query):
+        self.settings_list = settings_list
         self.collection = collection
         self.query = query
         self.rec_i = 0
         self.cursor = None
         self.client = None
         self.failed = False
+        self.name = ''
         self.attempts = 0
 
+    def set_name(self, name):
+        self.name = name
+        
     def reset_dataset(self):
         """ For compatibility with mock interface """
         pass
 
+    def real_transport(self):
+        return True
+
     def connauthreq(self):
-        uri_fmt = "mongodb://{user}:{password}@{host}:{port}/{dbname}{params}"
+        uri_fmt = "mongodb://{user}:{password}@{host_port}/{dbname}{params}"
+        host_port_fmt = "{host}:{port}"
+        host_port = ''
+        for settings in self.settings_list:
+            if len(host_port):
+                host_port += ','
+            host_port += host_port_fmt.format(host=settings.host,
+                                              port=settings.port)
+        # for multiple repl sets all params will be derived from first
+        # setting from list except host, port
+        settings = self.settings_list[0]
+        # there are only one dbname for all replicas
+        self.dbname = self.settings_list[0].dbname
         params = ""
-        if len(self.settings.params):
-            params = "?" + self.settings.params
-        
-        uri = uri_fmt.format(user=self.settings.user, 
+        if len(settings.params):
+            params = "?" + settings.params
+        uri = uri_fmt.format(user=settings.user, 
                              #password=urllib.quote_plus(self.settings.passw),
-                             password=self.settings.passw,
-                             host=self.settings.host, 
-                             port=self.settings.port,
-                             dbname=self.settings.dbname,
+                             password=settings.passw,
+                             host_port=host_port,
+                             dbname=settings.dbname,
                              params=params)
         self.client = MongoClient(uri)
         getLogger(__name__).info("Authenticated")
@@ -51,7 +74,9 @@ class MongoReader:
     def make_new_request(self, query):
         if not self.client:
             self.connauthreq()
-        mongo_collection = self.client[self.settings.dbname][self.collection]
+        mongo_collection = self.client[self.dbname][self.collection]
+        getLogger(__name__).info("Issue mongo[%s] request: %s" %
+                                 (self.collection, query))
         cursor = mongo_collection.find(query)
         cursor.batch_size(1000)
         self.rec_i = 0
@@ -77,8 +102,8 @@ class MongoReader:
                 self.attempts += 1
                 if self.attempts <= 4:
                     time.sleep(pow(2, self.attempts))
-                    getLogger(__name__).warning("Connect attempt #%d, %s" %
-                            (self.attempts, str(time.time())))
+                    getLogger(__name__).warning("%s Connect attempt #%d, %s" %
+                            (self.name, self.attempts, str(time.time())))
                     continue
                 else:
                     self.failed = True

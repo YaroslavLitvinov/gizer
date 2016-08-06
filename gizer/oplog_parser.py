@@ -17,14 +17,13 @@ from bson.json_util import loads
 from collections import namedtuple
 from gizer.psql_objects import load_single_rec_into_tables_obj
 from gizer.psql_objects import insert_rec_from_one_tables_set_to_another
-from gizer.psql_objects import create_psql_tables
 from gizer.oplog_handlers import cb_insert
 from gizer.oplog_handlers import cb_update
 from gizer.oplog_handlers import cb_delete
+from gizer.oplog_handlers import OplogQuery
 from gizer.etlstatus_table import timestamp_str_to_object
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
-from mongo_reader.prepare_mongo_request import prepare_oplog_request
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
 EMPTY_TS = 'empty_ts'
@@ -37,21 +36,62 @@ ItemInfo = namedtuple('ItemInfo', ['schema_name',
 class OplogParser:
     """ parse oplog data, apply oplog operations, execute resulted queries
     and verify patched results """
-    def __init__(self, reader, schemas_path,
-                 cb_ins, cb_upd, cb_del):
-        self.reader = reader
+    def __init__(self, readers, schemas_path,
+                 cb_ins, cb_upd, cb_del, dry_run):
+        self.readers = readers
         self.first_handled_ts = None
         self.schema_engines = get_schema_engines_as_dict(schemas_path)
         self.item_info = None
         self.cb_insert = cb_ins
         self.cb_update = cb_upd
         self.cb_delete = cb_del
+        self.dry_run = dry_run
+        # init cache by Nones
+        self.readers_cache = {}
+        for name in readers:
+            self.readers_cache[name] = None
+
+    def is_failed(self):
+        failed = False
+        for name, oplog_reader in self.readers.iteritems():
+            if oplog_reader.failed:
+                getLogger(__name__).warning("oplog transport %s failed" % name)
+                failed = True
+        return failed
+
+    def next_all_readers(self):
+        # fill cache if empty
+        for name in self.readers:
+            if not self.readers_cache[name]:
+                self.readers_cache[name] = self.readers[name].next()
+        # locate item with min timestamp
+        ts_min = ('name', None)
+        for name, item in self.readers_cache.iteritems():
+            if not ts_min[1] and item:
+                ts_min = (name, item['ts'])
+            elif item and item['ts'] < ts_min[1]:
+                ts_min = (name, item['ts'])
+        # return min item, pop it from cache
+        if ts_min[1]:
+            getLogger(__name__).info("from oplog:%s ts:%s" % 
+                                     (ts_min[0], ts_min[1]) )
+            tmp_ts = self.readers_cache[ts_min[0]]
+            self.readers_cache[ts_min[0]] = None
+            return tmp_ts
+        else:
+            return None
 
     def next_verified(self):
         """ next oplog records for one of ops=u,i,d """
-        item = self.reader.next()
+        cnt = 0
+        item = self.next_all_readers()
         while item:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
+                if 'fromMigrate' in item and item['fromMigrate'] is True:
+                    cnt += 1
+                    if cnt % 1000:
+                        getLogger(__name__).info("Skip 1000 timestamps fromMigrate:True ")
+                    continue
                 schema_name = item["ns"].split('.')[1]
                 if schema_name not in self.schema_engines:
                     getLogger(__name__).\
@@ -59,7 +99,7 @@ class OplogParser:
                                 schema_name + ", skip ts:" + str(item["ts"]))
                 else:
                     return item
-            item = self.reader.next()
+            item = self.next_all_readers()
         return None
 
     def next(self):
@@ -95,7 +135,9 @@ class OplogParser:
             getLogger(__name__).\
                 info("op=" + item["op"] + ", ts=" + str(item['ts']) +
                     ", name=" + schema_name + ", rec_id=" + str(rec_id))
-            if item["op"] == "i":
+            if self.dry_run: # dry run will not do actual processing
+                res = OplogQuery("i", 'SELECT 1;') # query not for execute
+            elif item["op"] == "i":
                 # insert is ALWAYS expects array of records
                 res = self.cb_insert.cb(self.cb_insert.ext_arg,
                                         ts_field, ns_field, schema,
@@ -115,6 +157,6 @@ def exec_insert(psql, oplog_query):
     query = oplog_query.query
     fmt_string = query[0]
     for sqlparams in query[1]:
-        getLogger(__name__).debug('EXECUTE: ' + str(fmt_string) + str(sqlparams))
+        getLogger(__name__).info('EXECUTE: ' + str(fmt_string) + str(sqlparams))
         psql.cursor.execute(fmt_string, sqlparams)
         

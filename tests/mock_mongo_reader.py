@@ -32,6 +32,9 @@ class MongoReaderMock:
         self.collection = collection
         self.load_next_test_dataset()
 
+    def real_transport(self):
+        return False
+
     def next_dataset_idx(self):
         if self.current_dataset_idx is None:
             return 0
@@ -113,6 +116,7 @@ rec= %s"
                     self.rec_i += 1 # next item to iterate
                     break
         else:
+            self.query = None # reset query, just iterate results
             if self.rec_i < len(self.array_data):
                 rec = self.array_data[self.rec_i]
                 self.rec_i += 1

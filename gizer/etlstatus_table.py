@@ -45,6 +45,8 @@ class PsqlEtlStatusTable:
         self.cursor = cursor
         if len(schema_name):
             self.schema_name = schema_name + '.'
+        else:
+            self.schema_name = ''
         if recreate:
             self.drop_table()
         self.create_table()
@@ -62,16 +64,6 @@ class PsqlEtlStatusTable:
         "recs_count" INT, "queries_count" INT,\
         "ts" TEXT, "status" INT, "error" BOOLEAN);'
         self.cursor.execute( fmt.format(schema=self.schema_name) )
-        fmt = "COMMENT ON COLUMN {schema}qmetlstatus.status IS \
-'0 - oplog ts is saved in order to prepare to initial load, \
-1 - next must do initial load, \
-2 - next must do oplog sync, \
-3 - next must apply oplog ops.';"
-        self.cursor.execute( fmt.format(schema=self.schema_name) )
-        fmt = "COMMENT ON COLUMN {schema}qmetlstatus.ts IS \
-        'oplog timestamp';"
-        self.cursor.execute( fmt.format(schema=self.schema_name) )
-
 
     def get_recent(self):
         fmt = 'SELECT * from {schema}qmetlstatus order by time_start \

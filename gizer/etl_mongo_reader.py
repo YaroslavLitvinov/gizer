@@ -27,7 +27,8 @@ class EtlMongoReader:
                                              pcount)
 
     def __del__(self):
-        del self.fast_queue
+        if self.fast_queue:
+            del self.fast_queue
 
     def execute_query(self, collection, query):
         self.all_recs_count = 0
@@ -35,6 +36,10 @@ class EtlMongoReader:
         self.no_more_recs = False
         self.current_mongo_reader = self.mongo_readers[collection]
         self.current_mongo_reader.make_new_request(query)
+
+    def skip_all_processed_recs(self):
+        while self.next_processed() is not None:
+            pass
 
     def next_processed(self):
         processed_list = None        
@@ -53,6 +58,8 @@ class EtlMongoReader:
                     self.etl_recs_count += 1
         except:
             self.current_mongo_reader.failed = True
+            del self.fast_queue
+            self.fast_queue = None
             raise
         if self.no_more_recs and not len(processed_list):
             return None
