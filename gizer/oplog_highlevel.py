@@ -111,6 +111,9 @@ class OplogHighLevel:
                                               psql,
                                               psql_schema)
 
+    def __del__(self):
+        del self.comparator
+
     def get_ts_rec_ids(self, start_ts):
         getLogger(__name__).\
             info('get_ts_rec_ids from timestamps located after ts:%s' \
@@ -446,77 +449,88 @@ class ComparatorMongoPsql:
         return equal
 
     def compare_src_dest(self):
-        getLogger(__name__).info('Oplog ops applied. Compare following recs: %s'\
-                                     % self.recs_to_compare )
         cmp_res = True
         # iterate mongo items belong to one collection
         for collection, recs in self.recs_to_compare.iteritems():
             # comparison strategy: filter out previously compared recs;
             # so will be compared only that items which never compared or
             # prev comparison gave False
-            filtered_recs_list_cmp = []
+            recs_list_cmp = []
+            max_recs_in_list = 1000
             for rec_id, compare_res in recs.iteritems():
                 if not compare_res.flag:
-                    filtered_recs_list_cmp.append(compare_res.rec_id)
+                    recs_list_cmp.append(compare_res.rec_id)
             # if nothing to compare just skip current collection
-            if not filtered_recs_list_cmp:
+            if not recs_list_cmp:
                 continue
-            # prepare query
-            mongo_query = prepare_mongo_request_for_list(
-                self.schema_engines[collection], 
-                filtered_recs_list_cmp)
-            getLogger(__name__).info('mongo query to fetch recs to compare: %s',
-                                     mongo_query)
-            self.etl_mongo_reader.execute_query(collection, mongo_query)
-            received_list = []
-            # get and process records to compare
-            processed_recs = self.etl_mongo_reader.next_processed()
-            while processed_recs is not None:
-                # do cmp for every returned obj
-                for mongo_tables_obj in processed_recs:
-                    rec_id = mongo_tables_obj.rec_id()
-                    received_list.append(rec_id)
-                    psql_tables_obj = load_single_rec_into_tables_obj(
-                        self.psql,
-                        self.schema_engines[collection],
-                        self.psql_schema,
-                        rec_id )
-                    # this check makes sence ony for mock transport as it 
-                    # will return all records and not only requested
-                    key = str(rec_id)
-                    if key in self.recs_to_compare[collection] and \
-                            not self.recs_to_compare[collection][key].flag:
-                        equal = self.compare_one_src_dest(collection,
-                                                          rec_id,
-                                                          mongo_tables_obj,
-                                                          psql_tables_obj)
-                        if not equal:
-                            cmp_res = False
-                    else:
-                        continue
-                    # update cmp result in main dict
-                    attempt = self.recs_to_compare[collection][key].attempt
-                    # update cmp result in main dict
-                    self.recs_to_compare[collection][key] = \
-                        CompareRes(rec_id, equal, attempt)
-                processed_recs = self.etl_mongo_reader.next_processed()
-            # should return True for deleted items (non existing items)
-            for rec_id in filtered_recs_list_cmp:
-                if rec_id not in received_list:
-                    psql_tables_obj = load_single_rec_into_tables_obj(
-                        self.psql,
-                        self.schema_engines[collection],
-                        self.psql_schema,
-                        rec_id )
-                    # if psql data also doesn't exist
-                    if psql_tables_obj.is_empty():
-                        key = str(rec_id)
-                        attempt = self.recs_to_compare[collection][key].attempt
-                        self.recs_to_compare[collection][key] = \
-                            CompareRes(rec_id, True, attempt)                    
-                        getLogger(__name__).info("cmp non existing rec_id %s."
-                                                 % (str(rec_id)))
 
+            maxs = 1000
+            lst = recs_list_cmp
+            splitted = [lst[i:i + maxs] for i in xrange(0, len(lst), maxs)]
+            for chunk in splitted:
+                res = self.compare_src_dest_portion(collection, chunk)
+                if not res:
+                    cmp_res = res
+        return cmp_res
+
+    def compare_src_dest_portion(self, collection, recs):
+        getLogger(__name__).info('Oplog ops applied. Compare following recs: %s'\
+                                     % self.recs_to_compare )
+        cmp_res = True
+        # prepare query
+        mongo_query = prepare_mongo_request_for_list(
+            self.schema_engines[collection], recs)
+        getLogger(__name__).info('mongo query to fetch recs to compare: %s',
+                                 mongo_query)
+        self.etl_mongo_reader.execute_query(collection, mongo_query)
+        received_list = []
+        # get and process records to compare
+        processed_recs = self.etl_mongo_reader.next_processed()
+        while processed_recs is not None:
+            # do cmp for every returned obj
+            for mongo_tables_obj in processed_recs:
+                rec_id = mongo_tables_obj.rec_id()
+                received_list.append(rec_id)
+                psql_tables_obj = load_single_rec_into_tables_obj(
+                    self.psql,
+                    self.schema_engines[collection],
+                    self.psql_schema,
+                    rec_id )
+                # this check makes sence ony for mock transport as it 
+                # will return all records and not only requested
+                key = str(rec_id)
+                if key in self.recs_to_compare[collection] and \
+                        not self.recs_to_compare[collection][key].flag:
+                    equal = self.compare_one_src_dest(collection,
+                                                      rec_id,
+                                                      mongo_tables_obj,
+                                                      psql_tables_obj)
+                    if not equal:
+                        cmp_res = False
+                else:
+                    continue
+                # update cmp result in main dict
+                attempt = self.recs_to_compare[collection][key].attempt
+                # update cmp result in main dict
+                self.recs_to_compare[collection][key] = \
+                    CompareRes(rec_id, equal, attempt)
+            processed_recs = self.etl_mongo_reader.next_processed()
+        # should return True for deleted items (non existing items)
+        for rec_id in recs:
+            if rec_id not in received_list:
+                psql_tables_obj = load_single_rec_into_tables_obj(
+                    self.psql,
+                    self.schema_engines[collection],
+                    self.psql_schema,
+                    rec_id )
+                # if psql data also doesn't exist
+                if psql_tables_obj.is_empty():
+                    key = str(rec_id)
+                    attempt = self.recs_to_compare[collection][key].attempt
+                    self.recs_to_compare[collection][key] = \
+                        CompareRes(rec_id, True, attempt)                    
+                    getLogger(__name__).info("cmp non existing rec_id %s."
+                                             % (str(rec_id)))
         return cmp_res
 
     def get_failed_cmp_attempts(self):

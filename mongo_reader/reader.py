@@ -32,8 +32,12 @@ class MongoReader:
         self.cursor = None
         self.client = None
         self.failed = False
+        self.name = ''
         self.attempts = 0
 
+    def set_name(name):
+        self.name = name
+        
     def reset_dataset(self):
         """ For compatibility with mock interface """
         pass
@@ -98,8 +102,8 @@ class MongoReader:
                 self.attempts += 1
                 if self.attempts <= 4:
                     time.sleep(pow(2, self.attempts))
-                    getLogger(__name__).warning("Connect attempt #%d, %s" %
-                            (self.attempts, str(time.time())))
+                    getLogger(__name__).warning("%s Connect attempt #%d, %s" %
+                            (self.name, self.attempts, str(time.time())))
                     continue
                 else:
                     self.failed = True

@@ -100,6 +100,7 @@ def main():
     for collection_name in schema_engines:
         reader = mongo_reader_from_settings(mongo_settings, collection_name, {})
         mongo_readers[collection_name] = reader
+        mongo_readers[collection_name].set_name(collection_name)
 
     # create oplog read transport/s
     oplog_readers = {}
@@ -107,6 +108,7 @@ def main():
         # settings list is a replica set (must be at least one in list)
         oplog_readers[oplog_name] = \
             mongo_reader_from_settings(settings_list, 'oplog.rs', {})
+        oplog_readers[oplog_name].set_name(oplog_name)
 
     psql_main_etl_status = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
