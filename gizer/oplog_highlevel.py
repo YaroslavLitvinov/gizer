@@ -193,6 +193,8 @@ class OplogHighLevel:
         ts_rec_ids = self.get_ts_rec_ids(start_ts)
         total = recs_count( ts_rec_ids )
         getLogger(__name__).info("all rec ids to sync: %s" % str(ts_rec_ids))
+        if not ts_rec_ids:
+            min_ts = start_ts
         for collection in ts_rec_ids:
             while ts_rec_ids[collection]:
                 rec_id = ts_rec_ids[collection].pop()
