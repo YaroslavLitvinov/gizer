@@ -35,7 +35,7 @@ class MongoReader:
         self.name = ''
         self.attempts = 0
 
-    def set_name(name):
+    def set_name(self, name):
         self.name = name
         
     def reset_dataset(self):
