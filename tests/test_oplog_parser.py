@@ -160,6 +160,14 @@ def test_oplog_sync():
     assert(check_dataset('oplog1', DO_OPLOG_APPLY, None, oplog1,
                          {'posts': None, 'guests': None}) == True)
 
+    # oplog5 = {'shard1': [('test_data/oplog5/shard1.js', None)],
+    #           'shard2': [('test_data/oplog5/shard2.js', None)
+    #                      ]
+    #          }
+    # assert(check_dataset('oplog5', DO_OPLOG_APPLY, None, oplog5,
+    #                      {'posts': None, 'guests': None}) == True)
+
+
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
     # Sync point when located should be equal to timestamp param

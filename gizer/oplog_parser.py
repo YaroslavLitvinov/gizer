@@ -48,6 +48,7 @@ class OplogParser:
         self.dry_run = dry_run
         # init cache by Nones
         self.readers_cache = {}
+        self.last_oplog_ts = {}
         for name in readers:
             self.readers_cache[name] = None
 
@@ -76,6 +77,8 @@ class OplogParser:
             getLogger(__name__).info("from oplog:%s ts:%s" % 
                                      (ts_min[0], ts_min[1]) )
             tmp_ts = self.readers_cache[ts_min[0]]
+            # to save last timestamp indepedently for every shard 
+            self.last_oplog_ts[ts_min[0]] = self.readers_cache[ts_min[0]]["ts"]
             self.readers_cache[ts_min[0]] = None
             return tmp_ts
         else:
