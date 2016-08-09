@@ -106,6 +106,7 @@ class OplogHighLevel:
         self.schemas_path = schemas_path
         self.schema_engines = schema_engines
         self.psql_schema = psql_schema
+        self.last_oplog_ts = {}
         self.comparator = ComparatorMongoPsql(schema_engines,
                                               mongo_readers,
                                               psql,
@@ -211,6 +212,26 @@ class OplogHighLevel:
         # certainly located either sync point or much closest point to sync
         return min_ts
 
+    def get_oplog_request(self, ts, oplog_name, filter_collection, filter_rec_id):
+        collection_transport = self.mongo_readers[self.mongo_readers.keys()[0]]
+        if filter_collection and filter_rec_id \
+                and collection_transport.real_transport():
+            # section not for mock
+            dbname = collection_transport.settings_list[0].dbname
+            js_oplog_query = prepare_oplog_request_filter(ts, 
+                                                          dbname, 
+                                                          filter_collection, 
+                                                          filter_rec_id)
+        else:
+            # Use as ts last handled ts, as can't use the same ts for all readers
+            if oplog_name in self.last_oplog_ts and self.last_oplog_ts[oplog_name]:
+                ts = self.last_oplog_ts[oplog_name]
+            js_oplog_query = prepare_oplog_request(ts)
+        getLogger(__name__).info("Oplog request [%s]: %s",
+                                 oplog_name, js_oplog_query)
+        return js_oplog_query
+
+
     def do_oplog_apply(self, start_ts, 
                        filter_collection, 
                        filter_rec_id, 
@@ -247,16 +268,11 @@ class OplogHighLevel:
         while do_again:
             # reset 'apply again', it's will be enabled again if needed
             do_again = False
-            if filter_collection and filter_rec_id and temp_transport.real_transport():
-                # section not for mock
-                dbname = temp_transport.settings_list[0].dbname
-                js_oplog_query = prepare_oplog_request_filter(start_ts, 
-                                                              dbname, 
-                                                              filter_collection, 
-                                                              filter_rec_id)
-            else:
-                js_oplog_query = prepare_oplog_request(start_ts)
             for name in self.oplog_readers:
+                js_oplog_query = self.get_oplog_request(start_ts, 
+                                                        name, 
+                                                        filter_collection, 
+                                                        filter_rec_id)
                 self.oplog_readers[name].make_new_request(js_oplog_query)
             # create oplog parser. note: cb_insert doesn't need psql object
             parser = OplogParser(self.oplog_readers, self.schemas_path,
@@ -297,6 +313,9 @@ class OplogHighLevel:
                 oplog_queries = parser.next()
             getLogger(__name__).info("handled %d oplog records/ %d queries" % \
                                          (oplog_rec_counter, queries_counter))
+            if not filter_collection:
+                self.last_oplog_ts = parser.last_oplog_ts
+            # save timestamps from temp OplogParser to self
             if not first_handled_ts:
                 first_handled_ts = parser.first_handled_ts
             # compare mongo data & psql data after oplog records applied
