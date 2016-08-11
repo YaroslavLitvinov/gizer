@@ -143,16 +143,16 @@ class OplogHighLevel:
             oplog_queries = parser.next()
         return ts_rec_ids
 
-    def _sync_single_rec_id(self, start_ts, collection, rec_id):
+    def _sync_rec_list(self, start_ts, collection, rec_ids):
         """ do sync for single rec id, startinf just after start_ts.
-        all timestamps not related to specified rec_id will be skipped """
-        getLogger(__name__).info("sync single %s rec_id=%s"
-                                 % (collection, rec_id))
+        all timestamps not related to specified rec_ids will be skipped """
+        getLogger(__name__).info("sync %s rec_ids=%s"
+                                 % (collection, rec_ids))
         test_ts = start_ts
         for name in self.oplog_readers:
             # will affect only mock test reader
             self.oplog_readers[name].reset_dataset() 
-        ts_sync = self.do_oplog_apply(test_ts, collection, rec_id,
+        ts_sync = self.do_oplog_apply(test_ts, collection, rec_ids,
                                       doing_sync=True)
         self.psql.conn.rollback()
         while True:
@@ -165,7 +165,7 @@ class OplogHighLevel:
             for name in self.oplog_readers:
                 # will affect only mock test reader
                 self.oplog_readers[name].reset_dataset() 
-            ts_sync = self.do_oplog_apply(test_ts, collection, rec_id,
+            ts_sync = self.do_oplog_apply(test_ts, collection, rec_ids,
                                           doing_sync=True)
             self.psql.conn.rollback()
         # This rollback can guarantie that sync will not affect db data 
@@ -199,11 +199,13 @@ class OplogHighLevel:
         getLogger(__name__).info("all rec ids to sync: %s" % str(ts_rec_ids))
         for collection in ts_rec_ids:
             while ts_rec_ids[collection]:
-                rec_id = ts_rec_ids[collection].pop()
+                rec_ids = []
+                while ts_rec_ids[collection] and len(rec_ids) < 100:
+                    rec_ids.append( ts_rec_ids[collection].pop() )
                 empty_set = False
-                ts = self._sync_single_rec_id(start_ts, collection, rec_id)
+                ts = self._sync_rec_list(start_ts, collection, rec_ids)
                 rest = recs_count( ts_rec_ids )
-                getLogger(__name__).info("sync single progress %d / %d" %
+                getLogger(__name__).info("sync progress %d / %d" %
                                          (total - rest, total))
                 if not min_ts or (ts and ts < min_ts):
                     getLogger(__name__).info("fast: min_ts %s < ts %s" %
@@ -214,16 +216,16 @@ class OplogHighLevel:
         # certainly located either sync point or much closest point to sync
         return min_ts
 
-    def get_oplog_request(self, ts, oplog_name, filter_collection, filter_rec_id):
+    def get_oplog_request(self, ts, oplog_name, filter_collection, filter_rec_ids):
         collection_transport = self.mongo_readers[self.mongo_readers.keys()[0]]
-        if filter_collection and filter_rec_id \
+        if filter_collection and filter_rec_ids \
                 and collection_transport.real_transport():
             # section not for mock
             dbname = collection_transport.settings_list[0].dbname
             js_oplog_query = prepare_oplog_request_filter(ts, 
                                                           dbname, 
                                                           filter_collection, 
-                                                          filter_rec_id)
+                                                          filter_rec_ids)
         else:
             # Use as ts last handled ts, as can't use the same ts for all readers
             if oplog_name in self.last_oplog_ts and self.last_oplog_ts[oplog_name]:
@@ -236,7 +238,7 @@ class OplogHighLevel:
 
     def do_oplog_apply(self, start_ts, 
                        filter_collection, 
-                       filter_rec_id, 
+                       filter_rec_ids, 
                        doing_sync):
         """ Read oplog operations starting just after timestamp start_ts.
         Apply oplog operations to psql db. After all records are applied do
@@ -274,7 +276,7 @@ class OplogHighLevel:
                 js_oplog_query = self.get_oplog_request(start_ts, 
                                                         name, 
                                                         filter_collection, 
-                                                        filter_rec_id)
+                                                        filter_rec_ids)
                 self.oplog_readers[name].make_new_request(js_oplog_query)
             # create oplog parser. note: cb_insert doesn't need psql object
             parser = OplogParser(self.oplog_readers, self.schemas_path,
@@ -295,14 +297,14 @@ class OplogHighLevel:
                 rec_id = parser.item_info.rec_id
                 last_ts = parser.item_info.ts
                 # filter out not matched recs
-                if filter_collection and filter_rec_id:
+                if filter_collection and filter_rec_ids:
                     if collection_name == filter_collection \
-                            and rec_id == filter_rec_id:
+                            and rec_id in filter_rec_ids:
                         if not first_handled_ts:
                             first_handled_ts = parser.item_info.ts
-                        getLogger(__name__).info("fast first_handled_ts %s %s" 
-                                                 % (str(parser.item_info.ts),
-                                                    str(first_handled_ts)))
+                            getLogger(__name__).info("fast first_handled_ts %s %s" 
+                                                     % (str(parser.item_info.ts),
+                                                str(first_handled_ts)))
                     else:
                         oplog_queries = parser.next()
                         continue

@@ -29,12 +29,18 @@ def prepare_oplog_request(ts):
     else:
         return {"ts": {"$gt": ts}}
 
-def prepare_oplog_request_filter(ts, dbname, collection, rec_id):
+def list_ofitems_byor(rec_ids):
+    ors = []
+    for rec_id in rec_ids:
+       ors.append( { "o2": {"_id" : rec_id} }, {"o._id" : rec_id} ) 
+    return ors
+
+def prepare_oplog_request_filter(ts, dbname, collection, rec_ids):
     ts_query = prepare_oplog_request(ts)
-    if collection and rec_id:
+    if collection and rec_ids:
         query = { "$and": [ {"ns": dbname+"."+collection}, 
-                            {"$or": [ { "o2": {"_id" : rec_id} }, 
-                                      {"o._id" : rec_id}]}]
+                            {"$or": list_ofitems_byor(rec_ids) }
+                            ]
                  }
         if ts_query:
             query["$and"].append(ts_query)

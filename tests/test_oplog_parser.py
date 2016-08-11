@@ -103,7 +103,7 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
         if what_todo is DO_OPLOG_APPLY:
             res = ohl.do_oplog_apply(start_ts=None, 
                                      filter_collection=None, 
-                                     filter_rec_id=None, 
+                                     filter_rec_ids=None, 
                                      doing_sync=False)
             return res.res
         elif what_todo is DO_OPLOG_SYNC:
