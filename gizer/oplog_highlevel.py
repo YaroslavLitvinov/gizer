@@ -168,6 +168,8 @@ class OplogHighLevel:
             ts_sync = self.do_oplog_apply(test_ts, collection, rec_id,
                                           doing_sync=True)
             self.psql.conn.rollback()
+        # This rollback can guarantie that sync will not affect db data 
+        self.psql.conn.rollback()
         res = None
         if ts_sync.res:
             res = test_ts
