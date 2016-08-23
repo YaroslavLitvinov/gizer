@@ -34,12 +34,19 @@ def timestamp_str_to_object(timestamp_str):
         return None
 
 class PsqlEtlStatusTable:
-    Status = namedtuple('Status', ['comment', 'time_start', 'time_end',
-                                   'recs_count', 'queries_count',
-                                   'ts', 'status', 'error'])
-    # Status.ts - is a bson.BSON.Timestamp() python object, but in db will 
-    # be saved as string, for example: "Timestamp(1464278289, 1)"
-    # bson object can be loaded from: {"$timestamp": {"t": 1464278289, "i": 1}}
+    Status = namedtuple('Status', ['comment', 
+                                   'time_start', 
+                                   'time_end',
+                                   'recs_count', 
+                                   'queries_count',
+                                   'ts', 
+                                   'status', 
+                                   'error'])
+    # Status.ts - is a list or just bson.BSON.Timestamp() python object, 
+    # which is stored in DB as string. In case if ts is a list of timestamps
+    # then delimeter ';' will be used when saving string representation to DB.
+    # for example: "Timestamp(1464278289, 1)" or
+    # "Timestamp(1464278289, 1); Timestamp(1464278289, 2)"
 
     def __init__(self, cursor, schema_name, recreate=False):
         self.cursor = cursor
@@ -65,6 +72,17 @@ class PsqlEtlStatusTable:
         "ts" TEXT, "status" INT, "error" BOOLEAN);'
         self.cursor.execute( fmt.format(schema=self.schema_name) )
 
+    def ts_str(self, bson_ts):
+        res = None
+        if type(bson_ts) is list:
+            for item in bson_ts:
+                if not res:
+                    res += ';'
+                res += self.ts_str(item)
+        else:
+            res = str(bson_ts)
+        return res
+
     def get_recent(self):
         fmt = 'SELECT * from {schema}qmetlstatus order by time_start \
 desc limit 1;'
@@ -82,7 +100,7 @@ desc limit 1;'
                                              error=rec[7])
         else:
             return None
-        
+
     def save_new(self, status):
         fmt = 'INSERT INTO {schema}qmetlstatus VALUES(\
 %s, %s, %s, %s, %s, %s, %s, %s);'
@@ -93,7 +111,7 @@ desc limit 1;'
                               status.time_end,
                               status.recs_count, 
                               status.queries_count,
-                              str(status.ts),
+                              self.ts_str(status.ts),
                               status.status,
                               status.error) )
         self.cursor.execute('COMMIT;')
