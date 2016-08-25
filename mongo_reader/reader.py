@@ -71,14 +71,13 @@ class MongoReader:
         self.client = MongoClient(uri)
         getLogger(__name__).info("Authenticated")
 
-    def make_new_request(self, query):
+    def make_new_request(self, query, projection=None):
         if not self.client:
             self.connauthreq()
         mongo_collection = self.client[self.dbname][self.collection]
         getLogger(__name__).info("Issue mongo[%s] request[%s]: %s" %
                                  (self.collection, self.name, query))
-        cursor = mongo_collection.find(query)
-        cursor.batch_size(1000)
+        cursor = mongo_collection.find(query, projection=projection)
         self.rec_i = 0
         self.cursor = cursor
         return cursor

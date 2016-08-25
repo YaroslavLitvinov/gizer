@@ -30,6 +30,7 @@ EMPTY_TS = 'empty_ts'
 
 ItemInfo = namedtuple('ItemInfo', ['schema_name',
                                    'schema_engine',
+                                   'oplog_name',
                                    'ts',
                                    'rec_id'])
 
@@ -80,14 +81,14 @@ class OplogParser:
             # to save last timestamp indepedently for every shard 
             self.last_oplog_ts[ts_min[0]] = self.readers_cache[ts_min[0]]["ts"]
             self.readers_cache[ts_min[0]] = None
-            return tmp_ts
+            return (ts_min[0], tmp_ts)
         else:
             return None
 
     def next_verified(self):
         """ next oplog records for one of ops=u,i,d """
         cnt = 0
-        item = self.next_all_readers()
+        oplog_name, item = self.next_all_readers()
         while item:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
                 if 'fromMigrate' in item and item['fromMigrate'] is True:
@@ -101,13 +102,18 @@ class OplogParser:
                         warning("Unknown collection: " +
                                 schema_name + ", skip ts:" + str(item["ts"]))
                 else:
-                    return item
-            item = self.next_all_readers()
+                    return oplog_name, item
+            oplog_name, item = self.next_all_readers()
         return None
 
     def next(self):
-        item = self.next_verified()
         res = None
+        next_item = self.next_verified()
+        if next_item:
+            oplog_name, item = next_item
+        else:
+            oplog_name  = None
+            item = None
         if item:
             if self.first_handled_ts is None:
                 self.first_handled_ts = item['ts']
@@ -133,6 +139,7 @@ class OplogParser:
             # save rec_id
             self.item_info = ItemInfo(schema_name,
                                       schema,
+                                      oplog_name,
                                       item['ts'],
                                       rec_id)
             getLogger(__name__).\

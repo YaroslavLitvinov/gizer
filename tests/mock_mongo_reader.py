@@ -68,7 +68,8 @@ inject_exception=%s"  % (len(self.array_data), str(self.exception_to_inject)))
     def connauthreq(self):
         return None
 
-    def make_new_request(self, query):
+    def make_new_request(self, query, projection=None):
+        # projection is not supported by mock transport
         self.rec_i = 0
         self.query = query
 
