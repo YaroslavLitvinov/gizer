@@ -50,6 +50,7 @@ class OplogParser:
         # init cache by Nones
         self.readers_cache = {}
         self.last_oplog_ts = {}
+        self.shard_name_for_last_ts = None
         for name in readers:
             self.readers_cache[name] = None
 
@@ -75,20 +76,22 @@ class OplogParser:
                 ts_min = (name, item['ts'])
         # return min item, pop it from cache
         if ts_min[1]:
+            shard_name = ts_min[0]
+            self.shard_name_for_last_ts = shard_name
             getLogger(__name__).info("from oplog:%s ts:%s" % 
-                                     (ts_min[0], ts_min[1]) )
-            tmp_ts = self.readers_cache[ts_min[0]]
+                                     (shard_name, ts_min[1]) )
+            tmp_ts = self.readers_cache[shard_name]
             # to save last timestamp indepedently for every shard 
-            self.last_oplog_ts[ts_min[0]] = self.readers_cache[ts_min[0]]["ts"]
-            self.readers_cache[ts_min[0]] = None
-            return (ts_min[0], tmp_ts)
+            self.last_oplog_ts[shard_name] = self.readers_cache[shard_name]["ts"]
+            self.readers_cache[shard_name] = None
+            return tmp_ts
         else:
             return None
 
     def next_verified(self):
         """ next oplog records for one of ops=u,i,d """
         cnt = 0
-        oplog_name, item = self.next_all_readers()
+        item = self.next_all_readers()
         while item:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
                 if 'fromMigrate' in item and item['fromMigrate'] is True:
@@ -102,19 +105,15 @@ class OplogParser:
                         warning("Unknown collection: " +
                                 schema_name + ", skip ts:" + str(item["ts"]))
                 else:
-                    return oplog_name, item
-            oplog_name, item = self.next_all_readers()
+                    return item
+            item = self.next_all_readers()
         return None
 
     def next(self):
         res = None
-        next_item = self.next_verified()
-        if next_item:
-            oplog_name, item = next_item
-        else:
-            oplog_name  = None
-            item = None
+        item = self.next_verified()
         if item:
+            oplog_name = self.shard_name_for_last_ts
             if self.first_handled_ts is None:
                 self.first_handled_ts = item['ts']
             ts_field = item["ts"]

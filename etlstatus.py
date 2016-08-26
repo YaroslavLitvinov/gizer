@@ -88,7 +88,7 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
     elif args.init_load_start_save_ts:
         # create oplog read transport/s to acquire ts
         oplog_settings = load_mongo_replicas_from_setting(config, 'mongo-oplog')
-        ts_list = []
+        ts_dict = {}
         for oplog_name, settings_list in oplog_settings.iteritems():
             print 'Fetch timestamp from oplog: %s' % oplog_name
             # settings list is a replica set (must be at least one in list)
@@ -99,10 +99,9 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
             cursor.sort('ts', DESCENDING)
             cursor.limit(1)
             obj = cursor.next()
-            ts_list.append( str(obj['ts']) )
-            print 'get ts: %s from oplog: %s' % (str(obj['ts']), oplog_name)
-        max_ts = sorted(ts_list)[-1]
-        print "Initload timestamp:", max_ts
+            ts_dict[oplog_name] = cursor.next()
+            print 'get ts: %s from oplog: %s' % (ts_dict[oplog_name], oplog_name)
+        print "Initload timestamps:", ts_dict
 
         status_manager = PsqlEtlStatusTableManager(status_table)
         status_manager.init_load_start(max_ts)

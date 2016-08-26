@@ -87,6 +87,7 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
     # recreate connection / cursor as rollback won't work after commit
     del dbreq
     dbreq = PsqlRequests(psycopg2.connect(connstr))
+    dbreq_etl = PsqlRequests(psycopg2.connect(connstr))
     mongo_readers_after = {}
     getLogger(__name__).info("Loading mongo data after initload")
     for name, mongo_data_path in oplog_test.after.iteritems():
@@ -95,7 +96,7 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
 
     gizer.oplog_highlevel.DO_OPLOG_READ_ATTEMPTS_COUNT \
         = oplog_test.max_attempts
-    ohl = OplogHighLevel(dbreq, mongo_readers_after, oplog_readers,
+    ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
                  schemas_path, schema_engines, psql_schema)
 
     #start syncing from very start of oplog
@@ -159,14 +160,6 @@ def test_oplog_sync():
              }
     assert(check_dataset('oplog1', DO_OPLOG_APPLY, None, oplog1,
                          {'posts': None, 'guests': None}) == True)
-
-    # oplog5 = {'shard1': [('test_data/oplog5/shard1.js', None)],
-    #           'shard2': [('test_data/oplog5/shard2.js', None)
-    #                      ]
-    #          }
-    # assert(check_dataset('oplog5', DO_OPLOG_APPLY, None, oplog5,
-    #                      {'posts': None, 'guests': None}) == True)
-
 
     # test syncing oplog ops. specified DO_OPLOG_SYNC param.
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
@@ -337,6 +330,10 @@ if __name__ == '__main__':
     data folder as args """
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s')
+    ## temp
+    test_oplog_sync()
+    exit(0)
+    ## temp
     schemas_path = sys.argv[1]
     data_path = sys.argv[2]
     mongo_oplog = os.path.join(data_path, 'mongo_oplog.json')
