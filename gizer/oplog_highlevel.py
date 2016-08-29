@@ -128,7 +128,7 @@ class PsqlCacheTable:
 
     def insert(self, psql_cache_data):
         fmt = 'INSERT INTO {schema}qmetlcache VALUES(\
-%s, %s, %s, %s, %s, %s, %s, %s);'
+%s, %s, %s, %s, %s, %s);'
         operation_str = fmt.format(schema=self.schema_name)
         self.cursor.execute( operation_str,
                              (str(psql_cache_data.ts),
@@ -141,7 +141,8 @@ class PsqlCacheTable:
 
     def select_max_synced_ts_at_shard(self, oplog_name):
         max_sync_start_fmt="SELECT * from {schema}qmetlcache WHERE \
-ts=MAX(ts) and oplog='{oplog}' and sync_point=TRUE;"
+oplog='{oplog}' and sync_point=TRUE and \
+ts=(SELECT max(ts) FROM {schema}qmetlcache);"
         select_query = max_sync_start_fmt.format(schema=self.schema_name,
                                                  oplog=oplog_name)
         self.cursor.execute(select_query)
@@ -282,13 +283,14 @@ class OplogHighLevel:
         for collection, rec_ids_dict in collection_rec_ids_dict.iteritems():
             sync_engine = OplogSyncEngine(start_ts_dict,
                                           collection, 
+                                          self.schemas_path,
                                           self.schema_engines[collection],
                                           self.mongo_readers[collection],
                                           self.oplog_readers,
                                           self.psql,
                                           self.psql_schema,
                                           psql_cache_table)
-            res = sync_engine.sync_map_for_collection(sync_engine, rec_ids_dict)
+            res = sync_engine.sync_collection_timestamps(sync_engine, rec_ids_dict)
             if not res:
                 return None
         # get max sync_start timestamp for every shard to align sync_point
@@ -314,9 +316,10 @@ class OplogHighLevel:
                                           len(rec_ids_dict)))
                 ts_cache = psql_cache_table.select_ts_related_to_rec_id(
                     collection, rec_id)
-                if ts_cache.ts <= max_sync_ts[ts_cache.oplog]:
-                    for oplog_query in ts_cache.queries:
-                        exec_insert(self.psql, oplog_query)
+                for ts_data in ts_cache:
+                    if ts_data.ts <= max_sync_ts[ts_cache.oplog]:
+                        for oplog_query in ts_data.queries:
+                            exec_insert(self.psql, oplog_query)
         getLogger(__name__).info('COMMIT')
         self.psql.conn.commit()
         return max_sync_ts
@@ -572,11 +575,14 @@ class CollectionReader:
 
 class OplogSyncEngine:
 
-    def __init__(self, start_ts_dict, collection_name, schema_engine, 
-                 mongo_reader, oplog_readers, psql, psql_schema, psql_cache_table):
+    def __init__(self, start_ts_dict, collection_name,
+                 schemas_path, schema_engine,
+                 mongo_reader, oplog_readers,
+                 psql, psql_schema, psql_cache_table):
         self.cache = None
         self.start_ts_dict = start_ts_dict
         self.collection_name = collection_name
+        self.schemas_path = schemas_path
         self.schema_engine = schema_engine
         self.mongo_reader = mongo_reader
         self.oplog_readers = oplog_readers
@@ -587,15 +593,15 @@ class OplogSyncEngine:
                                                   schema_engine, mongo_reader)
 
 
-    def sync_map_for_collection(self, sync_engine, collection_rec_ids):
+    def sync_collection_timestamps(self, sync_engine, rec_ids_dict):
         """ Sync all the ollection' sitems. Return True / False """
         count_synced = 0
         sync_attempt = 0
         while sync_attempt < DO_OPLOG_READ_ATTEMPTS_COUNT \
-                and len(collection_rec_ids) != count_synced :
+                and len(rec_ids_dict) != count_synced :
             sync_attempt += 1
             rec_ids = []
-            for rec_id, sync in collection_rec_ids.iteritems():
+            for rec_id, sync in rec_ids_dict.iteritems():
                 if sync:
                     continue
                 rec_ids.append(rec_id)
@@ -606,20 +612,21 @@ class OplogSyncEngine:
                     sync_engine.sync_recs_save_tsdata_to_psql_cache(rec_ids)
                 del rec_ids[:]
                 for synced_rec_id in synced_recs:
-                    collection_rec_ids_dict[synced_rec_id] = True # synced
+                    rec_ids_dict[synced_rec_id] = True # synced
                 getLogger(__name__).info("sync map progress for %s is: %d / %d" %
                                          (self.collection_name,
                                           count_synced,
-                                          len(collection_rec_ids)))
+                                          len(rec_ids_dict)))
                 count_synced += len(synced_recs)
             # after loop ends check if there items left to be handled
             if rec_ids:
                 synced_recs = \
                     sync_engine.sync_recs_save_tsdata_to_psql_cache(rec_ids)
                 for synced_rec_id in synced_recs:
-                    collection_rec_ids_dict[synced_rec_id] = True # synced
+                    rec_ids_dict[synced_rec_id] = True # synced
             count_synced += len(synced_recs)
-        return len(collection_rec_ids) == count_synced
+            print "rec_ids_dict", rec_ids_dict
+        return len(rec_ids_dict) == count_synced
 
     def sync_recs_save_tsdata_to_psql_cache(self, rec_ids):
         """ Return list of recs wor which sync_start is located"""
@@ -627,12 +634,13 @@ class OplogSyncEngine:
         recid_tsdata_dict = self.locate_recs_sync_points(rec_ids)
         for rec_id, ts_data_list in recid_tsdata_dict.iteritems():
             if type(ts_data_list) is bool:
-                # no need to sync
-                psql_data = PsqlCacheTable.PsqlCacheData(None, None, collection,
-                                                         None, rec_id, True)
+                # this rec is already synced, has no timestamps list
+                psql_data = PsqlCacheTable.PsqlCacheData(
+                    None, None, self.collection_name, None, rec_id, True)
                 self.psql_cache_table.insert(psql_data)
                 synced_recs.append(rec_id)
                 continue
+            # cache timestamps data in psql
             for ts_data in ts_data_list:
                 psql_data = PsqlCacheTable.PsqlCacheData(
                     ts_data.ts, ts_data.oplog_name, self.collection_name,
@@ -643,17 +651,32 @@ class OplogSyncEngine:
         return synced_recs
 
     def locate_recs_sync_points(self, rec_ids):
+        """ Return timestamps data and recs sync points in following format:
+        res = { rec_id: [ TsData list ] }"""
         res = {}
         mongo_objects = \
             self.collection_reader.get_mongo_table_objs_by_ids(rec_ids)
 	recid_ts_queries = self.get_tsdata_for_recs(rec_ids)
+        print "rec_ids", rec_ids
+        print "mongo_objects", mongo_objects
+        print "recid_ts_queries", recid_ts_queries
         for rec_id, ts_data_list in recid_ts_queries.iteritems():
-            if cmp_psql_mongo_tables(rec_id, 
-                                     mongo_objects[rec_id], psql_tables_obj):
+            if str(rec_id) in mongo_objects:
+                mongo_obj = mongo_objects[str(rec_id)]
+            else:
+                # get empty object as doesn't exists in mongo
+                mongo_obj = create_tables_load_bson_data(self.schema_engine, {})
+            psql_obj = load_single_rec_into_tables_obj(
+                self.psql, self.schema_engine, self.psql_schema, rec_id)
+            # cmp mongo and psql records before applying timestamps
+            # just to check if it is already synced
+            if cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj):
                 # rec_id not require to sync, set flag it's already synced
                 # overwrite list of ts by assigning True 
-                recid_ts_queries[rec_id] = True
+                res[rec_id] = True
                 continue
+            # Apply timestamps and then cmp resulting psql object and mongo obj
+            # If not equal then shift to next timestamp and do it again
             for query_idx in xrange(len(ts_data_list)):
                 cur_idx = query_idx
                 while cur_idx < len(ts_data_list):
@@ -661,18 +684,14 @@ class OplogSyncEngine:
                     for single_query in ts_data.queries:
                         exec_insert(self.psql, single_query)
                     cur_idx += 1
-                psql_tables_obj = load_single_rec_into_tables_obj(
+                psql_obj = load_single_rec_into_tables_obj(
                     self.psql, self.schema_engine, self.psql_schema, rec_id)
-                equal = cmp_psql_mongo_tables(rec_id, 
-                                              mongo_objects[rec_id],
-                                              psql_tables_obj)
+                equal = cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj)
+                # check if located ts, to be used as start point to apply ts
                 if equal:
-                    if cur_idx:
-                        # mark ts to apply it first when do sync
-                        res[rec_id][cur_idx - 1].sync_start = True
-                    else:
-                        # not need sync, overwrite list of ts by assigning True 
-                        res[rec_id] = True
+                    if rec_id not in res:
+                        res[rec_id] = ts_data_list
+                    res[rec_id][query_idx].sync_start = True
                 self.psql.conn.rollback()
                 if equal:
                     break
@@ -681,13 +700,18 @@ class OplogSyncEngine:
     def get_tsdata_for_recs(self, rec_ids):
         res = {}
         mock_transports_reset(self.oplog_readers)
+        # issue separate requests to oplog readers
         for oplog_name in self.oplog_readers:
-            js_oplog_query = self.prepare_oplog_request(
-                self.start_ts_dict[oplog_name], 
-                oplog_name, 
-                self.collection_name, 
-                rec_ids)
-            self.oplog_readers[name].make_new_request(js_oplog_query)
+            if self.oplog_readers[oplog_name].real_transport():
+                dbname = self.mongo_reader.settings_list[0].dbname
+                js_query = prepare_oplog_request_filter(
+                    self.start_ts_dict[oplog_name],
+                    dbname,
+                    self.collection_name,
+                    rec_ids)
+            else:
+                js_query = prepare_oplog_request(self.start_ts_dict[oplog_name])
+            self.oplog_readers[oplog_name].make_new_request(js_query)
         # create oplog parser. note: cb_insert doesn't need psql object
         parser = OplogParser(self.oplog_readers, self.schemas_path,
                              Callback(cb_insert, ext_arg=self.psql_schema),
@@ -702,14 +726,14 @@ class OplogSyncEngine:
             oplog_name = parser.item_info.oplog_name
             rec_id = parser.item_info.rec_id
             last_ts = parser.item_info.ts
-            if rec_id not in res:
-                res[rec_id] = []
-            res[rec_id].append( TsData(oplog_name, last_ts, oplog_queries) )
             #### mock transports support /BEGIN/: filter out results
             if collection_name != self.collection_name or rec_id not in rec_ids:
                 oplog_queries = parser.next()
                 continue
             #### mock transports support /END/
+            if rec_id not in res:
+                res[rec_id] = []
+            res[rec_id].append( TsData(oplog_name, last_ts, oplog_queries) )
             oplog_queries = parser.next()
         return res
 
