@@ -23,7 +23,7 @@ from gizer.psql_objects import create_truncate_psql_objects
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mock_mongo_reader import MongoReaderMock
 from mock_mongo_reader import MockReaderDataset
-from gizer.etlstatus_table import timestamp_str_to_object
+from gizer.etlstatus_table import timestamp_str_to_object as ts_obj
 
 
 SCHEMAS_PATH = "./test_data/schemas/rails4_mongoid_development"
@@ -66,7 +66,7 @@ def load_mongo_data_to_psql(schema_engine, mongo_data_path, psql, psql_schema):
             psql.cursor.execute('COMMIT')
 
 
-def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
+def run_oplog_engine_check(oplog_test, schemas_path):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
@@ -94,40 +94,36 @@ def run_oplog_engine_check(oplog_test, what_todo, schemas_path):
         # pass just one dataset as collection's test mongo data
         mongo_readers_after[name] = data_mock([mongo_data_path], name)
 
-    gizer.oplog_highlevel.DO_OPLOG_READ_ATTEMPTS_COUNT \
-        = oplog_test.max_attempts
-    ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
-                 schemas_path, schema_engines, psql_schema)
-
-    #start syncing from very start of oplog
     try:
-        if what_todo is DO_OPLOG_APPLY:
-            res = ohl.do_oplog_apply(start_ts=None, 
-                                     filter_collection=None, 
-                                     filter_rec_ids=None, 
-                                     doing_sync=False)
-            return res.res
-        elif what_todo is DO_OPLOG_SYNC:
-            ts_synced = ohl.do_oplog_sync(None)
-            getLogger(__name__).info("sync res expected to be ts_synced=%s" \
-                                         % oplog_test.ts_synced)
-            if ts_synced == timestamp_str_to_object(oplog_test.ts_synced):
-                return True
-            elif ts_synced == True and oplog_test.ts_synced is None:
-                return True
-            else:
-                return False
-        else:
-            assert(0)
+        gizer.oplog_highlevel.DO_OPLOG_READ_ATTEMPTS_COUNT \
+            = oplog_test.max_attempts
+        ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
+                             schemas_path, schema_engines, psql_schema)
+
+        #start syncing from very start of oplog
+        ts_synced = ohl.do_oplog_sync(None)
+        del ohl
+
+        ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
+                             schemas_path, schema_engines, psql_schema)
+        res = ohl.do_oplog_apply(start_ts=None, 
+                                 filter_collection=None, 
+                                 filter_rec_ids=None, 
+                                 doing_sync=False)
+        getLogger(__name__).info("Details: %s" % str(res))
+        if res.res:
+            getLogger(__name__).info("Test passed")
+
     except:
         # close psql connection to have ability to run next tests
         dbreq.conn.close()
         raise
+    return res.res
 
 
-def check_dataset(name, operation, start_ts, oplog_params, params, 
+def check_dataset(name, start_ts, oplog_params, params, 
                   max_attempts=INFINITE_ATTEMPTS_CNT):
-    print '\ntest ', name, operation
+    print '\ntest ', name
     location_fmt = 'test_data/'+name+'/%s_collection_%s.js'
     before_params = {}
     for collection in params:
@@ -142,7 +138,7 @@ def check_dataset(name, operation, start_ts, oplog_params, params,
                     # use None with DO_OPLOG_APPLY param
                     before_params, oplog_params, after_params,
                     max_attempts)
-    res = run_oplog_engine_check(oplog_test, operation, SCHEMAS_PATH)
+    res = run_oplog_engine_check(oplog_test, SCHEMAS_PATH)
     return res
 
 def test_oplog_sync():
@@ -158,18 +154,17 @@ def test_oplog_sync():
               'shard2': [('test_data/oplog1/shard2-oplog1.js', None)
                          ]
              }
-    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None, oplog1,
+    assert(check_dataset('oplog1', None, oplog1,
                          {'posts': None, 'guests': None}) == True)
 
-    # test syncing oplog ops. specified DO_OPLOG_SYNC param.
-    # initdata 'before_data' is slightly ovarlaps with oplog ops data.
-    # Sync point when located should be equal to timestamp param
+    # sync oplog. Check that returned ts is equal to expected.
     oplog2 = {'single-oplog': [('test_data/oplog2/oplog.js', None),
                                ('test_data/oplog2/\
 oplog_simulate_added_after_initload.js',
                                 None)],
               }
-    assert(check_dataset('oplog2', DO_OPLOG_SYNC, 'Timestamp(1164278288, 2)',
+    assert(check_dataset('oplog2',
+                         {'single-oplog': ts_obj('Timestamp(1994278289, 4)')},
                          oplog2,
                          {'posts': None, 'guests': None}) == True)
 
@@ -177,7 +172,8 @@ oplog_simulate_added_after_initload.js',
     # initdata 'before_data' is slightly ovarlaps with oplog ops data.
     # Sync point when located should be equal to timestamp param
     oplog3 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
-    assert(check_dataset('oplog3', DO_OPLOG_SYNC, 'Timestamp(1000000001, 1)',
+    assert(check_dataset('oplog3',
+                         {'single-oplog': ts_obj('Timestamp(1000000014, 1)')},
                          oplog3,
                          {'posts': None, 'posts2': None, 'rated_posts': None,
                           'guests': None}) == True)
@@ -192,7 +188,7 @@ oplog_simulate_added_after_initload.js',
                                ('test_data/oplog4/oplog8.js', None), # attempt 7
                                ('test_data/oplog4/oplog9.js', None) # attempt 8
                                ]}
-    assert(check_dataset('oplog4', DO_OPLOG_APPLY, None,
+    assert(check_dataset('oplog4', None,
                          oplog4, 
                          {'posts': None} # don't raise error while reading posts
                          ) == True)
@@ -207,7 +203,7 @@ oplog_simulate_added_after_initload.js',
                                ('test_data/oplog4/oplog7.js', None), # attempt 6
                                ('test_data/oplog4/oplog8.js', None) # attempt 7
                                ]}
-    assert(check_dataset('oplog4', DO_OPLOG_APPLY, None,
+    assert(check_dataset('oplog4', None,
                          oplog4, 
                          {'posts': None}, # don't raise error while reading posts
                          100 # - max attempts count to re-read oplog
@@ -230,7 +226,7 @@ oplog_simulate_added_after_initload.js',
                                ('test_data/oplog4/oplog7.js', None), # attempt 6
                                ('test_data/oplog4/oplog8.js', None) # attempt 7
                                ]}
-    assert(check_dataset('oplog4', DO_OPLOG_APPLY, None,
+    assert(check_dataset('oplog4', None,
                          oplog4, 
                          {'posts': None}, # don't raise error while reading posts
                          6 # - max attempts count to re-read oplog
@@ -243,7 +239,7 @@ oplog_simulate_added_after_initload.js',
                                 ('test_data/oplog1/oplog2.js', 
                                  pymongo.errors.OperationFailure)]
                }
-    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
+    assert(check_dataset('oplog1', None,
                          oplog11,
                          {'posts': None, 'guests': None}) == True)
 
@@ -254,7 +250,7 @@ oplog_simulate_added_after_initload.js',
     oplog12 = {'single-oplog': [('test_data/oplog1/oplog1.js', None),
                                 ('test_data/oplog1/oplog2.js', None)]
                }
-    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
+    assert(check_dataset('oplog1', None,
                          oplog12,
                          {'posts': pymongo.errors.OperationFailure,
                           'guests': None}) == True)
@@ -266,7 +262,7 @@ oplog_simulate_added_after_initload.js',
     oplog13 = {'single-oplog': [('test_data/oplog1/oplog1.js', None),
                                 ('test_data/oplog1/oplog2.js', None)]
                }
-    assert(check_dataset('oplog1', DO_OPLOG_APPLY, None,
+    assert(check_dataset('oplog1', None,
                          oplog13,
                          {'posts': pymongo.errors.AutoReconnect,
                           'guests': None}) == True)
@@ -277,7 +273,7 @@ oplog_simulate_added_after_initload.js',
         oplog14 = {'single-oplog': [('test_data/oplog1/oplog1.js', 
                                      pymongo.errors.InvalidURI),
                                     ('test_data/oplog1/oplog2.js', None)]}
-        check_dataset('oplog1', DO_OPLOG_APPLY, None,
+        check_dataset('oplog1', None,
                       oplog14,
                       {'posts': None,
                        'guests': None})

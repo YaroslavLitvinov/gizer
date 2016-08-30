@@ -30,24 +30,32 @@ class MongoReaderMock:
     def __init__(self, datasets_list, collection, query=None):
         self.current_dataset_idx = None
         self.datasets_list = datasets_list
+        self.refill_flags = [True for i in datasets_list ]
         self.exception_to_inject = None
         self.query = query
         self.failed = False
         self.collection = collection
-        self.reset_dataset()
+        self.refill_data()
 
     def real_transport(self):
         return False
 
     def reset_dataset(self):
+        self.refill_flags = [True for i in self.datasets_list ]
+
+    def refill_data(self):
         self.array_data = []
         self.rec_i = 0
-        for dataset in self.datasets_list:
+        for dataset_idx in xrange(len(self.datasets_list)):
+            dataset = self.datasets_list[dataset_idx]
             if dataset.inject_exception:
                 self.array_data.append(
                     {MOCK_EXCEPTION_KEY: dataset.inject_exception})
             self.array_data.extend( loads(dataset.data) )
-            self.array_data.append( None )
+            # apply gap only once
+            if self.refill_flags[dataset_idx]:
+                self.array_data.append( None )
+                self.refill_flags[dataset_idx] = False
 
     def connauthreq(self):
         return None
@@ -55,11 +63,14 @@ class MongoReaderMock:
     def make_new_request(self, query, projection=None):
         # projection is not supported by mock transport
         self.query = query
-        self.reset_dataset()
+        self.refill_data()
 
     def count(self):
         if self.array_data:
-            return self.array_data.index(None)
+            if None in self.array_data:
+                return self.array_data.index(None)
+            else:
+                return len(self.array_data)
         else:
             return 0
 

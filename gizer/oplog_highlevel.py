@@ -12,6 +12,8 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import bson
 import sys
+import ast
+import pickle
 import pprint
 from logging import getLogger
 from os import environ
@@ -24,7 +26,7 @@ from gizer.oplog_parser import exec_insert
 from gizer.oplog_handlers import cb_insert
 from gizer.oplog_handlers import cb_update
 from gizer.oplog_handlers import cb_delete
-from gizer.etlstatus_table import timestamp_str_to_object
+from gizer.etlstatus_table import timestamp_str_to_object as ts_obj
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.opmultiprocessing import FastQueueProcessor
 from gizer.etl_mongo_reader import EtlMongoReader
@@ -91,11 +93,6 @@ def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
         res = compare_res
     return res
 
-def mock_transports_reset(oplog_readers):
-    for name in oplog_readers:
-        # will affect only mock test reader
-        oplog_readers[name].reset_dataset() 
-
 class TsData:
     def __init__(self, oplog_name, ts, queries):
         self.oplog_name = oplog_name
@@ -130,25 +127,35 @@ class PsqlCacheTable:
         fmt = 'INSERT INTO {schema}qmetlcache VALUES(\
 %s, %s, %s, %s, %s, %s);'
         operation_str = fmt.format(schema=self.schema_name)
+        if psql_cache_data.ts:
+            ts_str = str(psql_cache_data.ts)
+        else:
+            ts_str = None
         self.cursor.execute( operation_str,
-                             (str(psql_cache_data.ts),
+                             (ts_str,
                               psql_cache_data.oplog,
                               psql_cache_data.collection,
-                              repr(psql_cache_data.queries),
+                              # use pickle for non trivial data
+                              pickle.dumps(psql_cache_data.queries),
                               repr(psql_cache_data.rec_id),
                               psql_cache_data.sync_point) )
-        self.cursor.execute('COMMIT;')
+
+    def commit(self):
+        self.cursor.execute('COMMIT')
+        getLogger(__name__).info("qmetlcache COMMIT")
 
     def select_max_synced_ts_at_shard(self, oplog_name):
-        max_sync_start_fmt="SELECT * from {schema}qmetlcache WHERE \
-oplog='{oplog}' and sync_point=TRUE and \
-ts=(SELECT max(ts) FROM {schema}qmetlcache);"
+        max_sync_start_fmt= \
+            "SELECT max(a.ts) FROM (SELECT ts from {schema}qmetlcache \
+WHERE oplog='{oplog}' and sync_point=TRUE) as a;"
         select_query = max_sync_start_fmt.format(schema=self.schema_name,
                                                  oplog=oplog_name)
         self.cursor.execute(select_query)
         row = self.cursor.fetchone()
-        res = self.convert_row_to_psql_cache_data(row)
-        return res
+        if row:
+            return ts_obj(row[0])
+        else:
+            return None
 
     def select_ts_related_to_rec_id(self, collection, rec_id):
         res = []
@@ -163,13 +170,13 @@ collection='{collection}' and rec_id='{rec_id}' ORDER BY ts;"
         return res
 
     def convert_row_to_psql_cache_data(self, row):
-        import ast
         if row:
             return PsqlCacheTable.PsqlCacheData(
-                ts=timestamp_str_to_object(row[0]),
+                ts=ts_obj(row[0]),
                 oplog=row[1],
                 collection=row[2],
-                queries=ast.literal_eval(row[3]),
+                # use pickle for non trivial data
+                queries=pickle.loads(row[3]),
                 rec_id=ast.literal_eval(row[4]),
                 sync_point=row[5])
         else:
@@ -296,24 +303,20 @@ class OplogHighLevel:
         # get max sync_start timestamp for every shard to align sync_point
         max_sync_ts = {}
         for oplog_name in self.oplog_readers:
-            res = psql_cache_table.select_max_synced_ts_at_shard(oplog_name)
-            if res:
-                max_sync_ts[oplog_name] = res.ts
-                getLogger(__name__).info("Max ts to apply for oplog=%s is %s" % 
-                                         (max_ts_data_to_apply.oplog,
-                                          max_ts_data_to_apply.ts))
-            else:
-                max_sync_ts[oplog_name] = None
+            sync_ts = psql_cache_table.select_max_synced_ts_at_shard(oplog_name)
+            max_sync_ts[oplog_name] = sync_ts
         # iterate over all collections/rec_ids and execute rec related queries
         # up to speific alignment timestamp 
         for collection, rec_ids_dict in collection_rec_ids_dict.iteritems():
             query_exec_progress = 0
             for rec_id in rec_ids_dict:
                 query_exec_progress += 1
-                getLogger(__name__).info("exec query progress for %s is: %d / %d" %
-                                         (collection,
-                                          query_exec_progress,
-                                          len(rec_ids_dict)))
+                if not query_exec_progress % 100:
+                    getLogger(__name__).info( \
+                        "Sync query exec progress for %s: %d / %d" %
+                        (collection,
+                         query_exec_progress,
+                         len(rec_ids_dict)))
                 ts_cache = psql_cache_table.select_ts_related_to_rec_id(
                     collection, rec_id)
                 for ts_data in ts_cache:
@@ -322,9 +325,11 @@ class OplogHighLevel:
                             exec_insert(self.psql, oplog_query)
         getLogger(__name__).info('COMMIT')
         self.psql.conn.commit()
+        getLogger(__name__).info("Synchronization finished ts=%s" % max_sync_ts)
         return max_sync_ts
 
-    def prepare_oplog_request(self, ts, oplog_name, filter_collection, filter_rec_ids):
+    def prepare_oplog_request(self, ts, oplog_name, 
+                              filter_collection, filter_rec_ids):
         collection_transport = self.mongo_readers[self.mongo_readers.keys()[0]]
         if filter_collection and filter_rec_ids \
                 and collection_transport.real_transport():
@@ -648,6 +653,7 @@ class OplogSyncEngine:
                 self.psql_cache_table.insert(psql_data)
                 if ts_data.sync_start:
                     synced_recs.append(rec_id)
+        self.psql_cache_table.commit()
         return synced_recs
 
     def locate_recs_sync_points(self, rec_ids):
@@ -699,7 +705,6 @@ class OplogSyncEngine:
 
     def get_tsdata_for_recs(self, rec_ids):
         res = {}
-        mock_transports_reset(self.oplog_readers)
         # issue separate requests to oplog readers
         for oplog_name in self.oplog_readers:
             if self.oplog_readers[oplog_name].real_transport():
