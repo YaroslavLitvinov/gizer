@@ -48,12 +48,13 @@ class PsqlEtlStatusTable:
     # for example: "Timestamp(1464278289, 1)" or
     # "Timestamp(1464278289, 1); Timestamp(1464278289, 2)"
 
-    def __init__(self, cursor, schema_name, recreate=False):
+    def __init__(self, cursor, schema_name, shards_list, recreate=False):
         self.cursor = cursor
         if len(schema_name):
             self.schema_name = schema_name + '.'
         else:
             self.schema_name = ''
+            self.shards_list = sorted(shards_list)
         if recreate:
             self.drop_table()
         self.create_table()
@@ -73,15 +74,29 @@ class PsqlEtlStatusTable:
         self.cursor.execute( fmt.format(schema=self.schema_name) )
 
     def ts_str(self, bson_ts):
-        res = None
-        if type(bson_ts) is list:
-            for item in bson_ts:
-                if not res:
+        """ bson_ts either bson Timestamp or dict with timestamps """
+        res = ''
+        if type(bson_ts) is dict:
+            sorted_keys = sorted(bson_ts.keys())
+            for key in sorted_keys:
+                if res:
                     res += ';'
-                res += self.ts_str(item)
+                res += self.ts_str(bson_ts[key])
         else:
             res = str(bson_ts)
         return res
+
+    def ts_from_str(self, ts_str):
+        ts_list = ts_str.split(';')
+        assert(len(ts_list)==len(self.shards_list))
+        if len(ts_list) == 1:
+            ts = timestamp_str_to_object(ts_list[0])
+        else:
+            ts = {}
+            for idx in xrange(len(ts_list)):
+                ts[self.shards_list[idx]] \
+                    = timestamp_str_to_object(ts_list[idx])
+        return ts
 
     def get_recent(self):
         fmt = 'SELECT * from {schema}qmetlstatus order by time_start \
@@ -89,13 +104,12 @@ desc limit 1;'
         self.cursor.execute( fmt.format(schema=self.schema_name) )
         rec = self.cursor.fetchone()
         if rec is not None:
-            tmstmp = timestamp_str_to_object(rec[5])
             return PsqlEtlStatusTable.Status(comment=rec[0], 
                                              time_start=rec[1], 
                                              time_end=rec[2], 
                                              recs_count=rec[3],
                                              queries_count=rec[4],
-                                             ts=tmstmp,
+                                             ts=self.ts_from_str(rec[5]),
                                              status=rec[6], 
                                              error=rec[7])
         else:
@@ -137,7 +151,7 @@ WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
         if queries_count is not None:
             values = self.add_update_arg(values, 'queries_count', queries_count)
         if ts:
-            values = self.add_update_arg(values, 'ts', str(ts))
+            values = self.add_update_arg(values, 'ts', self.ts_str(ts))
         values = self.add_update_arg(values, 'error', error)
         res = fmt1.format(schema=self.schema_name, values=values)
         getLogger(__name__).info('qmetlstatus update query: %s' % res)
@@ -148,14 +162,14 @@ WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
 class PsqlEtlStatusTableManager:
     def __init__(self, status_table):
         self.status_table = status_table
-    def init_load_start(self, latest_oplog_ts):
+    def init_load_start(self, oplog_ts):
         """ ts -- caller must provide actual latest oplog ts """
         status = PsqlEtlStatusTable.Status(comment='init load',
                                            time_start=datetime.now(),
                                            time_end=None,
                                            recs_count=None,
                                            queries_count=None,
-                                           ts=latest_oplog_ts,
+                                           ts=oplog_ts,
                                            status=STATUS_INITIAL_LOAD,
                                            error = None)
         self.status_table.save_new(status)
@@ -167,15 +181,15 @@ class PsqlEtlStatusTableManager:
                                         ts=None, 
                                         error=is_error)
         
-    def oplog_sync_start(self, ts_candidate):
-        """ ts_candidate -- ts is sync point to start sync.
+    def oplog_sync_start(self, ts):
+        """ ts -- ts is sync point to start sync.
         from latest record from etl status table """
         status = PsqlEtlStatusTable.Status(comment='oplog sync',
                                            time_start=datetime.now(),
                                            time_end=None,
                                            recs_count=None,
                                            queries_count=None,
-                                           ts=ts_candidate,
+                                           ts=ts,
                                            status=STATUS_OPLOG_SYNC,
                                            error = None)
         self.status_table.save_new(status)
@@ -187,14 +201,14 @@ class PsqlEtlStatusTableManager:
                                         ts=ts,
                                         error=is_error)
 
-    def oplog_use_start(self, ts_latest_synced):
-        """ ts_latest_synced -- lates succesfully handled ts """
+    def oplog_use_start(self, ts):
+        """ ts -- lates succesfully handled ts """
         status = PsqlEtlStatusTable.Status(comment='oplog use',
                                            time_start=datetime.now(),
                                            time_end=None,
                                            recs_count=None,
                                            queries_count=None,
-                                           ts=ts_latest_synced,
+                                           ts=ts,
                                            status=STATUS_OPLOG_APPLY,
                                            error = None)
         self.status_table.save_new(status)

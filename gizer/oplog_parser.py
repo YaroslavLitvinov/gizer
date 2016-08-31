@@ -30,6 +30,7 @@ EMPTY_TS = 'empty_ts'
 
 ItemInfo = namedtuple('ItemInfo', ['schema_name',
                                    'schema_engine',
+                                   'oplog_name',
                                    'ts',
                                    'rec_id'])
 
@@ -49,6 +50,7 @@ class OplogParser:
         # init cache by Nones
         self.readers_cache = {}
         self.last_oplog_ts = {}
+        self.shard_name_for_last_ts = None
         for name in readers:
             self.readers_cache[name] = None
 
@@ -74,12 +76,14 @@ class OplogParser:
                 ts_min = (name, item['ts'])
         # return min item, pop it from cache
         if ts_min[1]:
+            shard_name = ts_min[0]
+            self.shard_name_for_last_ts = shard_name
             getLogger(__name__).info("from oplog:%s ts:%s" % 
-                                     (ts_min[0], ts_min[1]) )
-            tmp_ts = self.readers_cache[ts_min[0]]
+                                     (shard_name, ts_min[1]) )
+            tmp_ts = self.readers_cache[shard_name]
             # to save last timestamp indepedently for every shard 
-            self.last_oplog_ts[ts_min[0]] = self.readers_cache[ts_min[0]]["ts"]
-            self.readers_cache[ts_min[0]] = None
+            self.last_oplog_ts[shard_name] = self.readers_cache[shard_name]["ts"]
+            self.readers_cache[shard_name] = None
             return tmp_ts
         else:
             return None
@@ -106,9 +110,10 @@ class OplogParser:
         return None
 
     def next(self):
-        item = self.next_verified()
         res = None
+        item = self.next_verified()
         if item:
+            oplog_name = self.shard_name_for_last_ts
             if self.first_handled_ts is None:
                 self.first_handled_ts = item['ts']
             ts_field = item["ts"]
@@ -133,6 +138,7 @@ class OplogParser:
             # save rec_id
             self.item_info = ItemInfo(schema_name,
                                       schema,
+                                      oplog_name,
                                       item['ts'],
                                       rec_id)
             getLogger(__name__).\

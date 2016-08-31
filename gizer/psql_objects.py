@@ -14,6 +14,7 @@ from gizer.opcreate import INDEX_ID_PARENT_IDXS
 from gizer.opcreate import INDEX_ID_ONLY
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from mongo_schema.schema_engine import create_tables_load_bson_data
+from mongo_schema.schema_engine import log_table_errors
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
 
 def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,

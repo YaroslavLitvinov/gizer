@@ -110,10 +110,10 @@ def main():
             mongo_reader_from_settings(settings_list, 'oplog.rs', {})
         oplog_readers[oplog_name].set_name(oplog_name)
 
-    psql_main_etl_status = PsqlRequests(psql_conn_from_settings(psql_settings))
+    psql_qmetl = PsqlRequests(psql_conn_from_settings(psql_settings))
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
 
-    status_table = PsqlEtlStatusTable(psql_main_etl_status.cursor, 
+    status_table = PsqlEtlStatusTable(psql_qmetl.cursor, 
                                       config['psql']['psql-schema-name'])
     status_manager = PsqlEtlStatusTableManager(status_table)
 
@@ -125,24 +125,16 @@ def main():
         if status.status == STATUS_INITIAL_LOAD \
            and status.time_end and not status.error:
             create_logger(logspath, 'oplogsync')
-            if 'tmp-psql' in config.sections():
-                # optionally,  use dedicated psql database(local) just for
-                # syncing as sync operation can do heavy load of main database
-                option_psql_stng = psql_settings_from_config(config, 'tmp-psql')
-                psql_sync = PsqlRequests(psql_conn_from_settings(option_psql_stng))
-            else:
-                psql_sync = psql_main
-            # intial load done, now do oplog sync, in this stage will be used
-            # temporary psql instance as result of operation is not a data
-            # commited to DB, but only single timestamp from oplog.
-            # save oplog sync status
+            psql_sync = psql_main
+            # intial load done, save oplog sync status and do oplog sync.
             status_manager.oplog_sync_start(status.ts)
 
-            ohl = OplogHighLevel(psql_sync, mongo_readers, oplog_readers,
-                 schemas_path, schema_engines, psql_schema)
+            ohl = OplogHighLevel(psql_qmetl, psql_sync, 
+                                 mongo_readers, oplog_readers,
+                                 schemas_path, schema_engines, psql_schema)
             try:
                 ts = ohl.do_oplog_sync(status.ts)
-                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
+                reinit_conn(psql_settings, psql_qmetl, status_manager)
                 if ts: # sync ok
                     status_manager.oplog_sync_finish(ts, False)
                     res = 0
@@ -153,7 +145,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_sync.conn.rollback()
-                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
+                reinit_conn(psql_settings, psql_qmetl, status_manager)
                 status_manager.oplog_sync_finish(None, True)
                 res = -1
 
@@ -166,11 +158,12 @@ def main():
             getLogger(__name__).\
                 info('Sync point is ts:{ts}'.format(ts=status.ts))
             status_manager.oplog_use_start(status.ts)
-            ohl = OplogHighLevel(psql_main, mongo_readers, oplog_readers,
-                 schemas_path, schema_engines, psql_schema)
+            ohl = OplogHighLevel(psql_qmetl, psql_main,
+                                 mongo_readers, oplog_readers,
+                                 schemas_path, schema_engines, psql_schema)
             try:
                 ts_res = ohl.do_oplog_apply(status.ts, None, None, doing_sync=False)
-                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
+                reinit_conn(psql_settings, psql_qmetl, status_manager)
                 if ts_res.res: # oplog apply ok
                     status_manager.oplog_use_finish(ts_res.handled_count,
                                                     ts_res.queries_count,
@@ -187,7 +180,7 @@ def main():
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_main.conn.rollback()
-                reinit_conn(psql_settings, psql_main_etl_status, status_manager)
+                reinit_conn(psql_settings, psql_qmetl, status_manager)
                 status_manager.oplog_use_finish(None, None, None, True)
                 res = -1
         else:
