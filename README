@@ -7,12 +7,6 @@
      ./run_cov_tests.sh or py.test
 
 2. Config file. Connection settings, etc. See config-sample.ini for example.
-   2.1. Note that [tmp-psql] section is optional. This setting is the
-   connection settings to  helper database which can reduce the main db load
-   during sync operation. As actually sync operation do not altering the 
-   database itself but can issue many select requests. It may have sence to
-   use local database for this setting. If section is not specified then
-   only main database will be in use, for all operations including sync.
 
 3. Tools.
 3.1. mongo_reader.py - 1st part of initial load.

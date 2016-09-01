@@ -78,8 +78,8 @@ class OplogParser:
         if ts_min[1]:
             shard_name = ts_min[0]
             self.shard_name_for_last_ts = shard_name
-            getLogger(__name__).info("from oplog:%s ts:%s" % 
-                                     (shard_name, ts_min[1]) )
+            getLogger(__name__).debug("%s => ts:%s" % 
+                                      (shard_name, ts_min[1]) )
             tmp_ts = self.readers_cache[shard_name]
             # to save last timestamp indepedently for every shard 
             self.last_oplog_ts[shard_name] = self.readers_cache[shard_name]["ts"]
@@ -142,8 +142,9 @@ class OplogParser:
                                       item['ts'],
                                       rec_id)
             getLogger(__name__).\
-                info("op=" + item["op"] + ", ts=" + str(item['ts']) +
-                    ", name=" + schema_name + ", rec_id=" + str(rec_id))
+                debug("op=" + item["op"] + ", ts=" + str(item['ts']) +
+                     ", name=" + schema_name + ", rec_id=" + str(rec_id))
+
             if self.dry_run: # dry run will not do actual processing
                 res = OplogQuery("i", 'SELECT 1;') # query not for execute
             elif item["op"] == "i":

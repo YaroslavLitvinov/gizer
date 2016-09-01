@@ -50,11 +50,11 @@ class PsqlEtlStatusTable:
 
     def __init__(self, cursor, schema_name, shards_list, recreate=False):
         self.cursor = cursor
+        self.shards_list = sorted(shards_list)
         if len(schema_name):
             self.schema_name = schema_name + '.'
         else:
             self.schema_name = ''
-            self.shards_list = sorted(shards_list)
         if recreate:
             self.drop_table()
         self.create_table()

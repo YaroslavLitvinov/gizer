@@ -31,14 +31,11 @@ SCHEMAS_PATH = "./test_data/schemas/rails4_mongoid_development"
 # THis schema must be precreated before running tests
 MAIN_SCHEMA_NAME = ''
 
-DO_OPLOG_APPLY=1
-DO_OPLOG_SYNC=2
-
 OplogTest = namedtuple('OplogTest', ['before',
                                      'oplog_dataset',
                                      'after',
                                      'max_attempts'])
-INFINITE_ATTEMPTS_CNT = 1000
+SYNC_ATTEMPTS_CNT = 10
 
 def data_mock(mongo_data_path_list, collection):
     print mongo_data_path_list
@@ -48,6 +45,20 @@ def data_mock(mongo_data_path_list, collection):
         mongo_data_path = path_and_exception[0]
         with open(mongo_data_path) as opfile:
             dataset = MockReaderDataset(opfile.read(), path_and_exception[1])
+            list_of_test_datasets.append(dataset)
+            opfile.close()
+    reader = MongoReaderMock(list_of_test_datasets, collection)
+    getLogger(__name__).info("prepared %d dataset/s" % len(list_of_test_datasets))
+    return reader
+
+def data_mock_no_exception(mongo_data_path_list, collection):
+    print mongo_data_path_list
+    reader = None
+    list_of_test_datasets = []
+    for path in mongo_data_path_list:
+        mongo_data_path = path[0]
+        with open(mongo_data_path) as opfile:
+            dataset = MockReaderDataset(opfile.read(), None)
             list_of_test_datasets.append(dataset)
             opfile.close()
     reader = MongoReaderMock(list_of_test_datasets, collection)
@@ -66,6 +77,23 @@ def load_mongo_data_to_psql(schema_engine, mongo_data_path, psql, psql_schema):
             psql.cursor.execute('COMMIT')
 
 
+def get_readers(oplog_test, enable_exceptions):
+    oplog_readers = {}
+    mongo_readers_after = {}
+    for name, oplog_datas in oplog_test.oplog_dataset.iteritems():
+        if enable_exceptions:
+            oplog_readers[name] = data_mock(oplog_datas, None)
+        else:
+            oplog_readers[name] = data_mock_no_exception(oplog_datas, None)
+
+    for name, mongo_data_path in oplog_test.after.iteritems():
+        # pass just one dataset as collection's test mongo data
+        if enable_exceptions:
+            mongo_readers_after[name] = data_mock([mongo_data_path], name)
+        else:
+            mongo_readers_after[name] = data_mock_no_exception([mongo_data_path], name)
+    return (oplog_readers, mongo_readers_after)
+
 def run_oplog_engine_check(oplog_test, schemas_path):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
@@ -74,9 +102,9 @@ def run_oplog_engine_check(oplog_test, schemas_path):
 
     schema_engines = get_schema_engines_as_dict(schemas_path)
     getLogger(__name__).info("Loading oplog data...")
-    oplog_readers = {}
-    for name, oplog_datas in oplog_test.oplog_dataset.iteritems():
-        oplog_readers[name] = data_mock(oplog_datas, None)
+
+    oplog_readers, mongo_readers_after = get_readers(oplog_test, 
+                                                     enable_exceptions=False)
 
     create_truncate_psql_objects(dbreq, schemas_path, psql_schema)
     dbreq.cursor.execute('COMMIT')
@@ -88,11 +116,7 @@ def run_oplog_engine_check(oplog_test, schemas_path):
     del dbreq
     dbreq = PsqlRequests(psycopg2.connect(connstr))
     dbreq_etl = PsqlRequests(psycopg2.connect(connstr))
-    mongo_readers_after = {}
     getLogger(__name__).info("Loading mongo data after initload")
-    for name, mongo_data_path in oplog_test.after.iteritems():
-        # pass just one dataset as collection's test mongo data
-        mongo_readers_after[name] = data_mock([mongo_data_path], name)
 
     try:
         gizer.oplog_highlevel.DO_OPLOG_READ_ATTEMPTS_COUNT \
@@ -102,14 +126,18 @@ def run_oplog_engine_check(oplog_test, schemas_path):
 
         #start syncing from very start of oplog
         ts_synced = ohl.do_oplog_sync(None)
+        getLogger(__name__).info("Sync done ts_synced: %s" % str(ts_synced))
         del ohl
+        # sync failed
+        if ts_synced is None:
+            return False
+
+        oplog_readers, mongo_readers_after = get_readers(oplog_test, 
+                                                         enable_exceptions=True)
 
         ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
                              schemas_path, schema_engines, psql_schema)
-        res = ohl.do_oplog_apply(start_ts=ts_synced,
-                                 filter_collection=None, 
-                                 filter_rec_ids=None, 
-                                 doing_sync=False)
+        res = ohl.do_oplog_apply(start_ts_dict=ts_synced)
         getLogger(__name__).info("Details: %s" % str(res))
         if res.res:
             getLogger(__name__).info("Test passed")
@@ -121,8 +149,8 @@ def run_oplog_engine_check(oplog_test, schemas_path):
     return res.res
 
 
-def check_dataset(name, oplog_params, params, 
-                  max_attempts=INFINITE_ATTEMPTS_CNT):
+def check_dataset(name, oplog_params, params,
+                  max_attempts=SYNC_ATTEMPTS_CNT):
     print '\ntest ', name
     location_fmt = 'test_data/'+name+'/%s_collection_%s.js'
     before_params = {}
@@ -154,6 +182,13 @@ def check_dataset(name, oplog_params, params,
 #                         when init load and oplog read are completed
 # test applying oplog ops to initial data 'before_data' and then compare it 
 # with final 'after_data'
+
+# pymongo.errors.OperationFailure, pymongo.errors.AutoReconnect exceptions 
+# must be handled safely if occurs.
+# Should not lead to error and current Timestamps should not be changed.
+# psql data must be left unchanged. In real life OperationFailure just is an
+# internal mongodb error and should not lead to etl error.
+
 
 def test_oplog1():
     logging.basicConfig(level=logging.INFO,
@@ -237,32 +272,18 @@ def test_oplog6():
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
-    # pymongo.errors.OperationFailure, pymongo.errors.AutoReconnect exceptions 
-    # must be handled safely if occurs.
-    # Should not lead to error and current Timestamps should not be changed.
-    # psql data must be left unchanged. In real life OperationFailure just is an
-    # internal mongodb error and should not lead to etl error.
+    # dataset test
+    oplog31 = {'single-oplog': [('test_data/oplog3/oplog.js', 
+                                 pymongo.errors.OperationFailure)]}
+    assert(check_dataset('oplog3', oplog31,
+                         {'posts': None, 'posts2': None, 
+                          'rated_posts': None, 'guests': None}) == True)
 
     # dataset test
-    oplog11 = {'single-oplog': [('test_data/oplog1/oplog1.js', None),
-                                ('test_data/oplog1/oplog2.js', 
-                                 pymongo.errors.OperationFailure)]
-               }
-    assert(check_dataset('oplog1', oplog11,
-                         {'posts': None, 'guests': None}) == True)
-
-def test_oplog7():
-    logging.basicConfig(level=logging.INFO,
-                        stream=sys.stdout,
-                        format='%(asctime)s %(levelname)-8s %(message)s')
-
-    # dataset test
-    oplog12 = {'single-oplog': [('test_data/oplog1/oplog1.js', None),
-                                ('test_data/oplog1/oplog2.js', None)]
-               }
-    assert(check_dataset('oplog1', oplog12,
-                         {'posts': pymongo.errors.OperationFailure,
-                          'guests': None}) == True)
+    oplog32 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
+    assert(check_dataset('oplog3', oplog32,
+                         {'posts': pymongo.errors.OperationFailure, 'posts2': None, 
+                          'rated_posts': None, 'guests': None}) == True)
 
 def test_oplog8():
     logging.basicConfig(level=logging.INFO,
@@ -270,20 +291,18 @@ def test_oplog8():
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
     # dataset test
-    oplog13 = {'single-oplog': [('test_data/oplog1/oplog1.js', None),
-                                ('test_data/oplog1/oplog2.js', None)]
-               }
-    assert(check_dataset('oplog1', oplog13,
-                         {'posts': pymongo.errors.AutoReconnect,
-                          'guests': None}) == True)
+    oplog31 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
+    assert(check_dataset('oplog3', oplog31,
+                         {'posts': pymongo.errors.AutoReconnect, 'posts2': None, 
+                          'rated_posts': None, 'guests': None}) == True)
 
     # dataset test should fail
     try:
-        oplog14 = {'single-oplog': [('test_data/oplog1/oplog1.js', 
-                                     pymongo.errors.InvalidURI),
-                                    ('test_data/oplog1/oplog2.js', None)]}
-        check_dataset('oplog1', oplog14,
-                      {'posts': None, 'guests': None})
+        oplog32 = {'single-oplog': [('test_data/oplog3/oplog.js', 
+                                         pymongo.errors.InvalidURI)]}
+        check_dataset('oplog3', oplog32,
+                      {'posts': None, 'posts2': None, 
+                          'rated_posts': None, 'guests': None})
     except:
         pass
     else:
@@ -291,9 +310,7 @@ def test_oplog8():
 
     # dataset test should fail
     try:
-        check_dataset('oplog1',
-                      [('test_data/oplog1/oplog1.js', None),
-                       ('test_data/oplog1/oplog2.js', None)],
+        check_dataset('oplog1', oplog31,
                       {'posts': pymongo.errors.InvalidURI,
                        'guests': None})
     except:
@@ -335,9 +352,9 @@ if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
     ## temp
-    # test_compare_empty_psql_and_mongo_records()
-    # test_oplog_sync()
-    # exit(0)
+    test_oplog6()
+    test_oplog8()
+    exit(0)
     ## temp
     schemas_path = sys.argv[1]
     data_path = sys.argv[2]
@@ -353,6 +370,6 @@ if __name__ == '__main__':
         = OplogTest(empty_data_before,
                     [mongo_oplog],
                     data_after,
-                    INFINITE_ATTEMPTS_CNT)
+                    SYNC_ATTEMPTS_CNT)
     res = run_oplog_engine_check(oplog_test1, schemas_path)
     assert(res == True)

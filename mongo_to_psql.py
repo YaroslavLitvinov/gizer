@@ -162,7 +162,7 @@ def main():
                                  mongo_readers, oplog_readers,
                                  schemas_path, schema_engines, psql_schema)
             try:
-                ts_res = ohl.do_oplog_apply(status.ts, None, None, doing_sync=False)
+                ts_res = ohl.do_oplog_apply(status.ts)
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
                 if ts_res.res: # oplog apply ok
                     status_manager.oplog_use_finish(ts_res.handled_count,
