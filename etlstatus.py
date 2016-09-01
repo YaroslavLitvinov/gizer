@@ -75,9 +75,9 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
                 elif delta.total_seconds() < 32400: # < 9 hours
                     res = 0
                     if not status.time_end:
-                        print 1
+                        print 1 # means etl in progress
                     else:
-                        print 0
+                        print 0 # means not etl in progress
                 else:
                     # takes to much time -> do init load
                     res = -1
@@ -97,7 +97,11 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
             reader.make_new_request({})
             reader.cursor.sort('ts', DESCENDING)
             reader.cursor.limit(1)
-            max_ts_dict[oplog_name] = reader.next()
+            timestamp = reader.next()
+            if timestamp:
+                max_ts_dict[oplog_name] = timestamp['ts']
+            else:
+                max_ts_dict[oplog_name] = None
             print 'Initload ts: %s, oplog: %s' % (max_ts_dict[oplog_name], 
                                                  oplog_name)
 
