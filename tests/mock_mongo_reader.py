@@ -30,12 +30,10 @@ class MongoReaderMock:
     def __init__(self, datasets_list, collection, query=None):
         self.current_dataset_idx = None
         self.datasets_list = datasets_list
-        self.refill_flags = [True for i in datasets_list ]
-        self.exception_to_inject = None
+        self.reset_dataset()
         self.query = query
         self.failed = False
         self.collection = collection
-        self.refill_data()
 
     def real_transport(self):
         return False
@@ -56,6 +54,13 @@ class MongoReaderMock:
             if self.refill_flags[dataset_idx]:
                 self.array_data.append( None )
                 self.refill_flags[dataset_idx] = False
+
+    def waste_one_gap(self):
+        for flag_idx in xrange(len(self.refill_flags)):
+            if self.refill_flags[flag_idx]:
+                self.refill_flags[flag_idx] = False
+                break
+            
 
     def connauthreq(self):
         return None
@@ -86,6 +91,8 @@ class MongoReaderMock:
                 continue
             # if emulating search
             if item and type(item) is dict and MOCK_EXCEPTION_KEY in item:
+                getLogger(__name__).warning("Mocked exception: %s" % 
+                                            item[MOCK_EXCEPTION_KEY])
                 if item[MOCK_EXCEPTION_KEY] is pymongo.errors.OperationFailure or \
                         item[MOCK_EXCEPTION_KEY] is pymongo.errors.AutoReconnect:
                     self.failed = True

@@ -20,7 +20,7 @@ from os import environ
 from bson.json_util import loads
 from collections import namedtuple
 from gizer.psql_objects import load_single_rec_into_tables_obj
-from gizer.psql_objects import insert_rec_from_one_tables_set_to_another
+from gizer.psql_objects import cmp_psql_mongo_tables
 from gizer.oplog_parser import OplogParser
 from gizer.oplog_parser import exec_insert
 from gizer.oplog_handlers import cb_insert
@@ -70,34 +70,6 @@ def async_worker_handle_mongo_rec(schema_engines,
     collection = rec_data_and_collection[1]
     return create_tables_load_bson_data(schema_engines[collection],
                                         [rec])
-
-def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
-    """ Return True/False. Compare actual mongo record with record's relational
-    model from operational tables. Comparison of non existing objects gets True.
-    psql_tables_obj -- 
-    mongo_tables_obj -- """
-    res = None
-    if psql_tables_obj.is_empty() and mongo_tables_obj.is_empty():
-        # comparison of non existing objects gets True
-        res= True
-    else:
-        compare_res = mongo_tables_obj.compare(psql_tables_obj)
-        if not compare_res:
-            collection_name = mongo_tables_obj.schema_engine.root_node.name
-            log_table_errors("%s's MONGO rec load warns:" % collection_name,
-                             mongo_tables_obj.errors)
-            getLogger(__name__).debug('cmp rec=%s res=False mongo arg[1] data:' % 
-                                      str(rec_id))
-            for line in str(mongo_tables_obj.tables).splitlines():
-                getLogger(__name__).debug(line)
-            getLogger(__name__).debug('cmp rec=%s res=False psql arg[2] data:' % 
-                                      str(rec_id))
-            for line in str(psql_tables_obj.tables).splitlines():
-                getLogger(__name__).debug(line)
-
-        # save result of comparison
-        res = compare_res
-    return res
 
 class TsData:
     def __init__(self, oplog_name, ts, queries):
@@ -281,7 +253,7 @@ class OplogHighLevel:
             if sync_ts:
                 max_sync_ts[oplog_name] = sync_ts
             else:
-                max_sync_ts[oplog_name] = start_ts_dict
+                max_sync_ts[oplog_name] = start_ts_dict[oplog_name]
         # iterate over all collections/rec_ids and execute rec related queries
         # up to speific alignment timestamp 
         getLogger(__name__).info("Sync query exec")
@@ -340,10 +312,21 @@ class OplogHighLevel:
             new_ts_dict = self.read_oplog_apply_ops(new_ts_dict, do_again_counter)
             compare_res = self.comparator.compare_src_dest()
             failed_attempts = self.comparator.get_failed_cmp_attempts()
+            getLogger(__name__).warning("Failed cmp attempts %s" % failed_attempts)
             last_portion_failed = False
             if len(failed_attempts) == 1 and do_again_counter in failed_attempts:
                 last_portion_failed = True
-            if not compare_res:
+            if not compare_res or not new_ts_dict:
+                # if transport returned an error then keep the same ts_start
+                # and return True, as nothing applied
+                readers_failed = [(k, v.failed) for k,v in \
+                                    self.comparator.mongo_readers.iteritems() \
+                                    if v.failed]
+                if not new_ts_dict or len(readers_failed):
+                    if len(readers_failed):
+                        getLogger(__name__).warning("mongo readers failed: %s" 
+                                                    % (str(readers_failed)))
+                        return start_ts_dict
                 if last_portion_failed:
                     if do_again_counter < DO_OPLOG_READ_ATTEMPTS_COUNT:
                         do_again = True
@@ -353,8 +336,7 @@ class OplogHighLevel:
 Force assigning compare_res to True.')
                         compare_res = True
                 else:
-                    getLogger(__name__).warning("Recs cmp failed. %s" 
-                                                % failed_attempts)
+                    getLogger(__name__).warning("Recs cmp failed.")
         if compare_res:
             getLogger(__name__).info('COMMIT')
             self.psql.conn.commit()
@@ -396,8 +378,8 @@ Force assigning compare_res to True.')
                 self.comparator.add_to_compare(collection_name, rec_id, attempt)
             oplog_queries = parser.next()
         getLogger(__name__).info(\
-            "Handled oplog records/psql queries: %d/%d" %
-            (self.oplog_rec_counter, self.queries_counter))
+            "%d attempt. Handled oplog records/psql queries: %d/%d" %
+            (attempt, self.oplog_rec_counter, self.queries_counter))
         res = {}
         for shard in start_ts_dict:
             if shard in parser.last_oplog_ts:
@@ -406,6 +388,8 @@ Force assigning compare_res to True.')
             else:
                 # nothing received from this shard
                 res[shard] = start_ts_dict[shard]
+        if parser.is_failed():
+            res = None
         return res
 
     def do_oplog_sync(self, ts_start_dict):
@@ -486,7 +470,7 @@ class OplogSyncEngine:
 
 
     def sync_collection_timestamps(self, sync_engine, rec_ids_dict):
-        """ Sync all the ollection' sitems. Return True / False """
+        """ Sync all the collection's items. Return True / False """
         count_synced = 0
         sync_attempt = 0
         while sync_attempt < DO_OPLOG_READ_ATTEMPTS_COUNT \
@@ -505,6 +489,7 @@ class OplogSyncEngine:
                     continue
                 synced_recs = \
                     sync_engine.sync_recs_save_tsdata_to_psql_cache(rec_ids)
+                count_synced += len(synced_recs)
                 del rec_ids[:]
                 for synced_rec_id in synced_recs:
                     rec_ids_dict[synced_rec_id] = True # synced
@@ -512,14 +497,13 @@ class OplogSyncEngine:
                                          (self.collection_name,
                                           count_synced,
                                           len(rec_ids_dict)))
-                count_synced += len(synced_recs)
             # after loop ends check if there items left to be handled
             if rec_ids:
                 synced_recs = \
                     sync_engine.sync_recs_save_tsdata_to_psql_cache(rec_ids)
+                count_synced += len(synced_recs)
                 for synced_rec_id in synced_recs:
                     rec_ids_dict[synced_rec_id] = True # synced
-            count_synced += len(synced_recs)
             getLogger(__name__).info("Synced %s %d of %d recs." % 
                                      (self.collection_name,
                                       count_synced, len(rec_ids_dict)))
@@ -699,14 +683,12 @@ class ComparatorMongoPsql:
         return cmp_res
 
     def compare_src_dest_portion(self, collection, recs):
-        getLogger(__name__).info('Oplog ops applied. Compare following recs: %s'\
-                                     % self.recs_to_compare )
+        getLogger(__name__).info('Compare recs: %s' % self.recs_to_compare )
         cmp_res = True
         # prepare query
         mongo_query = prepare_mongo_request_for_list(
             self.schema_engines[collection], recs)
-        getLogger(__name__).info('mongo query to fetch recs to compare: %s',
-                                 mongo_query)
+        getLogger(__name__).debug('query to fetch recs for cmp: %s', mongo_query)
         self.etl_mongo_reader.execute_query(collection, mongo_query)
         received_list = []
         # get and process records to compare

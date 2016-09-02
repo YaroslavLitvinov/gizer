@@ -17,43 +17,22 @@ from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
 
-def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
-                                   dst_schema_name):
+
+def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
     """ Return True/False. Compare actual mongo record with record's relational
     model from operational tables. Comparison of non existing objects gets True.
-    psql -- psql cursor wrapper
-    mongo_reader - mongo cursor wrapper tied to specific collection
-    schema_engine -- 'SchemaEngine' object
-    rec_id - record id to compare
-    dst_schema_name -- psql schema name where psql tables store that record"""
+    psql_tables_obj -- 
+    mongo_tables_obj -- """
     res = None
-    mongo_tables_obj = None
-    psql_tables_obj = load_single_rec_into_tables_obj(psql,
-                                                      schema_engine,
-                                                      dst_schema_name,
-                                                      rec_id)
-    # retrieve actual mongo record and transform it to relational data
-    query = prepare_mongo_request(schema_engine, rec_id)
-    mongo_reader.make_new_request(query)
-    rec = mongo_reader.next()
-    if not rec:
-        if psql_tables_obj.is_empty():
-            # comparison of non existing objects gets True
-            res= True
-        else:
-            res = False
+    if psql_tables_obj.is_empty() and mongo_tables_obj.is_empty():
+        # comparison of non existing objects gets True
+        res= True
     else:
-        mongo_tables_obj = create_tables_load_bson_data(schema_engine,
-                                                        [rec])
         compare_res = mongo_tables_obj.compare(psql_tables_obj)
         if not compare_res:
             collection_name = mongo_tables_obj.schema_engine.root_node.name
-            log_table_errors("collection: %s data load from MONGO with errors:" \
-                                 % collection_name,
+            log_table_errors("%s's MONGO rec load warns:" % collection_name,
                              mongo_tables_obj.errors)
-            log_table_errors("collection: %s data load from PSQL with errors:" \
-                                 % collection_name, 
-                             psql_tables_obj.errors)
             getLogger(__name__).debug('cmp rec=%s res=False mongo arg[1] data:' % 
                                       str(rec_id))
             for line in str(mongo_tables_obj.tables).splitlines():
@@ -66,7 +45,6 @@ def compare_psql_and_mongo_records(psql, mongo_reader, schema_engine, rec_id,
         # save result of comparison
         res = compare_res
     return res
-
 
 def parent_id_name_and_quotes_for_table(sqltable):
     id_name = None
@@ -155,35 +133,6 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
             #getLogger(__name__).debug("insert=%s" % table_name)
             dst_dbreq.cursor.execute(insert_query[0],
                                      insert_data)
-
-def insert_rec_from_one_tables_set_to_another(dbreq, 
-                                              rec_id,
-                                              tables_structure,
-                                              src_schema_name,
-                                              dst_schema_name):
-    """ Just execute psql requests in the same DB, fast approach """
-    if len(src_schema_name) and src_schema_name.find('.') == -1:
-        src_schema_name += '.'
-    if len(dst_schema_name) and dst_schema_name.find('.') == -1:
-        dst_schema_name += '.'
-
-    for table_name, table in tables_structure.tables.iteritems():
-        create_psql_table(table, dbreq, dst_schema_name, '', False)
-        id_name, quotes = parent_id_name_and_quotes_for_table(table)
-        if quotes:
-            id_val = "'" + str(rec_id) + "'"
-        else:
-            id_val = rec_id
-        insert_fmt = 'INSERT INTO {dst_schema}{dst_table} \
-SELECT * FROM {src_schema}{src_table} WHERE {id_name}={id_val};'
-        insert_query = insert_fmt.format(dst_schema = dst_schema_name,
-                                         dst_table = table_name,
-                                         src_schema = src_schema_name,
-                                         src_table = table_name,
-                                         id_name = id_name,
-                                         id_val = id_val)
-        getLogger(__name__).debug(insert_query)
-        dbreq.cursor.execute(insert_query)
 
 def create_psql_table(table, dbreq, psql_schema, prefix, drop):
     if drop:

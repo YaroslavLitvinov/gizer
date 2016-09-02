@@ -16,7 +16,6 @@ from collections import namedtuple
 from bson.json_util import loads
 from gizer.psql_requests import PsqlRequests
 from gizer.oplog_highlevel import OplogHighLevel
-from gizer.psql_objects import compare_psql_and_mongo_records
 from gizer.oplog_parser import EMPTY_TS
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.psql_objects import insert_tables_data_into_dst_psql
@@ -34,7 +33,8 @@ MAIN_SCHEMA_NAME = ''
 OplogTest = namedtuple('OplogTest', ['before',
                                      'oplog_dataset',
                                      'after',
-                                     'max_attempts'])
+                                     'max_attempts',
+                                     'skip_sync'])
 SYNC_ATTEMPTS_CNT = 10
 
 def data_mock(mongo_data_path_list, collection):
@@ -121,6 +121,8 @@ def run_oplog_engine_check(oplog_test, schemas_path):
     try:
         gizer.oplog_highlevel.DO_OPLOG_READ_ATTEMPTS_COUNT \
             = oplog_test.max_attempts
+        # for better coverage
+        gizer.oplog_highlevel.SYNC_REC_COUNT_IN_ONE_BATCH = 2
         ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
                              schemas_path, schema_engines, psql_schema)
 
@@ -137,6 +139,10 @@ def run_oplog_engine_check(oplog_test, schemas_path):
 
         oplog_readers, mongo_readers_after = get_readers(oplog_test, 
                                                          enable_exceptions=True)
+        # ignore sync results
+        if oplog_test.skip_sync:
+            for oplog in ts_synced:
+                ts_synced[oplog] = None
 
         ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
                              schemas_path, schema_engines, psql_schema)
@@ -153,7 +159,7 @@ def run_oplog_engine_check(oplog_test, schemas_path):
     else:
         return False
 
-def check_dataset(name, oplog_params, params,
+def check_dataset(skip_sync, name, oplog_params, params,
                   max_attempts=SYNC_ATTEMPTS_CNT):
     print '\ntest ', name
     location_fmt = 'test_data/'+name+'/%s_collection_%s.js'
@@ -167,7 +173,7 @@ def check_dataset(name, oplog_params, params,
             = (location_fmt % ('after', collection), params[collection])
     oplog_test \
         = OplogTest(before_params, oplog_params, after_params,
-                    max_attempts)
+                    max_attempts, skip_sync)
     res = run_oplog_engine_check(oplog_test, SCHEMAS_PATH)
     return res
 
@@ -205,7 +211,7 @@ def test_oplog1():
               'shard2': [('test_data/oplog1/shard2-oplog1.js', None)
                          ]
              }
-    assert(check_dataset('oplog1', oplog1,
+    assert(check_dataset(False, 'oplog1', oplog1,
                          {'posts': None, 'guests': None}) == True)
 
 def test_oplog2():
@@ -218,7 +224,7 @@ def test_oplog2():
 oplog_simulate_added_after_initload.js',
                                 None)],
               }
-    assert(check_dataset('oplog2', oplog2,
+    assert(check_dataset(False, 'oplog2', oplog2,
                          {'posts': None, 'guests': None}) == True)
 
 def test_oplog3():
@@ -228,12 +234,12 @@ def test_oplog3():
 
     # dataset test
     oplog3 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
-    assert(check_dataset('oplog3', oplog3,
+    assert(check_dataset(False, 'oplog3', oplog3,
                          {'posts': None, 'posts2': None, 'rated_posts': None,
                           'guests': None}) == True)
 
 def test_oplog4():
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
@@ -247,7 +253,7 @@ def test_oplog4():
                                ('test_data/oplog4/oplog8.js', None), # attempt 7
                                ('test_data/oplog4/oplog9.js', None) # attempt 8
                                ]}
-    assert(check_dataset('oplog4', oplog4, 
+    assert(check_dataset(False, 'oplog4', oplog4, 
                          {'posts': None} # don't raise error while reading posts
                          ) == True)
 
@@ -266,7 +272,7 @@ def test_oplog5():
                                ('test_data/oplog4/oplog7.js', None), # attempt 6
                                ('test_data/oplog4/oplog8.js', None) # attempt 7
                                ]}
-    assert(check_dataset('oplog4', oplog4, 
+    assert(check_dataset(False, 'oplog4', oplog4, 
                          {'posts': None}, # don't raise error while reading posts
                          10 # - max attempts count to re-read oplog
                          ) == False)
@@ -277,15 +283,16 @@ def test_oplog6():
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
     # dataset test
-    oplog31 = {'single-oplog': [('test_data/oplog3/oplog.js', 
-                                 pymongo.errors.OperationFailure)]}
-    assert(check_dataset('oplog3', oplog31,
-                         {'posts': None, 'posts2': None, 
-                          'rated_posts': None, 'guests': None}) == True)
+    oplog21 = {'single-oplog': [('test_data/oplog2/oplog.js', None),
+                               ('test_data/oplog2/\
+oplog_simulate_added_after_initload.js',
+                                pymongo.errors.OperationFailure)]}
+    assert(check_dataset(False, 'oplog2', oplog21,
+                         {'posts': None, 'guests': None}) == True)
 
     # dataset test
     oplog32 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
-    assert(check_dataset('oplog3', oplog32,
+    assert(check_dataset(False, 'oplog3', oplog32,
                          {'posts': pymongo.errors.OperationFailure, 'posts2': None, 
                           'rated_posts': None, 'guests': None}) == True)
 
@@ -296,7 +303,7 @@ def test_oplog8():
 
     # dataset test
     oplog31 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
-    assert(check_dataset('oplog3', oplog31,
+    assert(check_dataset(False, 'oplog3', oplog31,
                          {'posts': pymongo.errors.AutoReconnect, 'posts2': None, 
                           'rated_posts': None, 'guests': None}) == True)
 
@@ -304,7 +311,7 @@ def test_oplog8():
     try:
         oplog32 = {'single-oplog': [('test_data/oplog3/oplog.js', 
                                          pymongo.errors.InvalidURI)]}
-        check_dataset('oplog3', oplog32,
+        check_dataset(True, 'oplog3', oplog32,
                       {'posts': None, 'posts2': None, 
                           'rated_posts': None, 'guests': None})
     except:
@@ -314,7 +321,7 @@ def test_oplog8():
 
     # dataset test should fail
     try:
-        check_dataset('oplog1', oplog31,
+        check_dataset(True, 'oplog1', oplog31,
                       {'posts': pymongo.errors.InvalidURI,
                        'guests': None})
     except:
@@ -333,30 +340,30 @@ def test_oplog9():
 oplog_simulate_added_after_initload.js',
                                  pymongo.errors.OperationFailure)]
                }
-    assert(check_dataset('oplog2', oplog21,
+    assert(check_dataset(False, 'oplog2', oplog21,
                          {'posts': None, 'guests': None}) == True)
 
-def test_compare_empty_psql_and_mongo_records():
-    connstr = os.environ['TEST_PSQLCONN']
-    dbreq = PsqlRequests(psycopg2.connect(connstr))
-    mongodata = ('test_data/oplog1/before_collection_posts.js', None)
-    mongo_reader = data_mock([mongodata], None)
-    schemas_path = "./test_data/schemas/rails4_mongoid_development"
-    schema_engines = get_schema_engines_as_dict(schemas_path)
+# def test_compare_empty_psql_and_mongo_records():
+#     connstr = os.environ['TEST_PSQLCONN']
+#     dbreq = PsqlRequests(psycopg2.connect(connstr))
+#     mongodata = ('test_data/oplog1/before_collection_posts.js', None)
+#     mongo_reader = data_mock([mongodata], None)
+#     schemas_path = "./test_data/schemas/rails4_mongoid_development"
+#     schema_engines = get_schema_engines_as_dict(schemas_path)
 
-    #cmpare non existing record
-    res = compare_psql_and_mongo_records(
-        dbreq, mongo_reader, schema_engines['posts'], 
-        bson.objectid.ObjectId("111111111111111111111111"), 
-        MAIN_SCHEMA_NAME)
-    assert(res == True)
+#     #cmpare non existing record
+#     res = compare_psql_and_mongo_records(
+#         dbreq, mongo_reader, schema_engines['posts'], 
+#         bson.objectid.ObjectId("111111111111111111111111"), 
+#         MAIN_SCHEMA_NAME)
+#     assert(res == True)
 
 
 if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
     ## temp
-    test_oplog2()
+    test_oplog4()
     exit(0)
     ## temp
     schemas_path = sys.argv[1]

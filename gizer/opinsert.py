@@ -42,20 +42,6 @@ def escape_val(val, escape):
     else:
         return val
 
-def prepare_csv_data(row, psql_copy = False):
-    """ @param psql_copy if True then create data consumable by psql_copy"""
-    for row_i in xrange(len(row)):
-        val = row[row_i]
-        if val is not None:
-            if psql_copy is True:
-                val = escape_val(val, ENCODE_ONLY)
-            else:
-                val = escape_val(val, ENCODE_ESCAPE)
-        else:
-            val = self.null_val
-        row[row_i] = val
-    return row
-
 def index_columns_as_dict(table):
     """ get dict with index columns, value is column index in row
     @param table object schema_engine.SqlTable"""
@@ -113,12 +99,3 @@ def generate_insert_queries(table, psql_schema_name, table_prefix,
     for row in rows:
         queries.append( tuple(row) )
     return (fmt_string, queries)
-
-def opinsert_oplog_handler_callback(ns, schema, objdata):
-    return schema_engine.create_schema_engine(collection_name, schema_path)
-    pass
-
-
-if __name__ == "__main__":
-    from test_opinsert import test_insert1
-    test_insert1()

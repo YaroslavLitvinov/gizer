@@ -13,6 +13,7 @@ from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_
 from mongo_schema import schema_engine
 from gizer.psql_objects import insert_tables_data_into_dst_psql
 from gizer.psql_objects import load_single_rec_into_tables_obj
+from gizer.psql_objects import create_psql_index
 
 files = {'a_inserts': ('../test_data/opinsert/json_schema2.txt',
                        '../test_data/opinsert/bson_data2.txt'),
@@ -73,6 +74,7 @@ def test_tables2():
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
     insert_tables_data_into_dst_psql(dbreq, tables, '','')
+    create_psql_index(root_t, dbreq, '', '')
     
     loaded_tables = load_single_rec_into_tables_obj(dbreq, 
                                                     tables.schema_engine, 

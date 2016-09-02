@@ -51,17 +51,6 @@ def get_structure(sections_list, delim):
                 res[k].append(v)
     return res
 
-
-
-def section_groups(section_names, divided_by):
-    """ Returns dict containing oplog name as key 
-    and list of replicas connection settings as values. Like:
-    {'mongo-oplog': ['mongo-oplog']}  or
-    {'mongo-oplog-shard1': ['mongo-oplog-shard1-rs1', 'mongo-oplog-shard1-rs2'],
-     'mongo-oplog-shard2': ['mongo-oplog-shard2-rs1']}
-    """
-    pass
-
 def get_config_structure(config):
     return get_structure(config.sections(), '-')
 

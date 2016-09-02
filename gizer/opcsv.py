@@ -105,8 +105,9 @@ class CsvWriter:
 
     def close(self):
         """ close output file"""
-        self.file.close()
-        self.file = None
+        if self.file:
+            self.file.close()
+            self.file = None
 
     def write_csv(self, rows):
         """ write list of rows into csv file """
