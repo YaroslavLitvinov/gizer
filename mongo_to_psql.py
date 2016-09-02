@@ -114,7 +114,8 @@ def main():
     psql_main = PsqlRequests(psql_conn_from_settings(psql_settings))
 
     status_table = PsqlEtlStatusTable(psql_qmetl.cursor, 
-                                      config['psql']['psql-schema-name'])
+                                      config['psql']['psql-schema-name'],
+                                      sorted(oplog_settings.keys()))
     status_manager = PsqlEtlStatusTableManager(status_table)
 
     psql_schema = config['psql']['psql-schema-name']
@@ -164,17 +165,15 @@ def main():
             try:
                 ts_res = ohl.do_oplog_apply(status.ts)
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
-                if ts_res.res: # oplog apply ok
-                    status_manager.oplog_use_finish(ts_res.handled_count,
-                                                    ts_res.queries_count,
-                                                    ts_res.ts,
-                                                    False)
+                if ts_res: # oplog apply ok
+                    status_manager.oplog_use_finish(ohl.oplog_rec_counter,
+                                                    ohl.queries_counter,
+                                                    ts_res, False)
                     res= 0
                 else: # error
-                    status_manager.oplog_use_finish(ts_res.handled_count,
-                                                    ts_res.queries_count,
-                                                    ts_res.ts,
-                                                    True)
+                    status_manager.oplog_use_finish(ohl.oplog_rec_counter,
+                                                    ohl.queries_counter,
+                                                    None, True)
                     res = -1
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)

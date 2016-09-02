@@ -39,11 +39,16 @@ from mongo_schema.schema_engine import log_table_errors
 
 MAX_REQCOUNT_FOR_SHARD = 10000
 DO_OPLOG_READ_ATTEMPTS_COUNT = 10
-MONGO_REC_PROCESSING_PROCESS_COUNT = 8
-FAST_QUEUE_SIZE = MONGO_REC_PROCESSING_PROCESS_COUNT*2
-SYNC_REC_COUNT_IN_PARALLEL = 100
-SYNC_WORKERS_COUNT = 4
 
+# collection reader is just yet another reader using by syncronizer
+COLLECTION_READER_BSON_WORKERS_COUNT = 8
+COLLECTION_READER_QUEUE_SIZE = COLLECTION_READER_BSON_WORKERS_COUNT*2
+
+# comparator is using for data integrity verification
+MONGO_PSQL_CMP_BSON_WORKERS_COUNT = 8
+MONGO_PSQL_CMP_QUEUE_SIZE = MONGO_PSQL_CMP_BSON_WORKERS_COUNT*2
+
+SYNC_REC_COUNT_IN_ONE_BATCH = 100
 
 CompareRes = namedtuple('CompareRes', ['rec_id', 'flag', 'attempt'])
 Callback = namedtuple('Callback', ['cb', 'ext_arg'])
@@ -104,7 +109,7 @@ class TsData:
 class PsqlCacheTable:
     PsqlCacheData = namedtuple('PsqlCacheData', ['ts', 'oplog', 'collection',
                                                  'queries',  'rec_id',
-                                                 'sync_point'])
+                                                 'sync_start'])
     def __init__(self, cursor, schema_name):
         self.cursor = cursor
         if len(schema_name):
@@ -121,7 +126,7 @@ class PsqlCacheTable:
     def create_table(self):
         fmt = 'CREATE TABLE IF NOT EXISTS {schema}qmetlcache (\
         "ts" TEXT, "oplog" TEXT, "collection" TEXT, "queries" TEXT, \
-        "rec_id" TEXT, "sync_point" BOOLEAN);'
+        "rec_id" TEXT, "sync_start" BOOLEAN);'
         self.cursor.execute( fmt.format(schema=self.schema_name) )
 
     def insert(self, psql_cache_data):
@@ -138,8 +143,8 @@ class PsqlCacheTable:
                               psql_cache_data.collection,
                               # use pickle for non trivial data
                               pickle.dumps(psql_cache_data.queries),
-                              repr(psql_cache_data.rec_id),
-                              psql_cache_data.sync_point) )
+                              str(psql_cache_data.rec_id),
+                              psql_cache_data.sync_start) )
 
     def commit(self):
         self.cursor.execute('COMMIT')
@@ -148,7 +153,7 @@ class PsqlCacheTable:
     def select_max_synced_ts_at_shard(self, oplog_name):
         max_sync_start_fmt= \
             "SELECT max(a.ts) FROM (SELECT ts from {schema}qmetlcache \
-WHERE oplog='{oplog}' and sync_point=TRUE) as a;"
+WHERE oplog='{oplog}' and sync_start=TRUE) as a;"
         select_query = max_sync_start_fmt.format(schema=self.schema_name,
                                                  oplog=oplog_name)
         self.cursor.execute(select_query)
@@ -164,7 +169,8 @@ WHERE oplog='{oplog}' and sync_point=TRUE) as a;"
 collection='{collection}' and rec_id='{rec_id}' ORDER BY ts;"
         select_query = rec_tss_fmt.format(schema=self.schema_name,
                                           collection=collection,
-                                          rec_id=repr(rec_id))
+                                          rec_id=str(rec_id))
+        self.cursor.execute(select_query)
         rows = self.cursor.fetchall()
         for row in rows:
             res.append(self.convert_row_to_psql_cache_data(row))
@@ -178,8 +184,8 @@ collection='{collection}' and rec_id='{rec_id}' ORDER BY ts;"
                 collection=row[2],
                 # use pickle for non trivial data
                 queries=pickle.loads(row[3]),
-                rec_id=ast.literal_eval(row[4]),
-                sync_point=row[5])
+                rec_id=row[4],
+                sync_start=row[5])
         else:
             return None
 
@@ -200,6 +206,8 @@ class OplogHighLevel:
         self.schema_engines = schema_engines
         self.psql_schema = psql_schema
         self.last_oplog_ts = {}
+        self.queries_counter = 0
+        self.oplog_rec_counter = 0
         self.comparator = ComparatorMongoPsql(schema_engines,
                                               mongo_readers,
                                               psql,
@@ -241,7 +249,7 @@ class OplogHighLevel:
             oplog_queries = parser.next()
         return res
 
-    def fast_sync_oplog(self, start_ts_dict):
+    def _sync_oplog(self, start_ts_dict):
         """ Get syncronization point for every record of oplog and psql data
         (which usually is initially loaded data). 
         Return dict with timestamps if synchronization successfull, or None if not.
@@ -273,6 +281,7 @@ class OplogHighLevel:
             max_sync_ts[oplog_name] = sync_ts
         # iterate over all collections/rec_ids and execute rec related queries
         # up to speific alignment timestamp 
+        getLogger(__name__).info("Sync query exec")
         for collection, rec_ids_dict in collection_rec_ids_dict.iteritems():
             query_exec_progress = 0
             for rec_id in rec_ids_dict:
@@ -285,35 +294,24 @@ class OplogHighLevel:
                          len(rec_ids_dict)))
                 ts_cache = psql_cache_table.select_ts_related_to_rec_id(
                     collection, rec_id)
+                flag = False
                 for ts_data in ts_cache:
-                    if ts_data.ts <= max_sync_ts[ts_cache.oplog]:
-                        for oplog_query in ts_data.queries:
-                            exec_insert(self.psql, oplog_query)
+                    # Start execute queries from sync_start
+                    if ts_data.sync_start:
+                        flag = True
+                    if not flag:
+                        continue
+                    # if timestamp is exist then need to syncronise
+                    if ts_data.ts:
+                        if ts_data.ts <= max_sync_ts[ts_data.oplog]:
+                            getLogger(__name__).debug("Sync ts op %s" %
+                                                      ts_data.ts)
+                            for oplog_query in ts_data.queries:
+                                exec_insert(self.psql, oplog_query)
         getLogger(__name__).info('COMMIT')
         self.psql.conn.commit()
         getLogger(__name__).info("Synchronization finished ts=%s" % max_sync_ts)
         return max_sync_ts
-
-    def prepare_oplog_request(self, ts, oplog_name, 
-                              filter_collection, filter_rec_ids):
-        collection_transport = self.mongo_readers[self.mongo_readers.keys()[0]]
-        if filter_collection and filter_rec_ids \
-                and collection_transport.real_transport():
-            # section not for mock
-            dbname = collection_transport.settings_list[0].dbname
-            js_oplog_query = prepare_oplog_request_filter(ts, 
-                                                          dbname, 
-                                                          filter_collection, 
-                                                          filter_rec_ids)
-        else:
-            # Use as ts last handled ts, as can't use the same ts for all readers
-            if oplog_name in self.last_oplog_ts and self.last_oplog_ts[oplog_name]:
-                ts = self.last_oplog_ts[oplog_name]
-            js_oplog_query = prepare_oplog_request(ts)
-        getLogger(__name__).info("Oplog request [%s]: %s",
-                                 oplog_name, js_oplog_query)
-        return js_oplog_query
-
 
     def do_oplog_apply(self, start_ts_dict):
         """ Read oplog operations starting just after timestamp start_ts_dict
@@ -329,134 +327,81 @@ class OplogHighLevel:
         params:
         start_ts_dict -- dict with Timestamp for every shard. """
 
-        getLogger(__name__).\
-            info('Apply oplog operations going after ts:%s' % str(start_ts_dict))
-        # derive new sync point from starting points and update it on the go
-        new_sync_point = start_ts_dict
-        start_ts_dict_backup = start_ts_dict
-
+        new_ts_dict = start_ts_dict
         do_again_counter = 0
         do_again = True
         while do_again:
-            # reset 'apply again', it's will be enabled again if needed
             do_again = False
-            for name in self.oplog_readers:
-                js_oplog_query = self.prepare_oplog_request(start_ts_dict, name,
-                                                            None, None)
-                self.oplog_readers[name].make_new_request(js_oplog_query)
-                if self.oplog_readers[name].real_transport():
-                    self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
-            # create oplog parser. note: cb_insert doesn't need psql object
-            parser = OplogParser(self.oplog_readers, self.schemas_path,
-                                 Callback(cb_insert, ext_arg=self.psql_schema),
-                                 Callback(cb_update, 
-                                          ext_arg=(self.psql, self.psql_schema)),
-                                 Callback(cb_delete, 
-                                          ext_arg=(self.psql, self.psql_schema)),
-                                 dry_run = False)
-            # go over oplog, and apply oplog pacthes starting from start_ts_dict
-            last_ts = None
-            queries_counter = 0
-            oplog_rec_counter = 0
-            oplog_queries = parser.next()
-            while oplog_queries != None:
-                oplog_rec_counter += 1
-                new_sync_point[parser.shard_name_for_last_ts] = parser.item_info.ts
-                collection_name = parser.item_info.schema_name
-                rec_id = parser.item_info.rec_id
-                last_ts = parser.item_info.ts
-                for oplog_query in oplog_queries:
-                    queries_counter += 1
-                    exec_insert(self.psql, oplog_query)
-                    self.comparator.add_to_compare(collection_name, rec_id,
-                                                   do_again_counter)
-                oplog_queries = parser.next()
-            getLogger(__name__).info("handled %d oplog records/ %d queries" % \
-                                         (oplog_rec_counter, queries_counter))
-            self.last_oplog_ts = parser.last_oplog_ts
-            # compare mongo data & psql data after oplog records applied
+            new_ts_dict = self.read_oplog_apply_ops(new_ts_dict, do_again_counter)
             compare_res = self.comparator.compare_src_dest()
-            # result of comparison can be negative if new oplog item had received
-            # during checking results (comparing all records) then do double checks
-            # so handle that case:
-            if not compare_res and last_ts:
-                if do_again_counter < DO_OPLOG_READ_ATTEMPTS_COUNT:
-                    do_again = True
-                    do_again_counter += 1
-                    start_ts_dict = last_ts
-                    getLogger(__name__).warning('Do handling of newly added\
- oplog records, attempt=%d' % do_again_counter)
-                else:
-                    getLogger(__name__).warning('max attempt reads exceded %d' %
-                                                DO_OPLOG_READ_ATTEMPTS_COUNT)
-                    failed_attempts = self.comparator.get_failed_cmp_attempts()
-                    getLogger(__name__).warning('failed attempts= %s' %
-                                                str(failed_attempts))
-                    # if compare failed just for most recent oplog data
-                    # and for any other attempts compare is successfull
-                    # then we can suppose that next cmp is also will be good
-                    if len(failed_attempts) == 1 \
-                            and do_again_counter in failed_attempts:
+            failed_attempts = self.comparator.get_failed_cmp_attempts()
+            last_portion_failed = False
+            if len(failed_attempts) == 1 and do_again_counter in failed_attempts:
+                last_portion_failed = True
+            if not compare_res:
+                if last_portion_failed:
+                    if do_again_counter < DO_OPLOG_READ_ATTEMPTS_COUNT:
+                        do_again = True
+                        do_again_counter += 1
+                    else: # Attempts count exceeded
+                        getLogger(__name__).warning('Attempts count exceeded.\
+Force assigning compare_res to True.')
                         compare_res = True
-                        getLogger(__name__).warning('Finish endless comparisons.\
- Force compare_res to be True.')
-        getLogger(__name__).\
-                info('Last oplog rec applied is ts:%s with res=%s' % 
-                     (str(start_ts_dict), str(compare_res)))
+                else:
+                    getLogger(__name__).warning("Recs cmp failed. %s" 
+                                                % failed_attempts)
         if compare_res:
             getLogger(__name__).info('COMMIT')
             self.psql.conn.commit()
+            return new_ts_dict
         else:
             getLogger(__name__).error('ROLLBACK')
             self.psql.conn.rollback()
+            return None
 
-        if compare_res and not oplog_rec_counter:
-            # no oplog records to apply
-            getLogger(__name__).info("do_oplog_apply: Nothing applied, \
-no records after ts: %s" \
-                                         % str(start_ts_dict_backup))
-            return OplogApplyRes(handled_count=oplog_rec_counter,
-                                 queries_count=queries_counter,
-                                 ts=start_ts_dict,
-                                 res=True)
-        else:
-            if compare_res:
-                # oplog apply ok, return last applied ts
-                getLogger(__name__).info("do_oplog_apply: Applied start_ts_dict: %s, \
-last_ts: %s" \
-                                             % (str(start_ts_dict_backup), 
-                                                str(last_ts)))
-                return OplogApplyRes(handled_count=oplog_rec_counter,
-                                     queries_count=queries_counter,
-                                     ts=last_ts,
-                                     res=True)
+    def read_oplog_apply_ops(self, start_ts_dict, attempt):
+        """ Apply ops going after specified timestamps.
+        params:
+        start_ts_dict -- dict with Timestamp for every shard.
+        Return updated sync points and dict containing affected record ids """
+        # derive new sync point from starting points and update it on the go
+        for name in self.oplog_readers:
+            # get new timestamps greater than sync point
+            js_oplog_query = prepare_oplog_request(start_ts_dict[name])
+            self.oplog_readers[name].make_new_request(js_oplog_query)
+            if self.oplog_readers[name].real_transport():
+                self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
+        # create oplog parser. note: cb_insert doesn't need psql object
+        parser = OplogParser(self.oplog_readers, self.schemas_path,
+                             Callback(cb_insert, ext_arg=self.psql_schema),
+                             Callback(cb_update, 
+                                      ext_arg=(self.psql, self.psql_schema)),
+                             Callback(cb_delete, 
+                                      ext_arg=(self.psql, self.psql_schema)),
+                             dry_run = False)
+        # go over oplog, and apply oplog ops for every timestamp
+        oplog_queries = parser.next()
+        while oplog_queries != None:
+            collection_name = parser.item_info.schema_name
+            rec_id = parser.item_info.rec_id
+            self.oplog_rec_counter += 1
+            for oplog_query in oplog_queries:
+                self.queries_counter += 1
+                exec_insert(self.psql, oplog_query)
+                self.comparator.add_to_compare(collection_name, rec_id, attempt)
+            oplog_queries = parser.next()
+        getLogger(__name__).info(\
+            "Handled oplog records/psql queries:  = %d, %d" %
+            (self.oplog_rec_counter, self.queries_counter))
+        res = {}
+        for shard in start_ts_dict:
+            if shard in parser.last_oplog_ts:
+                # ts updated for this shard
+                res[shard] = parser.last_oplog_ts[shard]
             else:
-                # if transport returned an error then keep the same ts_start
-                # and return True, as nothing applied
-                readers_failed = [(k, v.failed) for k,v in \
-                                    self.comparator.mongo_readers.iteritems() \
-                                    if v.failed]
-                if parser.is_failed() or len(readers_failed):
-                    if parser.is_failed():
-                        getLogger(__name__).warning("do_oplog_apply: \
-oplog transport failed")
-                    if len(readers_failed):
-                        getLogger(__name__).warning("do_oplog_apply: \
-following mongo transports failed: %s" % (str(readers_failed)))
-                        Exception('test')
-
-                    getLogger(__name__).info('do_oplog_apply: Keep the same ts')
-                    return OplogApplyRes(handled_count=oplog_rec_counter,
-                                         queries_count=queries_counter,
-                                         ts=start_ts_dict_backup,
-                                         res=True)
-                else:
-                    # oplog apply error, return next ts candidate
-                    getLogger(__name__).info("do_oplog_apply: Error.")
-                    return OplogApplyRes(handled_count=oplog_rec_counter,
-                                         queries_count=queries_counter,
-                                         ts=None,
-                                         res=False)
+                # nothing received from this shard
+                res[shard] = start_ts_dict[shard]
+        return res
 
     def do_oplog_sync(self, ts_start_dict):
         """ Sync oplog and postgres. The result of synchronization is a single
@@ -476,7 +421,7 @@ following mongo transports failed: %s" % (str(readers_failed)))
             ts_start_dict = {}
             for oplog_name in self.oplog_readers:
                 ts_start_dict[oplog_name] = None
-        sync_ts_dict = self.fast_sync_oplog(ts_start_dict)
+        sync_ts_dict = self._sync_oplog(ts_start_dict)
         getLogger(__name__).info("sync ts is: %s" % sync_ts_dict)
         if sync_ts_dict:
             getLogger(__name__).info('Synced at ts:%s' % sync_ts_dict)
@@ -490,8 +435,8 @@ class CollectionReader:
         self.collection_name = collection_name
         self.schema_engine = schema_engine
         self.mongo_reader = mongo_reader
-        self.etl_mongo_reader = EtlMongoReader(MONGO_REC_PROCESSING_PROCESS_COUNT,
-                                               FAST_QUEUE_SIZE,
+        self.etl_mongo_reader = EtlMongoReader(COLLECTION_READER_BSON_WORKERS_COUNT,
+                                               COLLECTION_READER_QUEUE_SIZE,
                                                async_worker_handle_mongo_rec,
                                                #1st worker param
                                                {collection_name: schema_engine}, 
@@ -551,7 +496,7 @@ class OplogSyncEngine:
                 if sync:
                     continue
                 rec_ids.append(rec_id)
-                if len(rec_ids) < SYNC_REC_COUNT_IN_PARALLEL:
+                if len(rec_ids) < SYNC_REC_COUNT_IN_ONE_BATCH:
                     # collect rec_ids for processing
                     continue
                 synced_recs = \
@@ -571,8 +516,9 @@ class OplogSyncEngine:
                 for synced_rec_id in synced_recs:
                     rec_ids_dict[synced_rec_id] = True # synced
             count_synced += len(synced_recs)
-            getLogger(__name__).info("Synced %d of %d recs." % 
-                                     (count_synced, len(rec_ids_dict)))
+            getLogger(__name__).info("Synced %s %d of %d recs." % 
+                                     (self.collection_name,
+                                      count_synced, len(rec_ids_dict)))
         return len(rec_ids_dict) == count_synced
 
     def sync_recs_save_tsdata_to_psql_cache(self, rec_ids):
@@ -637,6 +583,10 @@ class OplogSyncEngine:
                     if rec_id not in res:
                         res[rec_id] = ts_data_list
                     res[rec_id][query_idx].sync_start = True
+                    getLogger(__name__).info("rec_id sync point %s : [%s]->%s" % 
+                                             (rec_id, 
+                                              ts_data_list[query_idx].oplog_name,
+                                              ts_data_list[query_idx].ts))
                 self.psql.conn.rollback()
                 if equal:
                     break
@@ -690,9 +640,8 @@ class ComparatorMongoPsql:
         self.psql = psql
         self.psql_schema = psql_schema
         self.recs_to_compare = {}
-        self.recs_to_compare_copy = {}
-        self.etl_mongo_reader = EtlMongoReader(MONGO_REC_PROCESSING_PROCESS_COUNT,
-                                               FAST_QUEUE_SIZE,
+        self.etl_mongo_reader = EtlMongoReader(MONGO_PSQL_CMP_BSON_WORKERS_COUNT,
+                                               MONGO_PSQL_CMP_QUEUE_SIZE,
                                                async_worker_handle_mongo_rec,
                                                #1st worker param
                                                self.schema_engines, 

@@ -32,7 +32,8 @@ def prepare_oplog_request(ts):
 def list_ofitems_byor(rec_ids):
     ors = []
     for rec_id in rec_ids:
-       ors.append( { "o2": {"_id" : rec_id} }, {"o._id" : rec_id} ) 
+       ors.append( { "o2": {"_id" : rec_id} } ) 
+       ors.append( {"o._id" : rec_id} ) 
     return ors
 
 def prepare_oplog_request_filter(ts, dbname, collection, rec_ids):

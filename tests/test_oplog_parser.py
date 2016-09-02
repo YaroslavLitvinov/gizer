@@ -132,22 +132,26 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         if ts_synced is None:
             return False
 
+        del dbreq
+        dbreq = PsqlRequests(psycopg2.connect(connstr))
+
         oplog_readers, mongo_readers_after = get_readers(oplog_test, 
                                                          enable_exceptions=True)
 
         ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
                              schemas_path, schema_engines, psql_schema)
         res = ohl.do_oplog_apply(start_ts_dict=ts_synced)
-        getLogger(__name__).info("Details: %s" % str(res))
-        if res.res:
+        if res:
             getLogger(__name__).info("Test passed")
 
     except:
         # close psql connection to have ability to run next tests
         dbreq.conn.close()
         raise
-    return res.res
-
+    if res:
+        return True
+    else:
+        return False
 
 def check_dataset(name, oplog_params, params,
                   max_attempts=SYNC_ATTEMPTS_CNT):
@@ -191,7 +195,7 @@ def check_dataset(name, oplog_params, params,
 
 
 def test_oplog1():
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     # dataset test
@@ -352,8 +356,7 @@ if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
     ## temp
-    test_oplog6()
-    test_oplog8()
+    test_oplog2()
     exit(0)
     ## temp
     schemas_path = sys.argv[1]

@@ -2,9 +2,7 @@
 
 """ Oplog parser, and patcher of end data by oplog operations.
 Oplog synchronization with initially loaded data stored in psql.
-OplogParser -- class for basic oplog parsing
-do_oplog_apply -- handling oplog and applying oplog ops func
-sync_oplog -- find syncronization point in oplog for initially loaded data."""
+OplogParser -- class for basic oplog parsing"""
 
 __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
