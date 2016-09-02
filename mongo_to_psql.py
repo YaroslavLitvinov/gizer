@@ -137,10 +137,14 @@ def main():
                 ts = ohl.do_oplog_sync(status.ts)
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
                 if ts: # sync ok
-                    status_manager.oplog_sync_finish(ts, False)
+                    status_manager.oplog_sync_finish(ohl.oplog_rec_counter,
+                                                     ohl.queries_counter,
+                                                     ts, False)
                     res = 0
                 else: # error
-                    status_manager.oplog_sync_finish(None, True)
+                    status_manager.oplog_sync_finish(ohl.oplog_rec_counter,
+                                                     ohl.queries_counter,
+                                                     None, True)
                     res = -1
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)

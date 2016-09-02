@@ -309,7 +309,9 @@ class OplogHighLevel:
                         if ts_data.ts <= max_sync_ts[ts_data.oplog]:
                             getLogger(__name__).debug("Sync ts op %s" %
                                                       ts_data.ts)
+                            self.oplog_rec_counter += 1
                             for oplog_query in ts_data.queries:
+                                self.queries_counter += 1
                                 exec_insert(self.psql, oplog_query)
         getLogger(__name__).info('COMMIT')
         self.psql.conn.commit()

@@ -196,9 +196,9 @@ class PsqlEtlStatusTableManager:
                                            error = None)
         self.status_table.save_new(status)
 
-    def oplog_sync_finish(self, ts, is_error):
-        self.status_table.update_latest(recs_count=None,
-                                        queries_count=None,
+    def oplog_sync_finish(self, recs_count, queries_count, ts, is_error):
+        self.status_table.update_latest(recs_count=recs_count,
+                                        queries_count=queries_count,
                                         time_end=datetime.now(),
                                         ts=ts,
                                         error=is_error)
@@ -216,10 +216,5 @@ class PsqlEtlStatusTableManager:
         self.status_table.save_new(status)
 
     def oplog_use_finish(self, recs_count, queries_count, ts, is_error):
-        # on error ts must be specified, on which fail is occured
-        self.status_table.update_latest(recs_count=recs_count,
-                                        queries_count=queries_count,
-                                        time_end=datetime.now(),
-                                        ts=ts, 
-                                        error=is_error)
+        self.oplog_sync_finish(recs_count, queries_count, ts, is_error)
 
