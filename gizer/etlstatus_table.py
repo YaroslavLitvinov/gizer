@@ -23,6 +23,8 @@ STATUS_OPLOG_APPLY = 2
 def timestamp_str_to_object(timestamp_str):
     """ Return bson Timestamp object
     timestamp_str -- str like 'Timestamp(1464278289, 1)' """
+    if timestamp_str == 'None':
+        return None
     if timestamp_str and len(timestamp_str):
         spl = timestamp_str.split(',')
         tmstmp = spl[0].split('(')[1].strip()

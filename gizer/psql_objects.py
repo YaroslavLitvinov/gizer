@@ -117,7 +117,7 @@ WHERE {id_name}={id_val} {idx_order_by};'
                                        id_name = id_name,
                                        id_val = id_val,
                                        idx_order_by = idx_order_by)
-        getLogger(__name__).info("Get psql data: "+select_req)
+        getLogger(__name__).debug("Get psql data: "+select_req)
         src_dbreq.cursor.execute(select_req)
         ext_tables_data[table_name] = []
         idx=0

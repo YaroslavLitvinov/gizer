@@ -75,8 +75,8 @@ class MongoReader:
         if not self.client:
             self.connauthreq()
         mongo_collection = self.client[self.dbname][self.collection]
-        getLogger(__name__).info("Issue mongo[%s] request[%s]: %s" %
-                                 (self.collection, self.name, query))
+        getLogger(__name__).debug('Exec mongo query [%s][%s]: %s' %
+                                  (self.collection, self.name, query))
         cursor = mongo_collection.find(query, projection=projection)
         self.rec_i = 0
         self.cursor = cursor

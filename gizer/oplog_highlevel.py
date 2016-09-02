@@ -278,7 +278,10 @@ class OplogHighLevel:
         max_sync_ts = {}
         for oplog_name in self.oplog_readers:
             sync_ts = psql_cache_table.select_max_synced_ts_at_shard(oplog_name)
-            max_sync_ts[oplog_name] = sync_ts
+            if sync_ts:
+                max_sync_ts[oplog_name] = sync_ts
+            else:
+                max_sync_ts[oplog_name] = start_ts_dict
         # iterate over all collections/rec_ids and execute rec related queries
         # up to speific alignment timestamp 
         getLogger(__name__).info("Sync query exec")
@@ -391,7 +394,7 @@ Force assigning compare_res to True.')
                 self.comparator.add_to_compare(collection_name, rec_id, attempt)
             oplog_queries = parser.next()
         getLogger(__name__).info(\
-            "Handled oplog records/psql queries:  = %d, %d" %
+            "Handled oplog records/psql queries: %d/%d" %
             (self.oplog_rec_counter, self.queries_counter))
         res = {}
         for shard in start_ts_dict:
@@ -449,7 +452,6 @@ class CollectionReader:
         res = {}
         # prepare query
         mongo_query = prepare_mongo_request_for_list(self.schema_engine, rec_ids)
-        getLogger(__name__).info('Exec mongo query: %s', mongo_query)
         self.etl_mongo_reader.execute_query(self.collection_name, mongo_query)
         # get and process records
         processed_recs = self.etl_mongo_reader.next_processed()
