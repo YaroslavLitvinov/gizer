@@ -22,6 +22,7 @@ from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.psql_objects import insert_tables_data_into_dst_psql
 from gizer.psql_objects import create_truncate_psql_objects
 from mongo_schema.schema_engine import create_tables_load_bson_data
+from mongo_schema.schema_engine import log_table_errors
 from mock_mongo_reader import MongoReaderMock
 from mock_mongo_reader import MockReaderDataset
 from gizer.etlstatus_table import timestamp_str_to_object as ts_obj
@@ -73,6 +74,7 @@ def load_mongo_data_to_psql(schema_engine, mongo_data_path, psql, psql_schema):
         raw_bson_data = input_f.read()
         for one_record in loads(raw_bson_data):
             tables = create_tables_load_bson_data(schema_engine, [one_record])
+            log_table_errors('test info msg:', tables.errors)
             getLogger(__name__).info("Loaded tables=%s" % tables.tables)
             insert_tables_data_into_dst_psql(psql, tables, psql_schema, '')
             psql.cursor.execute('COMMIT')
@@ -135,6 +137,7 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         #start syncing from very start of oplog
         ts_synced = unalligned_sync.sync(None)
         getLogger(__name__).info("Sync done ts_synced: %s" % str(ts_synced))
+        getLogger(__name__).info("statistic %s" % str(unalligned_sync.statistic()))
         del unalligned_sync
         # sync failed
         if ts_synced is None:

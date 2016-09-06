@@ -326,12 +326,14 @@ class OplogSyncEngine:
         for oplog_name in self.oplog_readers:
             if self.oplog_readers[oplog_name].real_transport():
                 dbname = self.mongo_reader.settings_list[0].dbname
+                # query timestamps only related to rec_ids
                 js_query = prepare_oplog_request_filter(
                     self.start_ts_dict[oplog_name],
                     dbname,
                     self.collection_name,
                     rec_ids)
             else:
+                # mocked transport will return all the timestamps
                 js_query = prepare_oplog_request(self.start_ts_dict[oplog_name])
             self.oplog_readers[oplog_name].make_new_request(js_query)
         # create oplog parser. note: cb_insert doesn't need psql object

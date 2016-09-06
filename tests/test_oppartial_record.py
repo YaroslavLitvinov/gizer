@@ -86,6 +86,13 @@ def test_complete_partial_record2():
         }
     }
 
+    
+    wrong_raw_bson_data = '[{\
+     "_id": 133,\
+     "updated_at": { "$date" : "2016-02-08T20:02:12.985Z"},\
+     "comments": "error in data"\
+    }]'
+
     existing_raw_bson_data = '[{\
      "_id": 133,\
      "updated_at": { "$date" : "2016-02-08T20:02:12.985Z"},\
@@ -136,6 +143,16 @@ def test_complete_partial_record2():
 
     connstr = os.environ['TEST_PSQLCONN']
     psql = PsqlRequests(psycopg2.connect(connstr))
+
+
+    # test wrong bson data
+    existing_bson_data = loads(wrong_raw_bson_data)
+    tables_obj_before = \
+        create_tables_load_bson_data(schema_engine, 
+                                     existing_bson_data)
+    assert(False==tables_obj_before.compare_with_sample(sample_data_before))
+
+
 
     # tables loaded from existing_raW_bson_data
     existing_bson_data = loads(existing_raw_bson_data)
