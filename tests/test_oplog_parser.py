@@ -291,6 +291,14 @@ oplog_simulate_added_after_initload.js',
                          {'posts': None, 'guests': None}) == True)
 
     # dataset test
+    oplog22 = {'single-oplog': [('test_data/oplog2/oplog.js', None),
+                               ('test_data/oplog2/\
+oplog_simulate_added_after_initload.js',
+                                pymongo.errors.NetworkTimeout)]}
+    assert(check_dataset(False, 'oplog2', oplog22,
+                         {'posts': None, 'guests': None}) == True)
+
+    # dataset test
     oplog32 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
     assert(check_dataset(False, 'oplog3', oplog32,
                          {'posts': pymongo.errors.OperationFailure, 'posts2': None, 
@@ -363,7 +371,7 @@ if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
     ## temp
-    test_oplog4()
+    test_oplog1()
     exit(0)
     ## temp
     schemas_path = sys.argv[1]

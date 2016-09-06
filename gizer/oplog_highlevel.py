@@ -19,6 +19,7 @@ from logging import getLogger
 from os import environ
 from bson.json_util import loads
 from collections import namedtuple
+from gizer.collection_reader import CollectionReader
 from gizer.psql_objects import load_single_rec_into_tables_obj
 from gizer.psql_objects import cmp_psql_mongo_tables
 from gizer.oplog_parser import OplogParser
@@ -30,27 +31,19 @@ from gizer.etlstatus_table import timestamp_str_to_object as ts_obj
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.opmultiprocessing import FastQueueProcessor
 from gizer.etl_mongo_reader import EtlMongoReader
+from gizer.psql_cache import PsqlCacheTable
+from gizer.batch_comparator import ComparatorMongoPsql
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
 from mongo_reader.prepare_mongo_request import prepare_oplog_request_filter
-from mongo_reader.prepare_mongo_request import prepare_mongo_request_for_list
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
 
 MAX_REQCOUNT_FOR_SHARD = 10000
 DO_OPLOG_READ_ATTEMPTS_COUNT = 10
 
-# collection reader is just yet another reader using by syncronizer
-COLLECTION_READER_BSON_WORKERS_COUNT = 8
-COLLECTION_READER_QUEUE_SIZE = COLLECTION_READER_BSON_WORKERS_COUNT*2
-
-# comparator is using for data integrity verification
-MONGO_PSQL_CMP_BSON_WORKERS_COUNT = 8
-MONGO_PSQL_CMP_QUEUE_SIZE = MONGO_PSQL_CMP_BSON_WORKERS_COUNT*2
-
 SYNC_REC_COUNT_IN_ONE_BATCH = 100
 
-CompareRes = namedtuple('CompareRes', ['rec_id', 'flag', 'attempt'])
 Callback = namedtuple('Callback', ['cb', 'ext_arg'])
 OplogApplyRes = namedtuple('OplogApplyRes', 
                            ['handled_count', # handled oplog records (ops=u,i,d)
@@ -59,18 +52,6 @@ OplogApplyRes = namedtuple('OplogApplyRes',
                             'res' # True/False res
                             ])
 
-def async_worker_handle_mongo_rec(schema_engines,
-                                  rec_data_and_collection):
-    """ function intended to call by FastQueueProcessor.
-    process mongo record / bson data in separate process.
-    schema_engines -- dict {'collection name': SchemaEngine}. Here is
-    many schema engines to use every queue to handle items from any collection;
-    rec_data_and_collection - tuple('collection name', bson record)"""
-    rec = rec_data_and_collection[0]
-    collection = rec_data_and_collection[1]
-    return create_tables_load_bson_data(schema_engines[collection],
-                                        [rec])
-
 class TsData:
     def __init__(self, oplog_name, ts, queries):
         self.oplog_name = oplog_name
@@ -78,88 +59,6 @@ class TsData:
         self.queries = queries
         self.sync_start = None
 
-class PsqlCacheTable:
-    PsqlCacheData = namedtuple('PsqlCacheData', ['ts', 'oplog', 'collection',
-                                                 'queries',  'rec_id',
-                                                 'sync_start'])
-    def __init__(self, cursor, schema_name):
-        self.cursor = cursor
-        if len(schema_name):
-            self.schema_name = schema_name + '.'
-        else:
-            self.schema_name = ''
-        self.drop_table()
-        self.create_table()
-    
-    def drop_table(self):
-        fmt = 'DROP TABLE IF EXISTS {schema}qmetlcache;'
-        self.cursor.execute( fmt.format(schema=self.schema_name) )
-        
-    def create_table(self):
-        fmt = 'CREATE TABLE IF NOT EXISTS {schema}qmetlcache (\
-        "ts" TEXT, "oplog" TEXT, "collection" TEXT, "queries" TEXT, \
-        "rec_id" TEXT, "sync_start" BOOLEAN);'
-        self.cursor.execute( fmt.format(schema=self.schema_name) )
-
-    def insert(self, psql_cache_data):
-        fmt = 'INSERT INTO {schema}qmetlcache VALUES(\
-%s, %s, %s, %s, %s, %s);'
-        operation_str = fmt.format(schema=self.schema_name)
-        if psql_cache_data.ts:
-            ts_str = str(psql_cache_data.ts)
-        else:
-            ts_str = None
-        self.cursor.execute( operation_str,
-                             (ts_str,
-                              psql_cache_data.oplog,
-                              psql_cache_data.collection,
-                              # use pickle for non trivial data
-                              pickle.dumps(psql_cache_data.queries),
-                              str(psql_cache_data.rec_id),
-                              psql_cache_data.sync_start) )
-
-    def commit(self):
-        self.cursor.execute('COMMIT')
-        getLogger(__name__).info("qmetlcache COMMIT")
-
-    def select_max_synced_ts_at_shard(self, oplog_name):
-        max_sync_start_fmt= \
-            "SELECT max(a.ts) FROM (SELECT ts from {schema}qmetlcache \
-WHERE oplog='{oplog}' and sync_start=TRUE) as a;"
-        select_query = max_sync_start_fmt.format(schema=self.schema_name,
-                                                 oplog=oplog_name)
-        self.cursor.execute(select_query)
-        row = self.cursor.fetchone()
-        if row:
-            return ts_obj(row[0])
-        else:
-            return None
-
-    def select_ts_related_to_rec_id(self, collection, rec_id):
-        res = []
-        rec_tss_fmt="SELECT * from {schema}qmetlcache WHERE \
-collection='{collection}' and rec_id='{rec_id}' ORDER BY ts;"
-        select_query = rec_tss_fmt.format(schema=self.schema_name,
-                                          collection=collection,
-                                          rec_id=str(rec_id))
-        self.cursor.execute(select_query)
-        rows = self.cursor.fetchall()
-        for row in rows:
-            res.append(self.convert_row_to_psql_cache_data(row))
-        return res
-
-    def convert_row_to_psql_cache_data(self, row):
-        if row:
-            return PsqlCacheTable.PsqlCacheData(
-                ts=ts_obj(row[0]),
-                oplog=row[1],
-                collection=row[2],
-                # use pickle for non trivial data
-                queries=pickle.loads(row[3]),
-                rec_id=row[4],
-                sync_start=row[5])
-        else:
-            return None
 
 class OplogHighLevel:
     def __init__(self, psql_etl, psql, mongo_readers, oplog_readers,
@@ -419,36 +318,6 @@ Force assigning compare_res to True.')
             getLogger(__name__).error('Sync failed.')
             return None
 
-class CollectionReader:
-    def __init__(self, collection_name, schema_engine, mongo_reader):
-        self.collection_name = collection_name
-        self.schema_engine = schema_engine
-        self.mongo_reader = mongo_reader
-        self.etl_mongo_reader = EtlMongoReader(COLLECTION_READER_BSON_WORKERS_COUNT,
-                                               COLLECTION_READER_QUEUE_SIZE,
-                                               async_worker_handle_mongo_rec,
-                                               #1st worker param
-                                               {collection_name: schema_engine}, 
-                                               {collection_name: mongo_reader})
-
-    def __del__(self):
-        del self.etl_mongo_reader
-
-    def get_mongo_table_objs_by_ids(self, rec_ids):
-        res = {}
-        # prepare query
-        mongo_query = prepare_mongo_request_for_list(self.schema_engine, rec_ids)
-        self.etl_mongo_reader.execute_query(self.collection_name, mongo_query)
-        # get and process records
-        processed_recs = self.etl_mongo_reader.next_processed()
-        while processed_recs is not None:
-            for mongo_tables_obj in processed_recs:
-                rec_id = mongo_tables_obj.rec_id()
-                res[str(rec_id)] = mongo_tables_obj
-            processed_recs = self.etl_mongo_reader.next_processed()
-        return res
-
-
 class OplogSyncEngine:
 
     def __init__(self, start_ts_dict, collection_name,
@@ -620,133 +489,3 @@ class OplogSyncEngine:
         return res
 
 
-class ComparatorMongoPsql:
-
-    def __init__(self, schema_engines, mongo_readers, psql, psql_schema):
-        self.schema_engines = schema_engines
-        self.mongo_readers = mongo_readers
-        self.psql = psql
-        self.psql_schema = psql_schema
-        self.recs_to_compare = {}
-        self.etl_mongo_reader = EtlMongoReader(MONGO_PSQL_CMP_BSON_WORKERS_COUNT,
-                                               MONGO_PSQL_CMP_QUEUE_SIZE,
-                                               async_worker_handle_mongo_rec,
-                                               #1st worker param
-                                               self.schema_engines, 
-                                               self.mongo_readers)
-
-    def __del__(self):
-        del self.etl_mongo_reader
-
-    def add_to_compare(self, collection_name, rec_id, attempt):
-        if collection_name not in self.recs_to_compare:
-            self.recs_to_compare[collection_name] = {}
-        # every time item adding to compare list will reset old state
-        # distinguish dict key and rec_id as rec_id can be a mongo object
-        getLogger(__name__).info("%s is rec_id attempt=%d" % (str(rec_id), attempt))
-        self.recs_to_compare[collection_name][str(rec_id)] \
-            = CompareRes(rec_id, False, attempt)
-
-    def compare_one_src_dest(self, collection_name, rec_id, 
-                             mongo_tables_obj, psql_tables_obj):
-        schema_engine = self.schema_engines[collection_name]
-        mongo_reader = self.mongo_readers[collection_name]
-        getLogger(__name__).info("comparing... rec_id=" + str(rec_id))
-        equal = cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj)
-        getLogger(__name__).info("compare res=" + str(equal) + 
-                                 " for rec_id=" + str(rec_id))
-        return equal
-
-    def compare_src_dest(self):
-        cmp_res = True
-        # iterate mongo items belong to one collection
-        for collection, recs in self.recs_to_compare.iteritems():
-            # comparison strategy: filter out previously compared recs;
-            # so will be compared only that items which never compared or
-            # prev comparison gave False
-            recs_list_cmp = []
-            max_recs_in_list = 1000
-            for rec_id, compare_res in recs.iteritems():
-                if not compare_res.flag:
-                    recs_list_cmp.append(compare_res.rec_id)
-            # if nothing to compare just skip current collection
-            if not recs_list_cmp:
-                continue
-
-            maxs = 1000
-            lst = recs_list_cmp
-            splitted = [lst[i:i + maxs] for i in xrange(0, len(lst), maxs)]
-            for chunk in splitted:
-                res = self.compare_src_dest_portion(collection, chunk)
-                if not res:
-                    cmp_res = res
-        return cmp_res
-
-    def compare_src_dest_portion(self, collection, recs):
-        getLogger(__name__).info('Compare recs: %s' % self.recs_to_compare )
-        cmp_res = True
-        # prepare query
-        mongo_query = prepare_mongo_request_for_list(
-            self.schema_engines[collection], recs)
-        getLogger(__name__).debug('query to fetch recs for cmp: %s', mongo_query)
-        self.etl_mongo_reader.execute_query(collection, mongo_query)
-        received_list = []
-        # get and process records to compare
-        processed_recs = self.etl_mongo_reader.next_processed()
-        while processed_recs is not None:
-            # do cmp for every returned obj
-            for mongo_tables_obj in processed_recs:
-                rec_id = mongo_tables_obj.rec_id()
-                received_list.append(rec_id)
-                psql_tables_obj = load_single_rec_into_tables_obj(
-                    self.psql,
-                    self.schema_engines[collection],
-                    self.psql_schema,
-                    rec_id )
-                # this check makes sence ony for mock transport as it 
-                # will return all records and not only requested
-                key = str(rec_id)
-                if key in self.recs_to_compare[collection] and \
-                        not self.recs_to_compare[collection][key].flag:
-                    equal = self.compare_one_src_dest(collection,
-                                                      rec_id,
-                                                      mongo_tables_obj,
-                                                      psql_tables_obj)
-                    if not equal:
-                        cmp_res = False
-                else:
-                    continue
-                # update cmp result in main dict
-                attempt = self.recs_to_compare[collection][key].attempt
-                # update cmp result in main dict
-                self.recs_to_compare[collection][key] = \
-                    CompareRes(rec_id, equal, attempt)
-            processed_recs = self.etl_mongo_reader.next_processed()
-        # should return True for deleted items (non existing items)
-        for rec_id in recs:
-            if rec_id not in received_list:
-                psql_tables_obj = load_single_rec_into_tables_obj(
-                    self.psql,
-                    self.schema_engines[collection],
-                    self.psql_schema,
-                    rec_id )
-                # if psql data also doesn't exist
-                if psql_tables_obj.is_empty():
-                    key = str(rec_id)
-                    attempt = self.recs_to_compare[collection][key].attempt
-                    self.recs_to_compare[collection][key] = \
-                        CompareRes(rec_id, True, attempt)                    
-                    getLogger(__name__).info("cmp non existing rec_id %s."
-                                             % (str(rec_id)))
-        return cmp_res
-
-    def get_failed_cmp_attempts(self):
-        failed_attempts_list = []
-        for collection, recs in self.recs_to_compare.iteritems():
-            for rec_id, compare_res in recs.iteritems():
-                if not compare_res.flag and \
-                        compare_res.attempt not in failed_attempts_list:
-                    failed_attempts_list.append(compare_res.attempt)
-        failed_attempts_list.sort()
-        return failed_attempts_list
-    

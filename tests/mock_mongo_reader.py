@@ -94,7 +94,8 @@ class MongoReaderMock:
                 getLogger(__name__).warning("Mocked exception: %s" % 
                                             item[MOCK_EXCEPTION_KEY])
                 if item[MOCK_EXCEPTION_KEY] is pymongo.errors.OperationFailure or \
-                        item[MOCK_EXCEPTION_KEY] is pymongo.errors.AutoReconnect:
+                        item[MOCK_EXCEPTION_KEY] is pymongo.errors.AutoReconnect or \
+                        item[MOCK_EXCEPTION_KEY] is pymongo.errors.NetworkTimeout:
                     self.failed = True
                     return None
                 else:
