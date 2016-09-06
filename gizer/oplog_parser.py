@@ -25,6 +25,7 @@ from mongo_schema.schema_engine import create_tables_load_bson_data
 
 EMPTY_TS = 'empty_ts'
 
+Callback = namedtuple('Callback', ['cb', 'ext_arg'])
 ItemInfo = namedtuple('ItemInfo', ['schema_name',
                                    'schema_engine',
                                    'oplog_name',

@@ -15,7 +15,8 @@ from logging import getLogger
 from collections import namedtuple
 from bson.json_util import loads
 from gizer.psql_requests import PsqlRequests
-from gizer.oplog_highlevel import OplogHighLevel
+from gizer.oplog_sync_alligned_data import OplogSyncAllignedData
+from gizer.oplog_sync_unalligned_data import OplogSyncUnallignedData
 from gizer.oplog_parser import EMPTY_TS
 from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.psql_objects import insert_tables_data_into_dst_psql
@@ -119,17 +120,22 @@ def run_oplog_engine_check(oplog_test, schemas_path):
     getLogger(__name__).info("Loading mongo data after initload")
 
     try:
-        gizer.oplog_highlevel.DO_OPLOG_READ_ATTEMPTS_COUNT \
+        gizer.oplog_sync_unalligned_data.DO_OPLOG_READ_ATTEMPTS_COUNT \
+            = oplog_test.max_attempts
+        gizer.oplog_sync_alligned_data.DO_OPLOG_READ_ATTEMPTS_COUNT \
             = oplog_test.max_attempts
         # for better coverage
-        gizer.oplog_highlevel.SYNC_REC_COUNT_IN_ONE_BATCH = 2
-        ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
-                             schemas_path, schema_engines, psql_schema)
+        gizer.oplog_sync_unalligned_data.SYNC_REC_COUNT_IN_ONE_BATCH = 2
+
+        unalligned_sync \
+            = OplogSyncUnallignedData(dbreq_etl, dbreq, 
+                                      mongo_readers_after, oplog_readers,
+                                      schemas_path, schema_engines, psql_schema)
 
         #start syncing from very start of oplog
-        ts_synced = ohl.do_oplog_sync(None)
+        ts_synced = unalligned_sync.sync(None)
         getLogger(__name__).info("Sync done ts_synced: %s" % str(ts_synced))
-        del ohl
+        del unalligned_sync
         # sync failed
         if ts_synced is None:
             return False
@@ -144,9 +150,10 @@ def run_oplog_engine_check(oplog_test, schemas_path):
             for oplog in ts_synced:
                 ts_synced[oplog] = None
 
-        ohl = OplogHighLevel(dbreq_etl, dbreq, mongo_readers_after, oplog_readers,
-                             schemas_path, schema_engines, psql_schema)
-        res = ohl.do_oplog_apply(start_ts_dict=ts_synced)
+        alligned_sync \
+            = OplogSyncAllignedData(dbreq, mongo_readers_after, oplog_readers,
+                                    schemas_path, schema_engines, psql_schema)
+        res = alligned_sync.sync(ts_synced)
         if res:
             getLogger(__name__).info("Test passed")
 

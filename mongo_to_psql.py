@@ -33,7 +33,8 @@ from gizer.etlstatus_table import STATUS_OPLOG_SYNC
 from gizer.etlstatus_table import STATUS_OPLOG_APPLY
 from gizer.etlstatus_table import PsqlEtlStatusTable
 from gizer.etlstatus_table import PsqlEtlStatusTableManager
-from gizer.oplog_highlevel import OplogHighLevel
+from gizer.oplog_sync_alligned_data import OplogSyncAllignedData
+from gizer.oplog_sync_unalligned_data import OplogSyncUnallignedData
 from gizer.psql_requests import PsqlRequests
 from gizer.psql_requests import psql_conn_from_settings
 from gizer.opconfig import psql_settings_from_config
@@ -129,22 +130,18 @@ def main():
             psql_sync = psql_main
             # intial load done, save oplog sync status and do oplog sync.
             status_manager.oplog_sync_start(status.ts)
-
-            ohl = OplogHighLevel(psql_qmetl, psql_sync, 
-                                 mongo_readers, oplog_readers,
-                                 schemas_path, schema_engines, psql_schema)
+            unalligned_sync = OplogSyncUnallignedData(
+                psql_qmetl, psql_sync, mongo_readers, oplog_readers,
+                schemas_path, schema_engines, psql_schema)
             try:
-                ts = ohl.do_oplog_sync(status.ts)
+                ts = unalligned_sync.sync(status.ts)
+                stat = unalligned_sync.statistic()
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
                 if ts: # sync ok
-                    status_manager.oplog_sync_finish(ohl.oplog_rec_counter,
-                                                     ohl.queries_counter,
-                                                     ts, False)
+                    status_manager.oplog_sync_finish(stat[0], stat[1], ts, False)
                     res = 0
                 else: # error
-                    status_manager.oplog_sync_finish(ohl.oplog_rec_counter,
-                                                     ohl.queries_counter,
-                                                     None, True)
+                    status_manager.oplog_sync_finish(stat[0], stat[1], None, True)
                     res = -1
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)
@@ -163,21 +160,19 @@ def main():
             getLogger(__name__).\
                 info('Sync point is ts:{ts}'.format(ts=status.ts))
             status_manager.oplog_use_start(status.ts)
-            ohl = OplogHighLevel(psql_qmetl, psql_main,
-                                 mongo_readers, oplog_readers,
-                                 schemas_path, schema_engines, psql_schema)
+            alligned_sync = \
+                OplogSyncAllignedData(psql_main, mongo_readers, oplog_readers,
+                                      schemas_path, schema_engines, psql_schema)
             try:
-                ts_res = ohl.do_oplog_apply(status.ts)
+                ts_res = alligned_sync.sync(status.ts)
+                stat = alligned_sync.statistic()
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
                 if ts_res: # oplog apply ok
-                    status_manager.oplog_use_finish(ohl.oplog_rec_counter,
-                                                    ohl.queries_counter,
+                    status_manager.oplog_use_finish(stat[0], stat[1],
                                                     ts_res, False)
                     res= 0
                 else: # error
-                    status_manager.oplog_use_finish(ohl.oplog_rec_counter,
-                                                    ohl.queries_counter,
-                                                    None, True)
+                    status_manager.oplog_use_finish(stat[0], stat[1], None, True)
                     res = -1
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)
