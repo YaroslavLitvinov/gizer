@@ -7,6 +7,7 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 import pickle
+import psycopg2
 from collections import namedtuple
 from logging import getLogger
 from gizer.etlstatus_table import timestamp_str_to_object as ts_obj
@@ -30,7 +31,7 @@ class PsqlCacheTable:
         
     def create_table(self):
         fmt = 'CREATE TABLE IF NOT EXISTS {schema}qmetlcache (\
-        "ts" TEXT, "oplog" TEXT, "collection" TEXT, "queries" TEXT, \
+        "ts" TEXT, "oplog" TEXT, "collection" TEXT, "queries" BYTEA, \
         "rec_id" TEXT, "sync_start" BOOLEAN);'
         self.cursor.execute( fmt.format(schema=self.schema_name) )
 
@@ -43,7 +44,7 @@ class PsqlCacheTable:
         else:
             ts_str = None
         # use pickle to save python objects
-        queries = pickle.dumps(psql_cache_data.queries).encode('latin1')
+        queries = psycopg2.Binary(pickle.dumps(psql_cache_data.queries))
         self.cursor.execute( operation_str,
                              (ts_str,
                               psql_cache_data.oplog,
@@ -89,7 +90,7 @@ collection='{collection}' and rec_id='{rec_id}' ORDER BY ts;"
                 oplog=row[1],
                 collection=row[2],
                 # use pickle for non trivial data
-                queries=pickle.loads(row[3].decode('latin1')),
+                queries=pickle.loads(row[3]),
                 rec_id=row[4],
                 sync_start=row[5])
         else:

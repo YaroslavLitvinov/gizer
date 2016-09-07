@@ -326,12 +326,18 @@ class OplogSyncEngine:
         for oplog_name in self.oplog_readers:
             if self.oplog_readers[oplog_name].real_transport():
                 dbname = self.mongo_reader.settings_list[0].dbname
-                # query timestamps only related to rec_ids
-                js_query = prepare_oplog_request_filter(
+                # query timestamps only related to collection
+                # do not rec_ids as mongodb is response to slow
+                js_query = prepare_oplog_request_collection(
                     self.start_ts_dict[oplog_name],
                     dbname,
-                    self.collection_name,
-                    rec_ids)
+                    self.collection_name)
+                # query timestamps only related to rec_ids
+                #js_query = prepare_oplog_request_filter(
+                #    self.start_ts_dict[oplog_name],
+                #    dbname,
+                #    self.collection_name,
+                #    rec_ids)
             else:
                 # mocked transport will return all the timestamps
                 js_query = prepare_oplog_request(self.start_ts_dict[oplog_name])

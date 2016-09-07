@@ -48,3 +48,15 @@ def prepare_oplog_request_filter(ts, dbname, collection, rec_ids):
     else:
         query = ts_query
     return query
+
+
+def prepare_oplog_request_collection(ts, dbname, collection):
+    ts_query = prepare_oplog_request(ts)
+    if collection:
+        query = { "$and": [ {"ns": dbname+"."+collection} ]
+                 }
+        if ts_query:
+            query["$and"].append(ts_query)
+    else:
+        query = ts_query
+    return query
