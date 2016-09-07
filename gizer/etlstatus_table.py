@@ -35,16 +35,28 @@ def timestamp_str_to_object(timestamp_str):
     else:
         return None
 
-class PsqlEtlStatusTable:
-    Status = namedtuple('Status', ['comment', 
-                                   'time_start', 
+def add_update_arg(values_str, name, value):
+    """ update query helper """
+    fmt = '{name}={value} '
+    if value is not None:
+        if len(values_str):
+            values_str += ', '
+        if type(value) is str or type(value) is datetime:
+            value = "'" + (str(value)) + "'"
+        values_str += fmt.format(name=name, value=value)
+    return values_str
+
+
+class PsqlEtlStatusTable(object):
+    Status = namedtuple('Status', ['comment',
+                                   'time_start',
                                    'time_end',
-                                   'recs_count', 
+                                   'recs_count',
                                    'queries_count',
-                                   'ts', 
-                                   'status', 
+                                   'ts',
+                                   'status',
                                    'error'])
-    # Status.ts - is a list or just bson.BSON.Timestamp() python object, 
+    # Status.ts - is a list or just bson.BSON.Timestamp() python object,
     # which is stored in DB as string. In case if ts is a list of timestamps
     # then delimeter ';' will be used when saving string representation to DB.
     # for example: "Timestamp(1464278289, 1)" or
@@ -66,14 +78,14 @@ class PsqlEtlStatusTable:
 
     def drop_table(self):
         fmt = 'DROP TABLE IF EXISTS {schema}qmetlstatus;'
-        self.cursor.execute( fmt.format(schema=self.schema_name) )
-        
+        self.cursor.execute(fmt.format(schema=self.schema_name))
+
     def create_table(self):
         fmt = 'CREATE TABLE IF NOT EXISTS {schema}qmetlstatus (\
         "comment" TEXT, "time_start" TIMESTAMP, "time_end" TIMESTAMP, \
         "recs_count" INT, "queries_count" INT,\
         "ts" TEXT, "status" INT, "error" BOOLEAN);'
-        self.cursor.execute( fmt.format(schema=self.schema_name) )
+        self.cursor.execute(fmt.format(schema=self.schema_name))
 
     def ts_str(self, bson_ts):
         """ bson_ts either bson Timestamp or dict with timestamps """
@@ -90,7 +102,7 @@ class PsqlEtlStatusTable:
 
     def ts_from_str(self, ts_str):
         ts_list = ts_str.split(';')
-        assert(len(ts_list)==len(self.shards_list))
+        assert len(ts_list) == len(self.shards_list)
         if len(ts_list) == 1:
             ts = timestamp_str_to_object(ts_list[0])
         else:
@@ -103,16 +115,16 @@ class PsqlEtlStatusTable:
     def get_recent(self):
         fmt = 'SELECT * from {schema}qmetlstatus order by time_start \
 desc limit 1;'
-        self.cursor.execute( fmt.format(schema=self.schema_name) )
+        self.cursor.execute(fmt.format(schema=self.schema_name))
         rec = self.cursor.fetchone()
         if rec is not None:
-            return PsqlEtlStatusTable.Status(comment=rec[0], 
-                                             time_start=rec[1], 
-                                             time_end=rec[2], 
+            return PsqlEtlStatusTable.Status(comment=rec[0],
+                                             time_start=rec[1],
+                                             time_end=rec[2],
                                              recs_count=rec[3],
                                              queries_count=rec[4],
                                              ts=self.ts_from_str(rec[5]),
-                                             status=rec[6], 
+                                             status=rec[6],
                                              error=rec[7])
         else:
             return None
@@ -121,47 +133,37 @@ desc limit 1;'
         fmt = 'INSERT INTO {schema}qmetlstatus VALUES(\
 %s, %s, %s, %s, %s, %s, %s, %s);'
         operation_str = fmt.format(schema=self.schema_name)
-        self.cursor.execute( operation_str,
-                             (status.comment, 
-                              status.time_start,
-                              status.time_end,
-                              status.recs_count, 
-                              status.queries_count,
-                              self.ts_str(status.ts),
-                              status.status,
-                              status.error) )
+        self.cursor.execute(operation_str,
+                            (status.comment,
+                             status.time_start,
+                             status.time_end,
+                             status.recs_count,
+                             status.queries_count,
+                             self.ts_str(status.ts),
+                             status.status,
+                             status.error))
         self.cursor.execute('COMMIT;')
-
-    def add_update_arg(self, values_str, name, value):
-        fmt = '{name}={value} '
-        if value is not None:
-            if len(values_str):
-                values_str += ', '
-            if type(value) is str or type(value) is datetime:
-                value = "'" + (str(value)) + "'"
-            values_str += fmt.format(name=name, value=value)
-        return values_str
 
     def update_latest(self, recs_count, queries_count, time_end, ts, error):
         """ time_end, ts, error """
         fmt1 = 'UPDATE {schema}qmetlstatus SET {values} \
 WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
         values = ''
-        values = self.add_update_arg(values, 'time_end', time_end)
+        values = add_update_arg(values, 'time_end', time_end)
         if recs_count is not None:
-            values = self.add_update_arg(values, 'recs_count', recs_count)
+            values = add_update_arg(values, 'recs_count', recs_count)
         if queries_count is not None:
-            values = self.add_update_arg(values, 'queries_count', queries_count)
+            values = add_update_arg(values, 'queries_count', queries_count)
         if ts:
-            values = self.add_update_arg(values, 'ts', self.ts_str(ts))
-        values = self.add_update_arg(values, 'error', error)
+            values = add_update_arg(values, 'ts', self.ts_str(ts))
+        values = add_update_arg(values, 'error', error)
         res = fmt1.format(schema=self.schema_name, values=values)
-        getLogger(__name__).info('qmetlstatus update query: %s' % res)
-        self.cursor.execute( res )
+        getLogger(__name__).info('qmetlstatus update query: %s', res)
+        self.cursor.execute(res)
         self.cursor.execute('COMMIT;')
 
 
-class PsqlEtlStatusTableManager:
+class PsqlEtlStatusTableManager(object):
     def __init__(self, status_table):
         self.status_table = status_table
     def init_load_start(self, oplog_ts):
@@ -173,16 +175,16 @@ class PsqlEtlStatusTableManager:
                                            queries_count=None,
                                            ts=oplog_ts,
                                            status=STATUS_INITIAL_LOAD,
-                                           error = None)
+                                           error=None)
         self.status_table.save_new(status)
 
     def init_load_finish(self, is_error):
         self.status_table.update_latest(recs_count=None,
                                         queries_count=None,
-                                        time_end=datetime.now(), 
-                                        ts=None, 
+                                        time_end=datetime.now(),
+                                        ts=None,
                                         error=is_error)
-        
+
     def oplog_sync_start(self, ts):
         """ ts -- ts is sync point to start sync.
         from latest record from etl status table """
@@ -193,7 +195,7 @@ class PsqlEtlStatusTableManager:
                                            queries_count=None,
                                            ts=ts,
                                            status=STATUS_OPLOG_SYNC,
-                                           error = None)
+                                           error=None)
         self.status_table.save_new(status)
 
     def oplog_sync_finish(self, recs_count, queries_count, ts, is_error):
@@ -212,7 +214,7 @@ class PsqlEtlStatusTableManager:
                                            queries_count=None,
                                            ts=ts,
                                            status=STATUS_OPLOG_APPLY,
-                                           error = None)
+                                           error=None)
         self.status_table.save_new(status)
 
     def oplog_use_finish(self, recs_count, queries_count, ts, is_error):

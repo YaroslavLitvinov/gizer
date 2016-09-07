@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-""" Mongo Collection records reader that is using parallel processing 
+""" Mongo Collection records reader that is using parallel processing
     for handling records that read. """
 
 __author__ = "Yaroslav Litvinov"
@@ -27,7 +27,10 @@ def async_worker_handle_mongo_rec(schema_engines,
     return create_tables_load_bson_data(schema_engines[collection],
                                         [rec])
 
-class CollectionReader:
+class CollectionReader(object):
+    """ Table objects reader. mongo records readed fro colelction are
+    converted into table objects."""
+
     def __init__(self, collection_name, schema_engine, mongo_reader):
         self.collection_name = collection_name
         self.schema_engine = schema_engine
@@ -36,16 +39,18 @@ class CollectionReader:
                                                COLLECTION_READER_QUEUE_SIZE,
                                                async_worker_handle_mongo_rec,
                                                #1st worker param
-                                               {collection_name: schema_engine}, 
+                                               {collection_name: schema_engine},
                                                {collection_name: mongo_reader})
 
     def __del__(self):
         del self.etl_mongo_reader
 
     def get_mongo_table_objs_by_ids(self, rec_ids):
+        """ Return list of Table objects corresponding to collection items"""
         res = {}
         # prepare query
-        mongo_query = prepare_mongo_request_for_list(self.schema_engine, rec_ids)
+        mongo_query = prepare_mongo_request_for_list(self.schema_engine,
+                                                     rec_ids)
         self.etl_mongo_reader.execute_query(self.collection_name, mongo_query)
         # get and process records
         processed_recs = self.etl_mongo_reader.next_processed()

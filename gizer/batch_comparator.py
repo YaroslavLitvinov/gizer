@@ -32,7 +32,7 @@ def async_worker_handle_mongo_rec(schema_engines,
     return create_tables_load_bson_data(schema_engines[collection],
                                         [rec])
 
-class ComparatorMongoPsql:
+class ComparatorMongoPsql(object):
     """ Compare records data from Mongo DB and Postgres DB.
         Class object is fetching all required data then doing comparisons and
         getting result as Boolean."""
@@ -43,36 +43,41 @@ class ComparatorMongoPsql:
         self.psql = psql
         self.psql_schema = psql_schema
         self.recs_to_compare = {}
-        self.etl_mongo_reader = EtlMongoReader(MONGO_PSQL_CMP_BSON_WORKERS_COUNT,
-                                               MONGO_PSQL_CMP_QUEUE_SIZE,
-                                               async_worker_handle_mongo_rec,
-                                               #1st worker param
-                                               self.schema_engines, 
-                                               self.mongo_readers)
+        self.etl_mongo_reader = EtlMongoReader(
+            MONGO_PSQL_CMP_BSON_WORKERS_COUNT,
+            MONGO_PSQL_CMP_QUEUE_SIZE,
+            async_worker_handle_mongo_rec,
+            #1st worker param
+            self.schema_engines,
+            self.mongo_readers)
 
     def __del__(self):
         del self.etl_mongo_reader
 
     def add_to_compare(self, collection_name, rec_id, attempt):
+        """ Add record to compare. Also must be added to compare if previous
+        comparison result was negative.
+        params:
+        collection_name -- collection to which rec_id is belonging
+        rec_id -- rec id to compare
+        attempt -- Number of attempt to cmp this rec"""
+
         if collection_name not in self.recs_to_compare:
             self.recs_to_compare[collection_name] = {}
         # every time item adding to compare list will reset old state
         # distinguish dict key and rec_id as rec_id can be a mongo object
-        getLogger(__name__).info("%s is rec_id attempt=%d" % (str(rec_id), attempt))
+        getLogger(__name__).info("%s is rec_id attempt=%d", rec_id, attempt)
         self.recs_to_compare[collection_name][str(rec_id)] \
             = CompareRes(rec_id, False, attempt)
 
-    def compare_one_src_dest(self, collection_name, rec_id, 
-                             mongo_tables_obj, psql_tables_obj):
-        schema_engine = self.schema_engines[collection_name]
-        mongo_reader = self.mongo_readers[collection_name]
-        getLogger(__name__).info("comparing... rec_id=" + str(rec_id))
+    def compare_one_src_dest(self, rec_id, mongo_tables_obj, psql_tables_obj):
+        getLogger(__name__).info("comparing... rec_id=%s", rec_id)
         equal = cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj)
-        getLogger(__name__).info("compare res=" + str(equal) + 
-                                 " for rec_id=" + str(rec_id))
+        getLogger(__name__).info("compare res=%s rec_id=%s", equal, rec_id)
         return equal
 
     def compare_src_dest(self):
+        """ Load & compare recs added for comparison by self.add_to_compare"""
         cmp_res = True
         # iterate mongo items belong to one collection
         for collection, recs in self.recs_to_compare.iteritems():
@@ -80,8 +85,7 @@ class ComparatorMongoPsql:
             # so will be compared only that items which never compared or
             # prev comparison gave False
             recs_list_cmp = []
-            max_recs_in_list = 1000
-            for rec_id, compare_res in recs.iteritems():
+            for _, compare_res in recs.iteritems():
                 if not compare_res.flag:
                     recs_list_cmp.append(compare_res.rec_id)
             # if nothing to compare just skip current collection
@@ -98,12 +102,14 @@ class ComparatorMongoPsql:
         return cmp_res
 
     def compare_src_dest_portion(self, collection, recs):
-        getLogger(__name__).info('Compare recs: %s' % self.recs_to_compare )
+        """ Load & compare recs from  mongo and postgres.
+        Return True / False """
+        getLogger(__name__).info('Compare recs: %s', self.recs_to_compare)
         cmp_res = True
         # prepare query
         mongo_query = prepare_mongo_request_for_list(
             self.schema_engines[collection], recs)
-        getLogger(__name__).debug('query to fetch recs for cmp: %s', mongo_query)
+        getLogger(__name__).debug('query for cmp: %s', mongo_query)
         self.etl_mongo_reader.execute_query(collection, mongo_query)
         received_list = []
         # get and process records to compare
@@ -117,16 +123,14 @@ class ComparatorMongoPsql:
                     self.psql,
                     self.schema_engines[collection],
                     self.psql_schema,
-                    rec_id )
-                # this check makes sence ony for mock transport as it 
+                    rec_id)
+                # this check makes sence ony for mock transport as it
                 # will return all records and not only requested
                 key = str(rec_id)
                 if key in self.recs_to_compare[collection] and \
                         not self.recs_to_compare[collection][key].flag:
-                    equal = self.compare_one_src_dest(collection,
-                                                      rec_id,
-                                                      mongo_tables_obj,
-                                                      psql_tables_obj)
+                    equal = self.compare_one_src_dest(
+                        rec_id, mongo_tables_obj, psql_tables_obj)
                     if not equal:
                         cmp_res = False
                 else:
@@ -144,24 +148,24 @@ class ComparatorMongoPsql:
                     self.psql,
                     self.schema_engines[collection],
                     self.psql_schema,
-                    rec_id )
+                    rec_id)
                 # if psql data also doesn't exist
                 if psql_tables_obj.is_empty():
                     key = str(rec_id)
                     attempt = self.recs_to_compare[collection][key].attempt
                     self.recs_to_compare[collection][key] = \
-                        CompareRes(rec_id, True, attempt)                    
-                    getLogger(__name__).info("cmp non existing rec_id %s."
-                                             % (str(rec_id)))
+                        CompareRes(rec_id, True, attempt)
+                    getLogger(__name__).info("cmp non existing rec_id %s",
+                                             rec_id)
         return cmp_res
 
     def get_failed_cmp_attempts(self):
         failed_attempts_list = []
-        for collection, recs in self.recs_to_compare.iteritems():
-            for rec_id, compare_res in recs.iteritems():
+        for _, recs in self.recs_to_compare.iteritems():
+            for _, compare_res in recs.iteritems():
                 if not compare_res.flag and \
                         compare_res.attempt not in failed_attempts_list:
                     failed_attempts_list.append(compare_res.attempt)
         failed_attempts_list.sort()
         return failed_attempts_list
-    
+

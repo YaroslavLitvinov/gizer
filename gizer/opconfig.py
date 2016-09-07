@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+""" config parsers on top of config object.
+For reading oplog/mongo/psql settings """
+
 __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
@@ -11,24 +14,24 @@ MongoSettings = namedtuple('MongoSettings',
                             'dbname', 'user', 'passw'])
 PsqlSettings = namedtuple('PsqlSettings',
                           ['host', 'port', 'dbname',
-                           'user', 'passw', 
+                           'user', 'passw',
                            'schema'])
 
-class SectionKey:
+class SectionKey(object):
     def __init__(self, section_name):
         self.section_name = section_name
     def key(self, base_key_name):
         return "%s-%s" % (self.section_name, base_key_name)
 
 
-class StructureAcquire:
+class StructureAcquire(object):
     def __init__(self, divided_by):
         self.divided_by = divided_by
 
     def last(self, key):
         splits = key.split(self.divided_by)
         return self.divided_by.join(splits[:-1])
-        
+
     def collect_recursively(self, key):
         contents = {}
         parent = self.last(key)
@@ -44,17 +47,18 @@ def get_structure(sections_list, delim):
     res = {}
     sta = StructureAcquire(delim)
     for item in sections_list:
-        for k, v in sta.collect_recursively(item).iteritems():
-            if k not in res:
-                res[k] = [v]
-            elif v not in res[k]: 
-                res[k].append(v)
+        for key, val in sta.collect_recursively(item).iteritems():
+            if key not in res:
+                res[key] = [val]
+            elif val not in res[key]:
+                res[key].append(val)
     return res
 
 def get_config_structure(config):
     return get_structure(config.sections(), '-')
 
 def mongo_settings_from_config(config, section_name):
+    """ load mongo connection settings from config object """
     conf = config[section_name]
     mongo = SectionKey(section_name)
     return MongoSettings(ssl=conf.getboolean(mongo.key('ssl')),
@@ -66,6 +70,7 @@ def mongo_settings_from_config(config, section_name):
                          passw=conf[mongo.key('pass')].strip())
 
 def psql_settings_from_config(config, section_name):
+    """ load psql connection settings from config object """
     conf = config[section_name]
     psql = SectionKey(section_name)
     return PsqlSettings(host=conf[psql.key('host')].strip(),
@@ -78,7 +83,7 @@ def psql_settings_from_config(config, section_name):
 
 
 def load_mongo_replicas_from_setting(config, mongo_section):
-    """ Return 
+    """ Return
     {'some-name' : [ MongoSetting(), ..., MongoSetting() ],
      'some-name2' : [ MongoSetting() ]} """
     sections = config.sections()
@@ -95,13 +100,14 @@ def load_mongo_replicas_from_setting(config, mongo_section):
         # single mongo instance with many replicas
         for setting_name in conf_struct[mongo_section]:
             if setting_name in sections:
-                settings.append(mongo_settings_from_config(config, setting_name))
+                settings.append(mongo_settings_from_config(config,
+                                                           setting_name))
         if len(settings):
             all_settings[mongo_section] = settings
         if not len(settings):
             # many shards with many replicas
             for setting_name in conf_struct[mongo_section]:
-                dict_set = load_mongo_replicas_from_setting(config, 
+                dict_set = load_mongo_replicas_from_setting(config,
                                                             setting_name)
                 if len(dict_set[setting_name]):
                     all_settings[setting_name] = dict_set[setting_name]

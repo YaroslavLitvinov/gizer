@@ -4,12 +4,9 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
-import bson
 from logging import getLogger
-from bson import json_util
 from collections import namedtuple
 from mongo_schema.schema_engine import Tables
-from mongo_schema.schema_engine import create_tables_load_bson_data
 
 PComponent = namedtuple('PComponent', ['name', 'index'])
 PartialInsert = namedtuple('PartialInsert', ['tables', 'initial_indexes'])
@@ -58,24 +55,23 @@ def get_tables_data_from_oplog_set_command(schema_engine, bson_data,
                                            bson_object_id_name_value):
     """ @return list of PartianInsert(tables as dict, initial_indexes) """
     getLogger(__name__).debug("collection=%s, bson_data=%s, \
-bson_object_id_name_value=%s" % (schema_engine.root_node.name,
-                                 str(bson_data),
-                                 str(bson_object_id_name_value)))
+bson_object_id_name_value=%s", schema_engine.root_node.name,
+                              str(bson_data), str(bson_object_id_name_value))
     res = []
     for name_and_path, bson_value in bson_data.iteritems():
         tables = {}
         components = get_name_and_path_components(name_and_path)
         initial_indexes = initial_indexes_from_components(schema_engine,
                                                           components)
-        getLogger(__name__).debug("components=%s, initial_indexes=%s" %
-                                  (components, initial_indexes))
+        getLogger(__name__).debug("components=%s, initial_indexes=%s",
+                                  components, initial_indexes)
 
         obj_id_name = bson_object_id_name_value.keys()[0]
         obj_id_val = bson_object_id_name_value.values()[0]
         node = node_by_components(schema_engine, components)
-        whole_partial_bson = node.json_inject_data(bson_value,
-                                                   obj_id_name, obj_id_val)
-        getLogger(__name__).debug("whole_partial_bson=%s" % (whole_partial_bson))
+        whole_partial_bson = node.json_inject_data(
+            bson_value, obj_id_name, obj_id_val)
+        getLogger(__name__).debug("whole_partial_bson=%s", whole_partial_bson)
         table_obj = Tables(schema_engine, whole_partial_bson)
         table_obj.load_all()
         # exclude parent tables if they have no data
@@ -86,13 +82,11 @@ bson_object_id_name_value=%s" % (schema_engine.root_node.name,
             # skip parent tables as they have no data
             if not table_name in parent_tables_to_skip:
                 tables[table_name] = table
-        getLogger(__name__).debug(\
-            "whole_partial_bson skip empty tables=%s" % \
-                str(parent_tables_to_skip))
+        getLogger(__name__).debug("whole_partial_bson skip empty tables=%s",
+                                  str(parent_tables_to_skip))
 
-        getLogger(__name__).debug(\
-            "whole_partial_bson value tables=%s" % \
-                str(tables.keys()))
-        
-        res.append(PartialInsert(tables=tables, initial_indexes=initial_indexes))
+        getLogger(__name__).debug("whole_partial_bson value tables=%s",
+                                  str(tables.keys()))
+        res.append(PartialInsert(tables=tables,
+                                 initial_indexes=initial_indexes))
     return res

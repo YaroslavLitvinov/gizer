@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-""" Execute mongo query and read data returned from mongo collection. 
-Etl readed data in parallel"""
+""" MongoDB data processor working in parallel
+EtlMongoReader - Mongodb reader and parallel handling"""
 
 __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
@@ -10,9 +10,10 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 from logging import getLogger
 from gizer.opmultiprocessing import FastQueueProcessor
 
-class EtlMongoReader:
-    
-    def __init__(self, pcount, qsize, async_worker_func, 
+class EtlMongoReader(object):
+    """ MongoDB data processor working in parallel """
+
+    def __init__(self, pcount, qsize, async_worker_func,
                  schema_engines, mongo_readers):
         self.pcount = pcount
         self.qsize = qsize
@@ -31,18 +32,16 @@ class EtlMongoReader:
             del self.fast_queue
 
     def execute_query(self, collection, query):
+        """ Issue mongo query """
         self.all_recs_count = 0
         self.etl_recs_count = 0
         self.no_more_recs = False
         self.current_mongo_reader = self.mongo_readers[collection]
         self.current_mongo_reader.make_new_request(query)
 
-    def skip_all_processed_recs(self):
-        while self.next_processed() is not None:
-            pass
-
     def next_processed(self):
-        processed_list = None        
+        """ Return list of handled Table objects """
+        processed_list = None
         if self.no_more_recs:
             return processed_list
         try:
@@ -65,7 +64,7 @@ class EtlMongoReader:
             return None
         else:
             return processed_list
-    
+
     def retrieve_mongo_record(self):
         """ get next record from mongo collection """
         rec = self.current_mongo_reader.next()
@@ -73,11 +72,11 @@ class EtlMongoReader:
             self.all_recs_count = self.current_mongo_reader.count()
         if rec:
             if self.current_mongo_reader.rec_i % 1000 == 0:
-                getLogger(__name__).info("%d of %d"
-                                         % (self.current_mongo_reader.rec_i, 
-                                            self.all_recs_count))
+                getLogger(__name__).info("%d of %d",
+                                         self.current_mongo_reader.rec_i,
+                                         self.all_recs_count)
         return rec
-    
+
     def put_record_get_tables_async(self, rec_and_collection):
         """ Put mongo record into pipeline to do parallel work in multiple
         processes. Get results asynchronously if available.
