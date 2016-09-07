@@ -26,6 +26,7 @@ from gizer.oplog_sync_base import DO_OPLOG_READ_ATTEMPTS_COUNT
 from mongo_reader.prepare_mongo_request import prepare_mongo_request
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
 from mongo_reader.prepare_mongo_request import prepare_oplog_request_filter
+from mongo_reader.prepare_mongo_request import prepare_oplog_request_collection
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
 SYNC_REC_COUNT_IN_ONE_BATCH = 100
