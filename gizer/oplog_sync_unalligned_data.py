@@ -26,7 +26,7 @@ from mongo_reader.prepare_mongo_request import prepare_oplog_request_filter
 from mongo_reader.prepare_mongo_request import prepare_oplog_request_collection
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
-SYNC_REC_COUNT_IN_ONE_BATCH = 100
+SYNC_REC_COUNT_IN_ONE_BATCH = 500
 
 class TsData(object):
     """ Data struture that holds timestamp and result of its processing """
@@ -102,6 +102,9 @@ class OplogSyncUnallignedData(OplogSyncBase):
         psql_cache_table = PsqlCacheTable(self.psql_etl.cursor,
                                           self.psql_schema)
         collection_rec_ids_dict = self.get_rec_ids(start_ts_dict)
+        for collection, rec_ids_dict in collection_rec_ids_dict.iteritems():
+            getLogger(__name__).info("Collection %s items count to sync: %s",
+                                     collection, len(rec_ids_dict))
         # get sync map. Every collection items have differetn sync point
         # and should be aligned
         for collection, rec_ids_dict in collection_rec_ids_dict.iteritems():
@@ -314,6 +317,8 @@ class OplogSyncEngine(object):
                                              rec_id,
                                              ts_data_list[query_idx].oplog_name,
                                              ts_data_list[query_idx].ts)
+                else:
+                    getLogger(__name__).warning("can't sync it now: %s", rec_id)
                 self.sync_base.psql.conn.rollback()
                 if equal:
                     break
@@ -325,12 +330,18 @@ class OplogSyncEngine(object):
         for oplog_name in self.sync_base.oplog_readers:
             if self.sync_base.oplog_readers[oplog_name].real_transport():
                 dbname = self.mongo_reader.settings_list[0].dbname
-                # query timestamps only related to rec_ids
-                js_query = prepare_oplog_request_filter(
+                # query timestamps only related to collection
+                # do not rec_ids as mongodb is response to slow
+                js_query = prepare_oplog_request_collection(
                     self.start_ts_dict[oplog_name],
                     dbname,
-                    self.collection_name,
-                    rec_ids)
+                    self.collection_name)
+                # query timestamps only related to rec_ids
+                #js_query = prepare_oplog_request_filter(
+                #    self.start_ts_dict[oplog_name],
+                #    dbname,
+                #    self.collection_name,
+                #    rec_ids)
             else:
                 # mocked transport will return all the timestamps
                 js_query = prepare_oplog_request(self.start_ts_dict[oplog_name])
