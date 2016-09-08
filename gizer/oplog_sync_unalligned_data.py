@@ -266,10 +266,14 @@ class OplogSyncEngine(object):
         """ Return timestamps data and recs sync points in following format:
         res = { rec_id: [ TsData list ] }"""
         res = {}
-        getLogger(__name__).info("Requesting timestamps for rec_ids: %s", rec_ids)
+        getLogger(__name__).info("Start fetching object")
         logless(logging.ERROR)
         mongo_objects = \
             self.collection_reader.get_mongo_table_objs_by_ids(rec_ids)
+        logmore()
+        getLogger(__name__).info("Fetched object")
+        getLogger(__name__).info("Requesting timestamps for rec_ids: %s", rec_ids)
+        logless()
         recid_ts_queries = self.get_tsdata_for_recs(rec_ids)
         logmore()
         for rec_id, ts_data_list in recid_ts_queries.iteritems():
