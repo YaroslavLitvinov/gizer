@@ -26,7 +26,7 @@ from mongo_schema.schema_engine import log_table_errors
 from mock_mongo_reader import MongoReaderMock
 from mock_mongo_reader import MockReaderDataset
 from gizer.etlstatus_table import timestamp_str_to_object as ts_obj
-
+from gizer.log import save_loglevel
 
 SCHEMAS_PATH = "./test_data/schemas/rails4_mongoid_development"
 # THis schema must be precreated before running tests
@@ -40,7 +40,6 @@ OplogTest = namedtuple('OplogTest', ['before',
 SYNC_ATTEMPTS_CNT = 10
 
 def data_mock(mongo_data_path_list, collection):
-    print mongo_data_path_list
     reader = None
     list_of_test_datasets = []
     for path_and_exception in mongo_data_path_list:
@@ -54,7 +53,6 @@ def data_mock(mongo_data_path_list, collection):
     return reader
 
 def data_mock_no_exception(mongo_data_path_list, collection):
-    print mongo_data_path_list
     reader = None
     list_of_test_datasets = []
     for path in mongo_data_path_list:
@@ -214,6 +212,7 @@ def test_oplog1():
     logging.basicConfig(level=logging.DEBUG,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
+    save_loglevel()
     # dataset test
     oplog1 = {'shard1': [('test_data/oplog1/oplog1.js', None), # attempt 0
                          ('test_data/oplog1/oplog2.js', None)  # attempt 1
@@ -228,6 +227,7 @@ def test_oplog2():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
+    save_loglevel()
     # dataset test
     oplog2 = {'single-oplog': [('test_data/oplog2/oplog.js', None),
                                ('test_data/oplog2/\
@@ -241,7 +241,7 @@ def test_oplog3():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
-
+    save_loglevel()
     # dataset test
     oplog3 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
     assert(check_dataset(False, 'oplog3', oplog3,
@@ -252,7 +252,7 @@ def test_oplog4():
     logging.basicConfig(level=logging.DEBUG,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
-
+    save_loglevel()
     oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
                                ('test_data/oplog4/oplog2.js', None), # attempt 1
                                ('test_data/oplog4/oplog3.js', None), # attempt 2
@@ -271,7 +271,7 @@ def test_oplog5():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
-
+    save_loglevel()
     # dataset test should fail
     oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
                                ('test_data/oplog4/oplog2.js', None), # attempt 1
@@ -291,7 +291,7 @@ def test_oplog6():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
-
+    save_loglevel()
     # dataset test
     oplog21 = {'single-oplog': [('test_data/oplog2/oplog.js', None),
                                ('test_data/oplog2/\
@@ -318,7 +318,7 @@ def test_oplog8():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
-
+    save_loglevel()
     # dataset test
     oplog31 = {'single-oplog': [('test_data/oplog3/oplog.js', None)]}
     assert(check_dataset(False, 'oplog3', oplog31,
@@ -351,7 +351,7 @@ def test_oplog9():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
-
+    save_loglevel()
     # dataset test
     oplog21 = {'single-oplog': [('test_data/oplog2/oplog.js', None),
                                 ('test_data/oplog2/\

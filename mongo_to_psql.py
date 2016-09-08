@@ -40,6 +40,7 @@ from gizer.psql_requests import psql_conn_from_settings
 from gizer.opconfig import psql_settings_from_config
 from gizer.opconfig import mongo_settings_from_config
 from gizer.opconfig import load_mongo_replicas_from_setting
+from gizer.log import save_loglevel
 
 def sectkey(section_name, base_key_name):
     """ Return key config value. Key name in file must be concatenation 
@@ -66,6 +67,7 @@ def create_logger(logspath, name):
     logging.basicConfig(filename=logfilename,
                         level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s')
+    save_loglevel()
     logger = getLogger(__name__)
     logger.info('Created')
 

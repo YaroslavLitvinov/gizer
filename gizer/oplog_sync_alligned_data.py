@@ -114,13 +114,7 @@ Force assigning compare_res to True.')
             if self.oplog_readers[name].real_transport():
                 self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
         # create oplog parser. note: cb_insert doesn't need psql object
-        parser = OplogParser(self.oplog_readers, self.schemas_path,
-                             Callback(cb_insert, ext_arg=self.psql_schema),
-                             Callback(cb_update, 
-                                      ext_arg=(self.psql, self.psql_schema)),
-                             Callback(cb_delete, 
-                                      ext_arg=(self.psql, self.psql_schema)),
-                             dry_run = False)
+        parser = self.new_oplog_parser(dry_run=False)
         # go over oplog, and apply oplog ops for every timestamp
         oplog_queries = parser.next()
         while oplog_queries != None:

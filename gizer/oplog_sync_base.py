@@ -6,6 +6,13 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
+import logging
+from gizer.oplog_handlers import cb_insert
+from gizer.oplog_handlers import cb_update
+from gizer.oplog_handlers import cb_delete
+from gizer.oplog_parser import OplogParser
+from gizer.oplog_parser import Callback
+
 DO_OPLOG_READ_ATTEMPTS_COUNT = 10
 
 class OplogSyncBase(object):
@@ -19,11 +26,22 @@ class OplogSyncBase(object):
         self.psql_schema = psql_schema
         self.queries_counter = 0
         self.oplog_rec_counter = 0
+        super(OplogSyncBase, self).__init__()
 
     def statistic(self):
         """ Return tuple (timestamps count, queries count) """
         return (self.oplog_rec_counter, self.queries_counter)
 
+    def new_oplog_parser(self, dry_run):
+        # create oplog parser. note: cb_insert doesn't need psql object
+        return OplogParser(self.oplog_readers, self.schemas_path,
+                           Callback(cb_insert, ext_arg=self.psql_schema),
+                           Callback(cb_update,
+                                    ext_arg=(self.psql, self.psql_schema)),
+                           Callback(cb_delete,
+                                    ext_arg=(self.psql, self.psql_schema)),
+                           dry_run=dry_run)
+    
     def sync(self, start_ts_dict):
         """ Do syncronization 
         Return dict with a sync points for every shard or None if sync error.
