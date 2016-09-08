@@ -40,6 +40,7 @@ class PsqlCacheTable(object):
             self.schema_name = ''
         self.drop_table()
         self.create_table()
+        self.create_index()
 
     def drop_table(self):
         fmt = 'DROP TABLE IF EXISTS {schema}qmetlcache;'
@@ -50,6 +51,14 @@ class PsqlCacheTable(object):
         "ts" TEXT, "oplog" TEXT, "collection" TEXT, "queries" BYTEA, \
         "rec_id" TEXT, "sync_start" BOOLEAN);'
         self.cursor.execute(fmt.format(schema=self.schema_name))
+
+    def create_index(self):
+        """ Create postgresql index for table """
+        #index 1
+        fmt = 'CREATE INDEX "i_{table}" \
+ON {schema}"{table}" (collection, rec_id);'
+        self.cursor.execute(fmt.format(schema=self.schema_name,
+                                       table='qmetlcache'))
 
     def insert(self, psql_cache_data):
         fmt = 'INSERT INTO {schema}qmetlcache VALUES(\
