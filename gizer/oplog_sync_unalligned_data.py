@@ -26,7 +26,7 @@ from mongo_reader.prepare_mongo_request import prepare_oplog_request_filter
 from mongo_reader.prepare_mongo_request import prepare_oplog_request_collection
 from mongo_schema.schema_engine import create_tables_load_bson_data
 
-SYNC_REC_COUNT_IN_ONE_BATCH = 500
+SYNC_REC_COUNT_IN_ONE_BATCH = 100
 
 class TsData(object):
     """ Data struture that holds timestamp and result of its processing """
@@ -336,16 +336,16 @@ class OplogSyncEngine(object):
                 dbname = self.mongo_reader.settings_list[0].dbname
                 # query timestamps only related to collection
                 # do not rec_ids as mongodb is response to slow
-                js_query = prepare_oplog_request_collection(
-                    self.start_ts_dict[oplog_name],
-                    dbname,
-                    self.collection_name)
-                # query timestamps only related to rec_ids
-                #js_query = prepare_oplog_request_filter(
+                #js_query = prepare_oplog_request_collection(
                 #    self.start_ts_dict[oplog_name],
                 #    dbname,
-                #    self.collection_name,
-                #    rec_ids)
+                #    self.collection_name)
+                # query timestamps only related to rec_ids
+                js_query = prepare_oplog_request_filter(
+                    self.start_ts_dict[oplog_name],
+                    dbname,
+                    self.collection_name,
+                    rec_ids)
             else:
                 # mocked transport will return all the timestamps
                 js_query = prepare_oplog_request(self.start_ts_dict[oplog_name])
