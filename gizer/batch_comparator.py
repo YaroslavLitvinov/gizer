@@ -160,12 +160,13 @@ class ComparatorMongoPsql(object):
         return cmp_res
 
     def get_failed_cmp_attempts(self):
-        failed_attempts_list = []
+        failed_attempts = {}
         for _, recs in self.recs_to_compare.iteritems():
-            for _, compare_res in recs.iteritems():
-                if not compare_res.flag and \
-                        compare_res.attempt not in failed_attempts_list:
-                    failed_attempts_list.append(compare_res.attempt)
-        failed_attempts_list.sort()
-        return failed_attempts_list
+            for rec_id, compare_res in recs.iteritems():
+                if not compare_res.flag:
+                    if compare_res.attempt not in failed_attempts:
+                        failed_attempts[compare_res.attempt] = []
+                    else:
+                        failed_attempts[compare_res.attempt].append(rec_id)
+        return failed_attempts
 

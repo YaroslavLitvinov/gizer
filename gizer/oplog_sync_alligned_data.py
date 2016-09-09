@@ -69,6 +69,7 @@ class OplogSyncAllignedData(OplogSyncBase):
             failed_attempts = self.comparator.get_failed_cmp_attempts()
             getLogger(__name__).warning("Failed cmp attempts %s" % failed_attempts)
             last_portion_failed = False
+            # if failed only latest data
             if len(failed_attempts) == 1 and do_again_counter in failed_attempts:
                 last_portion_failed = True
             if not compare_res or not new_ts_dict:
