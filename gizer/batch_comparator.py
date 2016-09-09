@@ -159,6 +159,11 @@ class ComparatorMongoPsql(object):
                         CompareRes(rec_id, True, attempt)
                     getLogger(__name__).info("cmp non existing rec_id %s",
                                              rec_id)
+                else:
+                    getLogger(__name__).error(\
+                        "cmp %s not exists in mongo, but exists in psql",
+                        rec_id)
+                    cmp_res = False
         return cmp_res
 
     def get_failed_cmp_attempts(self):
