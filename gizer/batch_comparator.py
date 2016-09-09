@@ -172,7 +172,7 @@ class ComparatorMongoPsql(object):
             for rec_id, compare_res in recs.iteritems():
                 if not compare_res.flag:
                     if compare_res.attempt not in failed_attempts:
-                        failed_attempts[compare_res.attempt] = []
+                        failed_attempts[compare_res.attempt] = [rec_id]
                     else:
                         failed_attempts[compare_res.attempt].append(rec_id)
         return failed_attempts

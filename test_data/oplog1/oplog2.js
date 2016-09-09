@@ -203,7 +203,7 @@
   "ts": {"$timestamp": {"t": 1347478291, "i": 1}},
   "t": 2,
   "h": "6500669658301126550",
-  "fromMigrate": "True",
+  "fromMigrate": true,
   "v": 2,
   "op": "i",
   "ns": "rails4_mongoid_development.posts",

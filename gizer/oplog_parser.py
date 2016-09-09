@@ -50,12 +50,20 @@ class OplogParser(object):
                 failed = True
         return failed
 
+    def next_skip_from_migrate(self, name):
+        """ Don't handle item['fromMigrate']=True """
+        item = self.readers[name].next()
+        while item and \
+                ('fromMigrate' in item and item['fromMigrate'] is True):
+            item = self.readers[name].next()
+        return item
+
     def next_all_readers(self):
         """ Return record with minimum timestamp from readers set """
         # fill cache if empty
         for name in self.readers:
             if not self.readers_cache[name]:
-                self.readers_cache[name] = self.readers[name].next()
+                self.readers_cache[name] = self.next_skip_from_migrate(name)
         # locate item with min timestamp
         ts_min = ('name', None)
         for name, item in self.readers_cache.iteritems():
@@ -82,8 +90,6 @@ class OplogParser(object):
         item = self.next_all_readers()
         while item:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
-                if 'fromMigrate' in item and item['fromMigrate'] is True:
-                    continue
                 schema_name = item["ns"].split('.')[1]
                 if schema_name not in self.schema_engines:
                     getLogger(__name__).\
