@@ -120,7 +120,7 @@ class ComparatorMongoPsql(object):
             # do cmp for every returned obj
             for mongo_tables_obj in processed_recs:
                 rec_id = mongo_tables_obj.rec_id()
-                received_list.append(rec_id)
+                received_list.append(str(rec_id))
                 psql_tables_obj = load_single_rec_into_tables_obj(
                     self.psql,
                     self.schema_engines[collection],
@@ -145,7 +145,7 @@ class ComparatorMongoPsql(object):
             processed_recs = self.etl_mongo_reader.next_processed()
         # should return True for deleted items (non existing items)
         for rec_id in recs:
-            if rec_id not in received_list:
+            if str(rec_id) not in received_list:
                 psql_tables_obj = load_single_rec_into_tables_obj(
                     self.psql,
                     self.schema_engines[collection],
