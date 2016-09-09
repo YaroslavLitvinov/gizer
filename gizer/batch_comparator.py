@@ -79,6 +79,7 @@ class ComparatorMongoPsql(object):
     def compare_src_dest(self):
         """ Load & compare recs added for comparison by self.add_to_compare"""
         cmp_res = True
+        getLogger(__name__).info('Compare recs: %s', self.recs_to_compare)
         # iterate mongo items belong to one collection
         for collection, recs in self.recs_to_compare.iteritems():
             # comparison strategy: filter out previously compared recs;
@@ -104,7 +105,8 @@ class ComparatorMongoPsql(object):
     def compare_src_dest_portion(self, collection, recs):
         """ Load & compare recs from  mongo and postgres.
         Return True / False """
-        getLogger(__name__).info('Compare recs: %s', self.recs_to_compare)
+        getLogger(__name__).info("Compare collection's recs %s: %s",
+                                 collection, recs)
         cmp_res = True
         # prepare query
         mongo_query = prepare_mongo_request_for_list(
@@ -126,9 +128,9 @@ class ComparatorMongoPsql(object):
                     rec_id)
                 # this check makes sence ony for mock transport as it
                 # will return all records and not only requested
-                key = str(rec_id)
-                if key in self.recs_to_compare[collection] and \
-                        not self.recs_to_compare[collection][key].flag:
+                rec_key = str(rec_id)
+                if rec_key in self.recs_to_compare[collection] and \
+                        not self.recs_to_compare[collection][rec_key].flag:
                     equal = self.compare_one_src_dest(
                         rec_id, mongo_tables_obj, psql_tables_obj)
                     if not equal:
@@ -136,9 +138,9 @@ class ComparatorMongoPsql(object):
                 else:
                     continue
                 # update cmp result in main dict
-                attempt = self.recs_to_compare[collection][key].attempt
+                attempt = self.recs_to_compare[collection][rec_key].attempt
                 # update cmp result in main dict
-                self.recs_to_compare[collection][key] = \
+                self.recs_to_compare[collection][rec_key] = \
                     CompareRes(rec_id, equal, attempt)
             processed_recs = self.etl_mongo_reader.next_processed()
         # should return True for deleted items (non existing items)
@@ -151,9 +153,9 @@ class ComparatorMongoPsql(object):
                     rec_id)
                 # if psql data also doesn't exist
                 if psql_tables_obj.is_empty():
-                    key = str(rec_id)
-                    attempt = self.recs_to_compare[collection][key].attempt
-                    self.recs_to_compare[collection][key] = \
+                    rec_key = str(rec_id)
+                    attempt = self.recs_to_compare[collection][rec_key].attempt
+                    self.recs_to_compare[collection][rec_key] = \
                         CompareRes(rec_id, True, attempt)
                     getLogger(__name__).info("cmp non existing rec_id %s",
                                              rec_id)
