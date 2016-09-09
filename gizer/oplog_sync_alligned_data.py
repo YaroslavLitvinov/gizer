@@ -122,6 +122,9 @@ Force assigning compare_res to True.')
             collection_name = parser.item_info.schema_name
             rec_id = parser.item_info.rec_id
             self.oplog_rec_counter += 1
+            if len(oplog_queries):
+                getLogger(__name__).info("Exec ts queries %s:",
+                                         parser.item_info.ts)
             for oplog_query in oplog_queries:
                 self.queries_counter += 1
                 exec_insert(self.psql, oplog_query)
