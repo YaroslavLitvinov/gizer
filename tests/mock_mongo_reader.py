@@ -20,6 +20,8 @@ MockReaderDataset = namedtuple('MockReaderDataset',
                                 'inject_exception' ])
 
 MOCK_EXCEPTION_KEY = 'mock_exception'
+MOCK_ITEM_KEY = 'mock_item'
+MOCK_GAP_KEY = 'mock_gap'
 DATASET_KEY = 'dataset'
 GAP_KEY = 'gap'
 
@@ -39,7 +41,7 @@ class MongoReaderMock:
         return False
 
     def reset_dataset(self):
-        self.refill_flags = [True for i in self.datasets_list ]
+        self.refill_data()
 
     def refill_data(self):
         self.array_data = []
@@ -49,18 +51,10 @@ class MongoReaderMock:
             if dataset.inject_exception:
                 self.array_data.append(
                     {MOCK_EXCEPTION_KEY: dataset.inject_exception})
-            self.array_data.extend( loads(dataset.data) )
-            # apply gap only once
-            if self.refill_flags[dataset_idx]:
-                self.array_data.append( None )
-                self.refill_flags[dataset_idx] = False
-
-    def waste_one_gap(self):
-        for flag_idx in xrange(len(self.refill_flags)):
-            if self.refill_flags[flag_idx]:
-                self.refill_flags[flag_idx] = False
-                break
-            
+            else:
+                items = [{MOCK_ITEM_KEY: i} for i in loads(dataset.data)]
+                self.array_data.extend(items)
+                self.array_data.append({MOCK_GAP_KEY: True})
 
     def connauthreq(self):
         return None
@@ -68,27 +62,23 @@ class MongoReaderMock:
     def make_new_request(self, query, projection=None):
         # projection is not supported by mock transport
         self.query = query
-        self.refill_data()
+        self.rec_i = 0
 
     def count(self):
+        count = 0
         if self.array_data:
-            if None in self.array_data:
-                return self.array_data.index(None)
-            else:
-                return len(self.array_data)
-        else:
-            return 0
+            for i in self.array_data:
+                if MOCK_GAP_KEY in i and i[MOCK_GAP_KEY]:
+                    break
+                else:
+                    count += 1
+        return count
 
     def next(self):
-        item = len(self.array_data) # just  value
         rec = None
-        while rec is None and item is not None:
-            if self.array_data:
-                item = self.array_data.pop(0)
-            else:
-                item = None
-            if item is None:
-                continue
+        while rec is None and self.rec_i < len(self.array_data):
+            item = self.array_data[self.rec_i]
+            self.rec_i += 1
             # if emulating search
             if item and type(item) is dict and MOCK_EXCEPTION_KEY in item:
                 getLogger(__name__).warning("Mocked exception: %s" % 
@@ -100,7 +90,18 @@ class MongoReaderMock:
                     return None
                 else:
                     raise item[MOCK_EXCEPTION_KEY]
-            elif self.query and len(self.query):
+            elif item and type(item) is dict and MOCK_GAP_KEY in item:
+                if item[MOCK_GAP_KEY]:
+                    item[MOCK_GAP_KEY] = False
+                    item = None
+                else:
+                    continue
+            elif item and type(item) is dict and MOCK_ITEM_KEY in item:
+                item = item[MOCK_ITEM_KEY]
+            else:
+                item = None
+            
+            if item and self.query and len(self.query):
                 # if querying item having specific id
                 if ('id' in item and 'id' in self.query ) or \
                    ('_id' in item  and '_id' in self.query):
@@ -124,8 +125,6 @@ class MongoReaderMock:
             # no query / empty query
             else:
                 rec = item
-            if rec:
-                self.rec_i += 1
         return rec
 
 

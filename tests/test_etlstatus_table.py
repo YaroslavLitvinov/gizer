@@ -81,6 +81,11 @@ def test_psql_etl_status_table():
     recent_status = status_table.get_recent()
     check_end(recent_status, 1, 10, STATUS_OPLOG_APPLY, False, ts3)
 
+    status_manager.oplog_resync_finish(1, 10, ts3, False)
+    # check oplog_sync_apply is finished successfully
+    recent_status = status_table.get_recent()
+    check_end(recent_status, 1, 10, STATUS_OPLOG_RESYNC, False, ts3)
+
 
 def test_psql_etl_status_table2():
     connstr = os.environ['TEST_PSQLCONN']

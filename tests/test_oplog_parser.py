@@ -138,7 +138,7 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         getLogger(__name__).info("statistic %s" % str(unalligned_sync.statistic()))
         del unalligned_sync
         # sync failed
-        if ts_synced is None:
+        if ts_synced is None and not oplog_test.skip_sync:
             return False
 
         del dbreq
@@ -148,8 +148,9 @@ def run_oplog_engine_check(oplog_test, schemas_path):
                                                          enable_exceptions=True)
         # ignore sync results
         if oplog_test.skip_sync:
-            for oplog in ts_synced:
-                ts_synced[oplog] = None
+            ts_synced = {}
+            for name in oplog_readers:
+                ts_synced[name] = None
 
         alligned_sync \
             = OplogSyncAllignedData(dbreq, mongo_readers_after, oplog_readers,
@@ -272,7 +273,7 @@ def test_oplog5():
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     save_loglevel()
-    # dataset test should fail
+    # dataset test should not fail, oplog recover in action
     oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
                                ('test_data/oplog4/oplog2.js', None), # attempt 1
                                ('test_data/oplog4/oplog3.js', None), # attempt 2
@@ -282,10 +283,10 @@ def test_oplog5():
                                ('test_data/oplog4/oplog7.js', None), # attempt 6
                                ('test_data/oplog4/oplog8.js', None) # attempt 7
                                ]}
-    assert(check_dataset(False, 'oplog4', oplog4, 
+    assert(check_dataset(True, 'oplog4', oplog4, 
                          {'posts': None}, # don't raise error while reading posts
                          10 # - max attempts count to re-read oplog
-                         ) == False)
+                         ) == True)
 
 def test_oplog6():
     logging.basicConfig(level=logging.INFO,
@@ -381,7 +382,7 @@ if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
     ## temp
-    test_oplog1()
+    test_oplog5()
     exit(0)
     ## temp
     schemas_path = sys.argv[1]

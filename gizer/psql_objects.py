@@ -134,7 +134,11 @@ def insert_tables_data_into_dst_psql(dst_dbreq,
         insert_query = generate_insert_queries(table,
                                                dst_schema_name,
                                                dst_table_prefix)
+        print insert_query
         for insert_data in insert_query[1]:
+            getLogger(__name__).info("EXECUTE: %s %s",
+                                     insert_query[0],
+                                     insert_data)
             dst_dbreq.cursor.execute(insert_query[0],
                                      insert_data)
 
@@ -191,12 +195,13 @@ def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
         create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)
 
 def remove_rec_from_psqldb(psql, psql_schema, schema_engine,
-                           dbname, collection, rec, rec_id_obj):
+                           collection, rec, rec_id_obj):
     fake_ts = ts_obj("Timestamp(1000000000, 1)")
-    fake_ns = "%s.%" % (dbname, collection)
-    id_name_quotes = parent_id_name_and_quotes_for_table(
-        rec.tables[collection])
-    o_field = { id_name_quotes[0] : rec_id_obj }
+    fake_ns = "doesntmatter.%s" % (collection)
+    sql_table = rec.tables[collection]
+    id_name = sql_table.root.get_id_node().parent.name
+    o_field = { id_name : rec_id_obj }
     delete_queries = cb_delete((psql, psql_schema), 
                                fake_ts, fake_ns, schema_engine, o_field)
-    exec_insert(delete_queries)
+    for query in delete_queries:
+        exec_insert(psql, query)

@@ -14,6 +14,7 @@ from gizer.oplog_sync_base import OplogSyncBase
 from gizer.oplog_sync_base import DO_OPLOG_READ_ATTEMPTS_COUNT
 from gizer.psql_objects import remove_rec_from_psqldb
 from gizer.psql_objects import insert_tables_data_into_dst_psql
+from gizer.collection_reader import CollectionReader
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
 
 MAX_REQCOUNT_FOR_SHARD = 100
@@ -41,6 +42,7 @@ class OplogSyncAllignedData(OplogSyncBase):
                                               mongo_readers,
                                               psql,
                                               psql_schema)
+        self.failed = False
 
     def __del__(self):
         del self.comparator
@@ -82,11 +84,11 @@ class OplogSyncAllignedData(OplogSyncBase):
                 readers_failed = [(k, v.failed) for k,v in \
                                     self.comparator.mongo_readers.iteritems() \
                                     if v.failed]
-                if not new_ts_dict or len(readers_failed):
+                if len(readers_failed) or self.failed:
                     if len(readers_failed):
                         getLogger(__name__).warning("mongo readers failed: %s" 
                                                     % (str(readers_failed)))
-                        return start_ts_dict
+                    return start_ts_dict
                 if last_portion_failed:
                     if do_again_counter < DO_OPLOG_READ_ATTEMPTS_COUNT:
                         do_again = True
@@ -119,6 +121,7 @@ Force assigning compare_res to True.')
             # get new timestamps greater than sync point
             js_oplog_query = prepare_oplog_request(start_ts_dict[name])
             self.oplog_readers[name].make_new_request(js_oplog_query)
+            # TODO: comment it
             if self.oplog_readers[name].real_transport():
                 self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
         parser = self.new_oplog_parser(dry_run=False)
@@ -147,6 +150,7 @@ Force assigning compare_res to True.')
             else:
                 # nothing received from this shard
                 res[shard] = start_ts_dict[shard]
+        self.failed = parser.is_failed()
         if parser.is_failed():
             res = None
         return res
@@ -166,13 +170,12 @@ Force assigning compare_res to True.')
         splitted = [ids[i:i + maxs] for i in xrange(0, len(ids), maxs)]
         for chunk_ids in splitted:
             recs = reader.get_mongo_table_objs_by_ids(chunk_ids)
-            for rec in recs:
+            for str_rec_id, rec in recs.iteritems():
                 # 1. remove from psql
-                rec_id_obj = [i for i in ids if str(i) == rec.rec_id() ]
-                dbname = self.mongo_reader.settings_list[0].dbname
+                rec_id_obj = [i for i in ids if str(i) == str(str_rec_id) ]
                 remove_rec_from_psqldb(self.psql, self.psql_schema,
-                                       self.schema_engine, 
-                                       dbname, collection, rec, rec_id_obj)
+                                       reader.schema_engine, 
+                                       collection, rec, rec_id_obj)
                 # 2. add new one to psql
                 insert_tables_data_into_dst_psql(self.psql, rec,
                                                  self.psql_schema, '')
