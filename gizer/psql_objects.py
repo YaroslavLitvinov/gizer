@@ -12,9 +12,13 @@ from gizer.opcreate import generate_create_index_statement
 from gizer.opcreate import INDEX_ID_IDXS
 from gizer.opcreate import INDEX_ID_PARENT_IDXS
 from gizer.opcreate import INDEX_ID_ONLY
+from gizer.oplog_handlers import cb_delete
+from gizer.oplog_parser import exec_insert
 from gizer.all_schema_engines import get_schema_engines_as_dict
+from gizer.etlstatus_table import timestamp_str_to_object as ts_obj
 from mongo_schema.schema_engine import create_tables_load_bson_data
 from mongo_schema.schema_engine import log_table_errors
+
 
 
 def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
@@ -185,3 +189,14 @@ def create_truncate_psql_objects(dbreq, schemas_path, psql_schema):
         tables_obj = create_tables_load_bson_data(schema, None)
         drop = True
         create_psql_tables(tables_obj, dbreq, psql_schema, '', drop)
+
+def remove_rec_from_psqldb(psql, psql_schema, schema_engine,
+                           dbname, collection, rec, rec_id_obj):
+    fake_ts = ts_obj("Timestamp(1000000000, 1)")
+    fake_ns = "%s.%" % (dbname, collection)
+    id_name_quotes = parent_id_name_and_quotes_for_table(
+        rec.tables[collection])
+    o_field = { id_name_quotes[0] : rec_id_obj }
+    delete_queries = cb_delete((psql, psql_schema), 
+                               fake_ts, fake_ns, schema_engine, o_field)
+    exec_insert(delete_queries)

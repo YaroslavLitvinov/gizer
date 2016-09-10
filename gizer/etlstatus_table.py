@@ -19,6 +19,7 @@ from bson.json_util import loads
 STATUS_INITIAL_LOAD = 0
 STATUS_OPLOG_SYNC = 1
 STATUS_OPLOG_APPLY = 2
+STATUS_OPLOG_RESYNC = 3
 
 def timestamp_str_to_object(timestamp_str):
     """ Return bson Timestamp object
@@ -162,6 +163,18 @@ WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
         self.cursor.execute(res)
         self.cursor.execute('COMMIT;')
 
+    def update_latest_status(self, comment, status):
+        """ time_end, ts, error """
+        fmt1 = 'UPDATE {schema}qmetlstatus SET {values} \
+WHERE time_start = (select max(time_start) from {schema}qmetlstatus);'
+        values = ''
+        values = add_update_arg(values, 'comment', comment)
+        values = add_update_arg(values, 'status', status)
+        res = fmt1.format(schema=self.schema_name, values=values)
+        getLogger(__name__).info('qmetlstatus update query: %s', res)
+        self.cursor.execute(res)
+        self.cursor.execute('COMMIT;')
+
 
 class PsqlEtlStatusTableManager(object):
     def __init__(self, status_table):
@@ -220,3 +233,11 @@ class PsqlEtlStatusTableManager(object):
     def oplog_use_finish(self, recs_count, queries_count, ts, is_error):
         self.oplog_sync_finish(recs_count, queries_count, ts, is_error)
 
+    def oplog_resync_finish(self, recs_count, queries_count, ts, is_error):
+        self.status_table.update_latest(recs_count=recs_count,
+                                        queries_count=queries_count,
+                                        time_end=datetime.now(),
+                                        ts=ts,
+                                        error=is_error)
+        self.status_table.update_latest_status(comment='oplog resync',
+                                               status=STATUS_OPLOG_RESYNC)

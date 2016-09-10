@@ -8,18 +8,15 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 from logging import getLogger
 from collections import namedtuple
-from gizer.oplog_parser import OplogParser
 from gizer.oplog_parser import exec_insert
-from gizer.oplog_parser import Callback
-from gizer.oplog_handlers import cb_insert
-from gizer.oplog_handlers import cb_update
-from gizer.oplog_handlers import cb_delete
 from gizer.batch_comparator import ComparatorMongoPsql
 from gizer.oplog_sync_base import OplogSyncBase
 from gizer.oplog_sync_base import DO_OPLOG_READ_ATTEMPTS_COUNT
+from gizer.psql_objects import remove_rec_from_psqldb
+from gizer.psql_objects import insert_tables_data_into_dst_psql
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
 
-MAX_REQCOUNT_FOR_SHARD = 10000
+MAX_REQCOUNT_FOR_SHARD = 100
 
 class OplogSyncAllignedData(OplogSyncBase):
     """ Simplified version of synchronizer that is working with alligned data.
@@ -69,9 +66,16 @@ class OplogSyncAllignedData(OplogSyncBase):
             failed_attempts = self.comparator.get_failed_cmp_attempts()
             getLogger(__name__).warning("Failed cmp attempts %s" % failed_attempts)
             last_portion_failed = False
+            recover = False
             # if failed only latest data
             if len(failed_attempts) == 1 and do_again_counter in failed_attempts:
                 last_portion_failed = True
+            elif len(failed_attempts):
+                # recover records whose cmp get negative result
+                self.recover_failed_items(failed_attempts)
+                recover = True
+                compare_res = True
+                getLogger(__name__).info("recover complete")
             if not compare_res or not new_ts_dict:
                 # if transport returned an error then keep the same ts_start
                 # and return True, as nothing applied
@@ -96,7 +100,10 @@ Force assigning compare_res to True.')
         if compare_res:
             getLogger(__name__).info('COMMIT')
             self.psql.conn.commit()
-            return new_ts_dict
+            if recover:
+                return 'resync' # must be handled specially
+            else:
+                return new_ts_dict
         else:
             getLogger(__name__).error('ROLLBACK')
             self.psql.conn.rollback()
@@ -114,7 +121,6 @@ Force assigning compare_res to True.')
             self.oplog_readers[name].make_new_request(js_oplog_query)
             if self.oplog_readers[name].real_transport():
                 self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
-        # create oplog parser. note: cb_insert doesn't need psql object
         parser = self.new_oplog_parser(dry_run=False)
         # go over oplog, and apply oplog ops for every timestamp
         oplog_queries = parser.next()
@@ -145,3 +151,28 @@ Force assigning compare_res to True.')
             res = None
         return res
 
+    def recover_failed_items(self, failed_items):
+        getLogger(__name__).warning('start recovery')
+        for _, collection_ids in failed_items.iteritems():
+            for collection, ids in collection_ids.iteritems():
+                self.recover_collection_items(collection, ids)
+
+
+    def recover_collection_items(self, collection, ids):
+        reader = CollectionReader(collection, 
+                                  self.schema_engines[collection],
+                                  self.mongo_readers[collection])
+        maxs = 100
+        splitted = [ids[i:i + maxs] for i in xrange(0, len(ids), maxs)]
+        for chunk_ids in splitted:
+            recs = reader.get_mongo_table_objs_by_ids(chunk_ids)
+            for rec in recs:
+                # 1. remove from psql
+                rec_id_obj = [i for i in ids if str(i) == rec.rec_id() ]
+                dbname = self.mongo_reader.settings_list[0].dbname
+                remove_rec_from_psqldb(self.psql, self.psql_schema,
+                                       self.schema_engine, 
+                                       dbname, collection, rec, rec_id_obj)
+                # 2. add new one to psql
+                insert_tables_data_into_dst_psql(self.psql, rec,
+                                                 self.psql_schema, '')

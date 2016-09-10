@@ -105,8 +105,6 @@ class ComparatorMongoPsql(object):
     def compare_src_dest_portion(self, collection, recs):
         """ Load & compare recs from  mongo and postgres.
         Return True / False """
-        getLogger(__name__).info("Compare collection's recs %s: %s",
-                                 collection, recs)
         cmp_res = True
         # prepare query
         mongo_query = prepare_mongo_request_for_list(
@@ -167,13 +165,15 @@ class ComparatorMongoPsql(object):
         return cmp_res
 
     def get_failed_cmp_attempts(self):
-        failed_attempts = {}
-        for _, recs in self.recs_to_compare.iteritems():
-            for rec_id, compare_res in recs.iteritems():
-                if not compare_res.flag:
-                    if compare_res.attempt not in failed_attempts:
-                        failed_attempts[compare_res.attempt] = [rec_id]
-                    else:
-                        failed_attempts[compare_res.attempt].append(rec_id)
-        return failed_attempts
+        res = {}
+        for collection, recs in self.recs_to_compare.iteritems():
+            for rec_id, cmp_res in recs.iteritems():
+                if not cmp_res.flag:
+                    attempt = cmp_res.attempt
+                    if attempt not in res:
+                        res[attempt] = {}
+                    if collection not in res[attempt]:
+                        res[attempt][collection] = []
+                    res[attempt][collection].append(cmp_res.rec_id)
+        return res
 

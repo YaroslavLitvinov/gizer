@@ -31,6 +31,7 @@ from gizer.all_schema_engines import get_schema_engines_as_dict
 from gizer.etlstatus_table import STATUS_INITIAL_LOAD
 from gizer.etlstatus_table import STATUS_OPLOG_SYNC
 from gizer.etlstatus_table import STATUS_OPLOG_APPLY
+from gizer.etlstatus_table import STATUS_OPLOG_RESYNC
 from gizer.etlstatus_table import PsqlEtlStatusTable
 from gizer.etlstatus_table import PsqlEtlStatusTableManager
 from gizer.oplog_sync_alligned_data import OplogSyncAllignedData
@@ -126,8 +127,9 @@ def main():
     res = 0
     status = status_table.get_recent()
     if status:
-        if status.status == STATUS_INITIAL_LOAD \
-           and status.time_end and not status.error:
+        if (status.status == STATUS_INITIAL_LOAD \
+                or status.status == STATUS_OPLOG_RESYNC) \
+                and status.time_end and not status.error:
             create_logger(logspath, 'oplogsync')
             psql_sync = psql_main
             # intial load done, save oplog sync status and do oplog sync.
@@ -169,7 +171,12 @@ def main():
                 ts_res = alligned_sync.sync(status.ts)
                 stat = alligned_sync.statistic()
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
-                if ts_res: # oplog apply ok
+                if ts_res == 'resync':
+                    # some records recovered must do resync at next step
+                    status_manager.oplog_resync_finish(stat[0], stat[1],
+                                                       status.ts, False)
+                    res= 0
+                elif ts_res: # oplog apply ok
                     status_manager.oplog_use_finish(stat[0], stat[1],
                                                     ts_res, False)
                     res= 0
