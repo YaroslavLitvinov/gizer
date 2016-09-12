@@ -199,7 +199,10 @@ def remove_rec_from_psqldb(psql, psql_schema, schema_engine,
     fake_ts = ts_obj("Timestamp(1000000000, 1)")
     fake_ns = "doesntmatter.%s" % (collection)
     sql_table = rec.tables[collection]
+    # if Id node is ObjectId, then fetch name of parent 
     id_name = sql_table.root.get_id_node().parent.name
+    if id_name is None:
+        id_name = sql_table.root.get_id_node().name
     o_field = { id_name : rec_id_obj }
     getLogger(__name__).info("o_field: %s", o_field)
     delete_queries = cb_delete((psql, psql_schema), 
