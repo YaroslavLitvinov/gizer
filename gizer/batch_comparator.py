@@ -124,7 +124,12 @@ class ComparatorMongoPsql(object):
             # do cmp for every returned obj
             for mongo_tables_obj in processed_recs:
                 str_rec_id = mongo_tables_obj.rec_id()
-                rec_id = [i for i in recs if str(i) == str(str_rec_id) ][0]
+                matched_list = [i for i in recs if str(i) == str(str_rec_id) ]
+                if not matched_list:
+                    # filter out results from mock transport,
+                    # that was not requested
+                    continue
+                rec_id = matched_list[0]
                 received_list.append(str(str_rec_id))
                 psql_tables_obj = load_single_rec_into_tables_obj(
                     self.psql,

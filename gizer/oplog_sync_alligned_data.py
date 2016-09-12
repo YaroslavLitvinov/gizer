@@ -172,7 +172,12 @@ Force assigning compare_res to True.')
             recs = reader.get_mongo_table_objs_by_ids(chunk_ids)
             for str_rec_id, rec in recs.iteritems():
                 # 1. remove from psql
-                rec_id_obj = [i for i in ids if str(i) == str(str_rec_id) ][0]
+                matched_list = [i for i in ids if str(i) == str(str_rec_id) ]
+                if not matched_list:
+                    # filter out results from mock transport,
+                    # that was not requested
+                    continue
+                rec_id_obj = matched_list[0]
                 remove_rec_from_psqldb(self.psql, self.psql_schema,
                                        reader.schema_engine, 
                                        collection, rec, rec_id_obj)
