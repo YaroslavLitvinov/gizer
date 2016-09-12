@@ -17,15 +17,14 @@ from gizer.psql_objects import insert_tables_data_into_dst_psql
 from gizer.collection_reader import CollectionReader
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
 
-MAX_REQCOUNT_FOR_SHARD = 100
+# usefull for testing recovering (it helps simulate bad records)
+#MAX_REQCOUNT_FOR_SHARD = 100
 
 class OplogSyncAllignedData(OplogSyncBase):
     """ Simplified version of synchronizer that is working with alligned data.
-        
-        As init load produces unalligned data this syncronizer should not be used
-        just after init load finishes. Instead OplogSyncUnallignedData must be used.
-        
-    """
+        As init load produces unalligned data this syncronizer should not be
+        used just after init load finishes. Instead OplogSyncUnallignedData
+        must be used. """
 
     def __init__(self, psql, mongo_readers, oplog_readers,
                  schemas_path, schema_engines, psql_schema):
@@ -116,8 +115,8 @@ Force assigning compare_res to True.')
             js_oplog_query = prepare_oplog_request(start_ts_dict[name])
             self.oplog_readers[name].make_new_request(js_oplog_query)
             # TODO: comment it
-            if self.oplog_readers[name].real_transport():
-                self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
+            #if self.oplog_readers[name].real_transport():
+            #    self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
         parser = self.new_oplog_parser(dry_run=False)
         # go over oplog, and apply oplog ops for every timestamp
         oplog_queries = parser.next()
