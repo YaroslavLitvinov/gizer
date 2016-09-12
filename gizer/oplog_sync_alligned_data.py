@@ -76,7 +76,6 @@ class OplogSyncAllignedData(OplogSyncBase):
                 self.recover_failed_items(failed_attempts)
                 recover = True
                 compare_res = True
-                getLogger(__name__).info("recover complete")
             if not compare_res or not new_ts_dict:
                 # if transport returned an error then keep the same ts_start
                 # and return True, as nothing applied
@@ -155,6 +154,13 @@ Force assigning compare_res to True.')
             for collection, ids in collection_ids.iteritems():
                 self.recover_collection_items(collection, ids)
 
+        # print list of recovered items
+        for _, collection_ids in failed_items.iteritems():
+            for collection, ids in collection_ids.iteritems():
+                for rec_id in ids:
+                    getLogger(__name__).info("recovered %s %s",
+                                             collection, rec_id)
+        getLogger(__name__).info("recover complete")
 
     def recover_collection_items(self, collection, ids):
         reader = CollectionReader(collection, 
