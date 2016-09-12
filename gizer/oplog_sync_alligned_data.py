@@ -81,13 +81,7 @@ class OplogSyncAllignedData(OplogSyncBase):
             if not compare_res or not new_ts_dict:
                 # if transport returned an error then keep the same ts_start
                 # and return True, as nothing applied
-                readers_failed = [(k, v.failed) for k,v in \
-                                    self.comparator.mongo_readers.iteritems() \
-                                    if v.failed]
-                if len(readers_failed) or self.failed:
-                    if len(readers_failed):
-                        getLogger(__name__).warning("mongo readers failed: %s" 
-                                                    % (str(readers_failed)))
+                if self.failed or self.comparator.is_failed():
                     return start_ts_dict
                 if last_portion_failed:
                     if do_again_counter < DO_OPLOG_READ_ATTEMPTS_COUNT:

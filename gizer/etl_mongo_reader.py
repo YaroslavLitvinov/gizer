@@ -70,6 +70,8 @@ class EtlMongoReader(object):
         rec = self.current_mongo_reader.next()
         if not self.all_recs_count:
             self.all_recs_count = self.current_mongo_reader.count()
+        if self.current_mongo_reader.failed:
+            rec = None
         if rec:
             if self.current_mongo_reader.rec_i % 1000 == 0:
                 getLogger(__name__).info("%d of %d",

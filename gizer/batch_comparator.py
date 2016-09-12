@@ -54,6 +54,12 @@ class ComparatorMongoPsql(object):
     def __del__(self):
         del self.etl_mongo_reader
 
+    def is_failed(self):
+        for name in self.mongo_readers:
+            if self.mongo_readers[name].failed:
+                return True
+        return False
+
     def add_to_compare(self, collection_name, rec_id, attempt):
         """ Add record to compare. Also must be added to compare if previous
         comparison result was negative.

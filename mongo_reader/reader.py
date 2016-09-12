@@ -86,7 +86,16 @@ class MongoReader:
         return cursor
 
     def count(self):
-        return self.cursor.count()
+        try:
+            return self.cursor.count()
+        except pymongo.errors.OperationFailure:
+            self.failed = True
+            getLogger(__name__).error(\
+                "Exception: pymongo.errors.OperationFailure")
+        except pymongo.errors.NetworkTimeout:
+            self.failed = True
+            getLogger(__name__).error(\
+                "Exception: pymongo.errors.NetworkTimeout")
 
     def next(self):
         if not self.cursor:
