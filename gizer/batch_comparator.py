@@ -117,8 +117,9 @@ class ComparatorMongoPsql(object):
         while processed_recs is not None:
             # do cmp for every returned obj
             for mongo_tables_obj in processed_recs:
-                rec_id = mongo_tables_obj.rec_id()
-                received_list.append(str(rec_id))
+                str_rec_id = mongo_tables_obj.rec_id()
+                rec_id = [i for i in recs if str(i) == str(str_rec_id) ][0]
+                received_list.append(str(str_rec_id))
                 psql_tables_obj = load_single_rec_into_tables_obj(
                     self.psql,
                     self.schema_engines[collection],
@@ -126,7 +127,7 @@ class ComparatorMongoPsql(object):
                     rec_id)
                 # this check makes sence ony for mock transport as it
                 # will return all records and not only requested
-                rec_key = str(rec_id)
+                rec_key = str(str_rec_id)
                 if rec_key in self.recs_to_compare[collection] and \
                         not self.recs_to_compare[collection][rec_key].flag:
                     equal = self.compare_one_src_dest(

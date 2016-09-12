@@ -132,7 +132,8 @@ Force assigning compare_res to True.')
             rec_id = parser.item_info.rec_id
             self.oplog_rec_counter += 1
             if len(oplog_queries):
-                getLogger(__name__).info("Exec ts queries %s:",
+                getLogger(__name__).info("Exec ts queries [%s] %s:",
+                                         parser.item_info.oplog_name,
                                          parser.item_info.ts)
             for oplog_query in oplog_queries:
                 self.queries_counter += 1
@@ -172,7 +173,7 @@ Force assigning compare_res to True.')
             recs = reader.get_mongo_table_objs_by_ids(chunk_ids)
             for str_rec_id, rec in recs.iteritems():
                 # 1. remove from psql
-                rec_id_obj = [i for i in ids if str(i) == str(str_rec_id) ]
+                rec_id_obj = [i for i in ids if str(i) == str(str_rec_id) ][0]
                 remove_rec_from_psqldb(self.psql, self.psql_schema,
                                        reader.schema_engine, 
                                        collection, rec, rec_id_obj)

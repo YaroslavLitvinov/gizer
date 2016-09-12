@@ -201,6 +201,7 @@ def remove_rec_from_psqldb(psql, psql_schema, schema_engine,
     sql_table = rec.tables[collection]
     id_name = sql_table.root.get_id_node().parent.name
     o_field = { id_name : rec_id_obj }
+    getLogger(__name__).info("o_field: %s", o_field)
     delete_queries = cb_delete((psql, psql_schema), 
                                fake_ts, fake_ns, schema_engine, o_field)
     for query in delete_queries:

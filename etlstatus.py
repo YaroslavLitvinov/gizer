@@ -20,6 +20,7 @@ from gizer.etlstatus_table import PsqlEtlStatusTableManager
 from gizer.etlstatus_table import STATUS_INITIAL_LOAD
 from gizer.etlstatus_table import STATUS_OPLOG_SYNC
 from gizer.etlstatus_table import STATUS_OPLOG_APPLY
+from gizer.etlstatus_table import STATUS_OPLOG_RESYNC
 from gizer.opconfig import psql_settings_from_config
 from gizer.opconfig import load_mongo_replicas_from_setting
 
@@ -67,7 +68,8 @@ or status=-1 if otherwise; Also print 1 - if in progress, 0 - if not.")
         if status:
             if (status.status == STATUS_OPLOG_SYNC or \
                 status.status == STATUS_OPLOG_APPLY or \
-                status.status == STATUS_INITIAL_LOAD) and not status.error:
+                status.status == STATUS_INITIAL_LOAD or \
+                status.status == STATUS_OPLOG_RESYNC) and not status.error:
                 delta = datetime.now() - status.time_start
                 # if operation is running to long
                 if status.time_end:
