@@ -97,6 +97,7 @@ class OplogSyncUnallignedData(OplogSyncBase):
                                      collection, len(rec_ids_dict))
         # get sync map. Every collection items have differetn sync point
         # and should be aligned
+        OplogSyncEngine.cursor_ts_dict = start_ts_dict
         for collection, rec_ids_dict in collection_rec_ids_dict.iteritems():
             sync_engine = OplogSyncEngine(
                 start_ts_dict, collection, self, psql_cache_table)
@@ -181,13 +182,16 @@ class OplogSyncUnallignedData(OplogSyncBase):
             return None
 
 class OplogSyncEngine(object):
+    cursor_ts_dict = None
+
     """ Synchronize items across single collection.
     Using postgres table for caching purposes. """
     def __init__(self, start_ts_dict, collection_name,
                  sync_base, psql_cache_table):
         self.cache = None
         self.start_ts_dict = start_ts_dict
-        self.get_ts_dict = start_ts_dict
+        if not OplogSyncEngine.cursor_ts_dict:
+            OplogSyncEngine.cursor_ts_dict = start_ts_dict
         self.collection_name = collection_name
         self.sync_base = sync_base
         self.schema_engine = sync_base.schema_engines[collection_name]
@@ -246,17 +250,17 @@ class OplogSyncEngine(object):
     def sync_and_cache_tsdata(self, rec_ids):
         """ Return list of recs wor which sync_start is located"""
         synced_recs = []
-        # # check if sync failed
-        for rec_id in rec_ids:
-             if str(rec_id) in self.cantsync and \
-                     len(self.cantsync[str(rec_id)]) > 1 \
-                     and len(self.cantsync[str(rec_id)]) != \
-                     len(set(self.cantsync[str(rec_id)])):
-                 # same timestamps count for more than one attemp
-                 getLogger(__name__).error(\
-                     'Failed to sync rec_id %s, ts_counts %s',
-                     rec_id, self.cantsync[str(rec_id)])
-                 return []
+        # check if sync failed
+        # for rec_id in rec_ids:
+        #      if str(rec_id) in self.cantsync and \
+        #              len(self.cantsync[str(rec_id)]) > 1 \
+        #              and len(self.cantsync[str(rec_id)]) != \
+        #              len(set(self.cantsync[str(rec_id)])):
+        #          # same timestamps count for more than one attemp
+        #          getLogger(__name__).error(\
+        #              'Failed to sync rec_id %s, ts_counts %s',
+        #              rec_id, self.cantsync[str(rec_id)])
+        #          return []
 
         recid_tsdata_dict = self.locate_recs_sync_points(rec_ids)
         for rec_id, ts_data_list in recid_tsdata_dict.iteritems():
@@ -358,7 +362,8 @@ class OplogSyncEngine(object):
         # issue separate requests to oplog readers
         for oplog_name in self.sync_base.oplog_readers:
             # get all timestamps
-            js_query = prepare_oplog_request(self.get_ts_dict[oplog_name])
+            js_query = prepare_oplog_request(
+                OplogSyncEngine.cursor_ts_dict[oplog_name])
             self.sync_base.oplog_readers[oplog_name].make_new_request(js_query)
         parser = self.sync_base.new_oplog_parser(dry_run=False)
         oplog_queries = parser.next()
@@ -367,7 +372,7 @@ class OplogSyncEngine(object):
             oplog_name = parser.item_info.oplog_name
             rec_id = parser.item_info.rec_id
             last_ts = parser.item_info.ts
-            self.get_ts_dict[oplog_name] = last_ts
+            OplogSyncEngine.cursor_ts_dict[oplog_name] = last_ts
             # cache all timestamps data in psql
             psql_data = PsqlCacheTable.PsqlCacheData(
                 last_ts, oplog_name, collection_name,
