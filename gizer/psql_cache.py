@@ -82,6 +82,14 @@ ON {schema}"{table}" (collection, rec_id);'
         self.cursor.execute('COMMIT')
         getLogger(__name__).info("qmetlcache COMMIT")
 
+    def update_ts_sync(self, oplog, ts):
+        """ time_end, ts, error """
+        fmt1 = "UPDATE {schema}qmetlcache SET sync_start=TRUE \
+WHERE oplog='{oplog}' and ts='{ts}';"
+        query = fmt1.format(schema=self.schema_name,
+                            oplog=oplog, ts=str(ts))
+        self.cursor.execute(query)
+
     def select_max_synced_ts_at_shard(self, oplog_name):
         max_sync_start_fmt = \
             "SELECT max(a.ts) FROM (SELECT ts from {schema}qmetlcache \

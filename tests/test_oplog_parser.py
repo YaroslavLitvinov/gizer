@@ -362,21 +362,6 @@ oplog_simulate_added_after_initload.js',
     assert(check_dataset(False, 'oplog2', oplog21,
                          {'posts': None, 'guests': None}) == True)
 
-# def test_compare_empty_psql_and_mongo_records():
-#     connstr = os.environ['TEST_PSQLCONN']
-#     dbreq = PsqlRequests(psycopg2.connect(connstr))
-#     mongodata = ('test_data/oplog1/before_collection_posts.js', None)
-#     mongo_reader = data_mock([mongodata], None)
-#     schemas_path = "./test_data/schemas/rails4_mongoid_development"
-#     schema_engines = get_schema_engines_as_dict(schemas_path)
-
-#     #cmpare non existing record
-#     res = compare_psql_and_mongo_records(
-#         dbreq, mongo_reader, schema_engines['posts'], 
-#         bson.objectid.ObjectId("111111111111111111111111"), 
-#         MAIN_SCHEMA_NAME)
-#     assert(res == True)
-
 
 if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
