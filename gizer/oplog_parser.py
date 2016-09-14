@@ -91,11 +91,7 @@ class OplogParser(object):
         while item:
             if item['op'] == 'i' or item['op'] == 'u' or item['op'] == 'd':
                 schema_name = item["ns"].split('.')[1]
-                if schema_name not in self.schema_engines:
-                    getLogger(__name__).\
-                        warning("Unknown collection: " +
-                                schema_name + ", skip ts:" + str(item["ts"]))
-                else:
+                if schema_name in self.schema_engines:
                     return item
             item = self.next_all_readers()
         return None
