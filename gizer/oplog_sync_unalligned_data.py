@@ -250,17 +250,19 @@ class OplogSyncEngine(object):
     def sync_and_cache_tsdata(self, rec_ids):
         """ Return list of recs wor which sync_start is located"""
         synced_recs = []
-        # check if sync failed
-        # for rec_id in rec_ids:
-        #      if str(rec_id) in self.cantsync and \
-        #              len(self.cantsync[str(rec_id)]) > 1 \
-        #              and len(self.cantsync[str(rec_id)]) != \
-        #              len(set(self.cantsync[str(rec_id)])):
-        #          # same timestamps count for more than one attemp
-        #          getLogger(__name__).error(\
-        #              'Failed to sync rec_id %s, ts_counts %s',
-        #              rec_id, self.cantsync[str(rec_id)])
-        #          return []
+        failed_to_sync_rec_ids = []
+        # check if sync failed, and log all related data
+        for rec_id in rec_ids:
+            # if same timestamps count for more than one attempt
+             if str(rec_id) in self.cantsync and \
+                     len(self.cantsync[str(rec_id)]) > 1 \
+                     and len(self.cantsync[str(rec_id)]) != \
+                     len(set(self.cantsync[str(rec_id)])):
+                 failed_to_sync_rec_ids.append(rec_id)
+        # if sync failed
+        if failed_to_sync_rec_ids:
+            self.log_sync_error(failed_to_sync_rec_ids)
+            return []
 
         recid_tsdata_dict = self.locate_recs_sync_points(rec_ids)
         for rec_id, ts_data_list in recid_tsdata_dict.iteritems():
@@ -327,7 +329,7 @@ class OplogSyncEngine(object):
                     self.sync_base.psql_schema, rec_id)
                 equal = cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj)
                 logmore()
-                # check if located ts, to be used as start point to apply ts
+                # make start point from located ts
                 if equal:
                     if rec_id not in res:
                         res[rec_id] = ts_data_list
@@ -382,7 +384,13 @@ class OplogSyncEngine(object):
 
         self.psql_cache_table.commit()        
         # fetch all ts data related to specified rec ids
-        for rec_id in rec_ids:
+        res = self.fecth_ts_data_from_cache(rec_ids)
+        return res
+
+    def fecth_ts_data_from_cache(self, rec_ids_list):
+        res = {}
+        # fetch all ts data related to specified rec ids
+        for rec_id in rec_ids_list:
             if rec_id not in res:
                 res[rec_id] = []
             ts_data_list = self.psql_cache_table.select_ts_related_to_rec_id(
@@ -391,4 +399,30 @@ class OplogSyncEngine(object):
                 res[rec_id].append(ts_data)
         return res
 
-
+    def log_sync_error(self, rec_ids):
+        getLogger(__name__).error('Failed to sync %s rec_ids %s, ts_counts %s',
+                                  self.collection_name, rec_ids)
+        logless(logging.ERROR)
+        mongo_objects = \
+            self.collection_reader.get_mongo_table_objs_by_ids(rec_ids)
+        recid_ts_data_dict = self.fecth_ts_data_from_cache(rec_ids)
+        logmore()
+        for rec_id, ts_data_list in recid_ts_data_dict.iteritems():
+            # log psql record
+            psql_obj = load_single_rec_into_tables_obj(
+                self.sync_base.psql, self.schema_engine,
+                self.sync_base.psql_schema, rec_id)
+            for _, sqltable in psql_obj.tables.iteritems():
+                getLogger(__name__).warning("psql rec_id %s", rec_id)
+                getLogger(__name__).warning(sqltable)
+            # log mongo record
+            mongo_obj = mongo_objects[rec_id]
+            for _, sqltable in mongo_obj.tables.iteritems():
+                getLogger(__name__).warning("mongo rec_id %s", rec_id)
+                getLogger(__name__).warning(sqltable)
+            # log queries data
+            getLogger(__name__).warning("--------Queries of rec_id %s:", rec_id)
+            for ts_data in ts_data_list:
+                fmt_string = ts_data.queries[0]
+                for sqlparams in ts_data.queries[1]:
+                    getLogger(__name__).warning("%s %s:", fmt_string, sqlparams)
