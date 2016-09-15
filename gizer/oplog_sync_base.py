@@ -13,10 +13,11 @@ from gizer.oplog_parser import OplogParser
 from gizer.oplog_parser import Callback
 
 DO_OPLOG_REREAD_MAXCOUNT = 10
+MAX_CONSEQUENT_FAILURES = 3
 
 class OplogSyncBase(object):
     def __init__(self, psql, mongo_readers, oplog_readers,
-                 schemas_path, schema_engines, psql_schema):
+                 schemas_path, schema_engines, psql_schema, attempt):
         self.psql = psql
         self.mongo_readers = mongo_readers
         self.oplog_readers = oplog_readers
@@ -25,11 +26,18 @@ class OplogSyncBase(object):
         self.psql_schema = psql_schema
         self.queries_counter = 0
         self.oplog_rec_counter = 0
+        self.attempt = attempt
+        self.failed = False
         super(OplogSyncBase, self).__init__()
 
     def statistic(self):
         """ Return tuple (timestamps count, queries count) """
         return (self.oplog_rec_counter, self.queries_counter)
+
+    def set_failed(self):
+        self.failed = True
+        self.oplog_rec_counter = 0
+        self.queries_counter = 0
 
     def new_oplog_parser(self, dry_run):
         # create oplog parser. note: cb_insert doesn't need psql object

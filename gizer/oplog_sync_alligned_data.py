@@ -11,6 +11,7 @@ from gizer.oplog_parser import exec_insert
 from gizer.batch_comparator import ComparatorMongoPsql
 from gizer.oplog_sync_base import OplogSyncBase
 from gizer.oplog_sync_base import DO_OPLOG_REREAD_MAXCOUNT
+from gizer.oplog_sync_base import MAX_CONSEQUENT_FAILURES
 from gizer.psql_objects import remove_rec_from_psqldb
 from gizer.psql_objects import insert_tables_data_into_dst_psql
 from gizer.collection_reader import CollectionReader
@@ -26,7 +27,7 @@ class OplogSyncAllignedData(OplogSyncBase):
         must be used. """
 
     def __init__(self, psql, mongo_readers, oplog_readers,
-                 schemas_path, schema_engines, psql_schema):
+                 schemas_path, schema_engines, psql_schema, attempt):
         """ params:
         psql -- Postgres cursor wrapper
         mongo_readers -- dict of mongo readers, one per collection
@@ -35,12 +36,11 @@ class OplogSyncAllignedData(OplogSyncBase):
         psql_schema -- psql schema whose tables data to patch."""
         super(OplogSyncAllignedData, self).\
             __init__(psql, mongo_readers, oplog_readers,
-                     schemas_path, schema_engines, psql_schema)
+                     schemas_path, schema_engines, psql_schema, attempt)
         self.comparator = ComparatorMongoPsql(schema_engines,
                                               mongo_readers,
                                               psql,
                                               psql_schema)
-        self.failed = False
 
     def __del__(self):
         del self.comparator
@@ -69,19 +69,26 @@ class OplogSyncAllignedData(OplogSyncBase):
                                         failed_trydata)
             last_portion_failed = False
             recover = False
-            # if failed only latest data
-            if len(failed_trydata) == 1 \
-                    and do_again_counter in failed_trydata:
-                last_portion_failed = True
-            elif len(failed_trydata):
-                # recover records whose cmp get negative result
-                self.recover_failed_items(failed_trydata)
-                recover = True
-                compare_res = True
+            if failed_trydata:
+                if len(failed_trydata) == 1 \
+                        and do_again_counter in failed_trydata:
+                    # if failed only latest data
+                    last_portion_failed = True
+                elif self.attempt < MAX_CONSEQUENT_FAILURES:
+                    # on high level will not return an error
+                    self.set_failed()
+                    return start_ts_dict
+                else:
+                    # recover records whose cmp get negative result
+                    self.recover_failed_items(failed_trydata)
+                    recover = True
+                    compare_res = True
             if not compare_res or not new_ts_dict:
                 # if transport returned an error then keep the same ts_start
                 # and return True, as nothing applied
                 if self.failed or self.comparator.is_failed():
+                    getLogger(__name__).warning("Attempt %d failed",
+                                                self.attempt)
                     return start_ts_dict
                 if last_portion_failed:
                     if do_again_counter < DO_OPLOG_REREAD_MAXCOUNT:
@@ -91,8 +98,6 @@ class OplogSyncAllignedData(OplogSyncBase):
                         getLogger(__name__).warning('Rereads count exceeded.\
 Force assigning compare_res to True.')
                         compare_res = True
-                else:
-                    getLogger(__name__).warning("Recs cmp failed.")
         if compare_res:
             getLogger(__name__).info('COMMIT')
             self.psql.conn.commit()
@@ -119,6 +124,7 @@ Force assigning compare_res to True.')
             #if self.oplog_readers[name].real_transport():
             #    self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
         parser = self.new_oplog_parser(dry_run=False)
+        getLogger(__name__).info("Reread oplog ntry=%d", reread)
         # go over oplog, and apply oplog ops for every timestamp
         oplog_queries = parser.next()
         while oplog_queries != None:
@@ -146,8 +152,8 @@ Force assigning compare_res to True.')
             else:
                 # nothing received from this shard
                 res[shard] = start_ts_dict[shard]
-        self.failed = parser.is_failed()
         if parser.is_failed():
+            self.set_failed()
             res = None
         return res
 

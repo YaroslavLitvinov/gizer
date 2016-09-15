@@ -37,7 +37,7 @@ def timestamp_str_to_object(timestamp_str):
         return None
 
 def add_update_arg(values_str, name, value):
-    """ update query helper """
+    """ update query helper, will not update if value is None """
     fmt = '{name}={value} '
     if value is not None:
         if len(values_str):
@@ -198,13 +198,13 @@ class PsqlEtlStatusTableManager(object):
                                            error=None)
         self.status_table.save_new(status)
 
-    def init_load_finish(self, is_error):
+    def init_load_finish(self, error):
         self.status_table.update_latest(recs_count=None,
                                         queries_count=None,
                                         time_end=datetime.now(),
                                         ts=None,
                                         attempt=None,
-                                        error=is_error)
+                                        error=error)
 
     def oplog_sync_start(self, ts):
         """ ts -- ts is sync point to start sync.
@@ -220,13 +220,13 @@ class PsqlEtlStatusTableManager(object):
                                            error=None)
         self.status_table.save_new(status)
 
-    def oplog_sync_finish(self, recs_count, queries_count, ts, is_error):
+    def oplog_sync_finish(self, recs_count, queries_count, ts, error):
         self.status_table.update_latest(recs_count=recs_count,
                                         queries_count=queries_count,
                                         time_end=datetime.now(),
                                         ts=ts,
                                         attempt=None,
-                                        error=is_error)
+                                        error=error)
 
     def oplog_use_start(self, ts, attempt):
         """ ts -- lates succesfully handled ts """
@@ -242,21 +242,21 @@ class PsqlEtlStatusTableManager(object):
         self.status_table.save_new(status)
 
     def oplog_use_finish(self, recs_count, queries_count, ts,
-                         attempt, is_error):
+                         attempt, error):
         self.status_table.update_latest(recs_count=recs_count,
                                         queries_count=queries_count,
                                         time_end=datetime.now(),
                                         ts=ts,
                                         attempt=attempt,
-                                        error=is_error)
+                                        error=error)
 
-    def oplog_resync_finish(self, recs_count, queries_count, ts, is_error):
+    def oplog_resync_finish(self, recs_count, queries_count, ts, error):
         self.status_table.update_latest(recs_count=recs_count,
                                         queries_count=queries_count,
                                         time_end=datetime.now(),
                                         ts=ts,
                                         attempt=None,
-                                        error=is_error)
+                                        error=error)
         self.status_table.update_latest_status(comment='oplog resync',
                                                status=STATUS_OPLOG_RESYNC,
                                                attempt=None)

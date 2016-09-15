@@ -39,12 +39,12 @@ def test_psql_etl_status_table():
     recent_status = status_table.get_recent()
     check_start(recent_status, STATUS_INITIAL_LOAD, None, ts1)
 
-    status_manager.init_load_finish(is_error=False)
+    status_manager.init_load_finish(error=False)
     # check init_load is finished successfully
     recent_status = status_table.get_recent()
     check_end(recent_status, None, None,  STATUS_INITIAL_LOAD, False, ts1)
 
-    status_manager.init_load_finish(is_error=True)
+    status_manager.init_load_finish(error=True)
     # check init_load is finished unsuccessfully
     recent_status = status_table.get_recent()
     check_end(recent_status, None, None, STATUS_INITIAL_LOAD, True, ts1)
@@ -55,12 +55,12 @@ def test_psql_etl_status_table():
     recent_status = status_table.get_recent()
     check_start(recent_status, STATUS_OPLOG_SYNC, None, ts2)
 
-    status_manager.oplog_sync_finish(None, None, ts2, is_error=False)
+    status_manager.oplog_sync_finish(None, None, ts2, error=False)
     # check oplog_sync is finished successfully
     recent_status = status_table.get_recent()
     check_end(recent_status, None, None, STATUS_OPLOG_SYNC, False, ts2)
 
-    status_manager.oplog_sync_finish(None, None, ts2, is_error=True)
+    status_manager.oplog_sync_finish(None, None, ts2, error=True)
     # check oplog_sync is finished unsuccessfully
     recent_status = status_table.get_recent()
     check_end(recent_status, None, None, STATUS_OPLOG_SYNC, True, ts2)
@@ -111,12 +111,12 @@ def test_psql_etl_status_table2():
 
     ts2 = {'shard1': timestamp_str_to_object('Timestamp(1464278289, 4)'),
            'shard2': timestamp_str_to_object('Timestamp(1464278289, 5)')}
-    status_manager.oplog_sync_finish(None, None, ts2, is_error=False)
+    status_manager.oplog_sync_finish(None, None, ts2, error=False)
     # check oplog_sync is finished successfully
     recent_status = status_table.get_recent()
     check_end(recent_status, None, None, STATUS_OPLOG_SYNC, False, ts2)
 
-    status_manager.oplog_sync_finish(1, 10, ts2, is_error=True)
+    status_manager.oplog_sync_finish(1, 10, ts2, error=True)
     # check oplog_sync is finished unsuccessfully
     recent_status = status_table.get_recent()
     check_end(recent_status, 1, 10, STATUS_OPLOG_SYNC, True, ts2)

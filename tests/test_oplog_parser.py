@@ -130,7 +130,8 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         unalligned_sync \
             = OplogSyncUnallignedData(dbreq_etl, dbreq, 
                                       mongo_readers_after, oplog_readers,
-                                      schemas_path, schema_engines, psql_schema)
+                                      schemas_path, schema_engines, psql_schema,
+                                      3)
 
         #start syncing from very start of oplog
         ts_synced = unalligned_sync.sync(None)
@@ -154,7 +155,8 @@ def run_oplog_engine_check(oplog_test, schemas_path):
 
         alligned_sync \
             = OplogSyncAllignedData(dbreq, mongo_readers_after, oplog_readers,
-                                    schemas_path, schema_engines, psql_schema)
+                                    schemas_path, schema_engines, psql_schema,
+                                    3)
         res = alligned_sync.sync(ts_synced)
         if res:
             getLogger(__name__).info("Test passed")

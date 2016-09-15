@@ -33,7 +33,7 @@ class OplogSyncUnallignedData(OplogSyncBase):
     OplogSyncAllignedData."""
 
     def __init__(self, psql_etl, psql, mongo_readers, oplog_readers,
-                 schemas_path, schema_engines, psql_schema):
+                 schemas_path, schema_engines, psql_schema, attempt):
         """ params:
         psql_etl -- Postgres cursor wrapper
         psql -- Postgres cursor wrapper. Separate cursor.
@@ -43,7 +43,7 @@ class OplogSyncUnallignedData(OplogSyncBase):
         psql_schema -- psql schema whose tables data to patch."""
         super(OplogSyncUnallignedData, self).\
             __init__(psql, mongo_readers, oplog_readers,
-                     schemas_path, schema_engines, psql_schema)
+                     schemas_path, schema_engines, psql_schema, attempt)
         self.psql_etl = psql_etl
 
     def get_rec_ids(self, start_ts_dict):
