@@ -54,7 +54,7 @@ def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
         if psql_tables_obj:
             for line in str(psql_tables_obj.tables).splitlines():
                 getLogger(__name__).debug(line)
-    
+
     return res
 
 def parent_id_name_and_quotes_for_table(sqltable):
@@ -207,13 +207,13 @@ def remove_rec_from_psqldb(psql, psql_schema, schema_engine,
     fake_ts = ts_obj("Timestamp(1000000000, 1)")
     fake_ns = "doesntmatter.%s" % (collection)
     sql_table = rec.tables[collection]
-    # if Id node is ObjectId, then fetch name of parent 
+    # if Id node is ObjectId, then fetch name of parent
     id_name = sql_table.root.get_id_node().parent.name
     if id_name is None:
         id_name = sql_table.root.get_id_node().name
-    o_field = { id_name : rec_id_obj }
+    o_field = {id_name : rec_id_obj}
     getLogger(__name__).info("o_field: %s", o_field)
-    delete_queries = cb_delete((psql, psql_schema), 
+    delete_queries = cb_delete((psql, psql_schema),
                                fake_ts, fake_ns, schema_engine, o_field)
     for query in delete_queries:
         exec_insert(psql, query)

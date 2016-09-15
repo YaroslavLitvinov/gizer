@@ -2,7 +2,6 @@
 
 """ Oplog parser, and patcher of end data by oplog operations.
 Oplog synchronization with initially loaded data stored in psql.
-OplogParser -- class for basic oplog parsing
 do_oplog_apply -- handling oplog and applying oplog ops func
 sync_oplog -- find syncronization point in oplog for initially loaded data."""
 
@@ -16,14 +15,12 @@ from logging import getLogger
 from gizer.collection_reader import CollectionReader
 from gizer.psql_objects import load_single_rec_into_tables_obj
 from gizer.psql_objects import cmp_psql_mongo_tables
-from gizer.oplog_parser import OplogParser
 from gizer.oplog_parser import exec_insert
 from gizer.psql_cache import PsqlCacheTable
 from gizer.oplog_sync_base import OplogSyncBase
 from gizer.oplog_sync_base import DO_OPLOG_READ_ATTEMPTS_COUNT
 from gizer.log import logless, logmore
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
-from mongo_schema.schema_engine import create_tables_load_bson_data
 
 SYNC_REC_COUNT_IN_ONE_BATCH = 100
 
@@ -241,11 +238,11 @@ class OplogSyncEngine(object):
         # check if sync failed, and log all related data
         for rec_id in rec_ids:
             # if same timestamps count for more than one attempt
-             if str(rec_id) in self.cantsync and \
-                     len(self.cantsync[str(rec_id)]) > 1 \
-                     and len(self.cantsync[str(rec_id)]) != \
-                     len(set(self.cantsync[str(rec_id)])):
-                 failed_to_sync_rec_ids.append(rec_id)
+            if str(rec_id) in self.cantsync and \
+                    len(self.cantsync[str(rec_id)]) > 1 \
+                    and len(self.cantsync[str(rec_id)]) != \
+                    len(set(self.cantsync[str(rec_id)])):
+                failed_to_sync_rec_ids.append(rec_id)
         # if sync failed
         if failed_to_sync_rec_ids:
             self.log_sync_error(failed_to_sync_rec_ids)
@@ -283,7 +280,7 @@ class OplogSyncEngine(object):
             if str(rec_id) in mongo_objects:
                 mongo_obj = mongo_objects[str(rec_id)]
             psql_obj = load_single_rec_into_tables_obj(
-                self.sync_base.psql, self.schema_engine, 
+                self.sync_base.psql, self.schema_engine,
                 self.sync_base.psql_schema, rec_id)
             # cmp mongo and psql records before applying timestamps
             # just to check if it is already synced
@@ -367,7 +364,7 @@ class OplogSyncEngine(object):
             self.psql_cache_table.insert(psql_data)
             oplog_queries = parser.next()
 
-        self.psql_cache_table.commit()        
+        self.psql_cache_table.commit()
         # fetch all ts data related to specified rec ids
         res = self.fecth_ts_data_from_cache(rec_ids)
         return res
@@ -385,7 +382,7 @@ class OplogSyncEngine(object):
         return res
 
     def log_sync_error(self, rec_ids):
-        getLogger(__name__).error('Failed to sync %s rec_ids %s, ts_counts %s',
+        getLogger(__name__).error('Failed to sync %s rec_ids %s',
                                   self.collection_name, rec_ids)
         logless(logging.ERROR)
         mongo_objects = \

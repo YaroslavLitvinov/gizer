@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
-""" """
+""" Interface for synchronizer implementations """
 
 __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
-import logging
 from gizer.oplog_handlers import cb_insert
 from gizer.oplog_handlers import cb_update
 from gizer.oplog_handlers import cb_delete
@@ -41,9 +40,9 @@ class OplogSyncBase(object):
                            Callback(cb_delete,
                                     ext_arg=(self.psql, self.psql_schema)),
                            dry_run=dry_run)
-    
+
     def sync(self, start_ts_dict):
-        """ Do syncronization 
+        """ Do syncronization
         Return dict with a sync points for every shard or None if sync error.
         params:
         start_ts_dict Initial sync points """

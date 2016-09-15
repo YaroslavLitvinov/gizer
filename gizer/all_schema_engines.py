@@ -15,7 +15,7 @@ def get_schema_files(schemas_dirpath):
             res.append(fname)
     res.sort()
     return res
-        
+
 def get_schema_engines_as_dict(schemas_dirpath):
     """ Load schema engines into dict.
     Basename of schema file should be the name of collection"""

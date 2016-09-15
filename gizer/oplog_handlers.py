@@ -18,7 +18,7 @@ def cb_insert(psql_schema, ts, ns, schema_engine, bson_data):
     log_table_errors("collection: %s data for opinsert load from MONGO OPLOG \
 with errors:" % collection_name, tables.errors)
     res = []
-    for name, table in tables.tables.iteritems():
+    for _, table in tables.tables.iteritems():
         res.append(OplogQuery("i", generate_insert_queries(table,
                                                            psql_schema,
                                                            "")))
@@ -43,7 +43,7 @@ def cb_delete(ext_arg, ts, ns, schema, bson_data):
     dbreq = ext_arg[0]
     psql_schema = ext_arg[1]
     id_str = str(bson_data['_id'])
-    cb_res = op_delete_stmts(dbreq, schema.schema,ns.split('.')[-1],id_str,
+    cb_res = op_delete_stmts(dbreq, schema.schema, ns.split('.')[-1], id_str,
                              DatabaseInfo('', psql_schema))
     res = []
     for oper in cb_res:

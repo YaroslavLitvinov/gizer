@@ -124,7 +124,7 @@ class ComparatorMongoPsql(object):
             # do cmp for every returned obj
             for mongo_tables_obj in processed_recs:
                 str_rec_id = mongo_tables_obj.rec_id()
-                matched_list = [i for i in recs if str(i) == str(str_rec_id) ]
+                matched_list = [i for i in recs if str(i) == str(str_rec_id)]
                 if not matched_list:
                     # filter out results from mock transport,
                     # that was not requested
@@ -179,7 +179,7 @@ class ComparatorMongoPsql(object):
     def get_failed_cmp_attempts(self):
         res = {}
         for collection, recs in self.recs_to_compare.iteritems():
-            for rec_id, cmp_res in recs.iteritems():
+            for _, cmp_res in recs.iteritems():
                 if not cmp_res.flag:
                     attempt = cmp_res.attempt
                     if attempt not in res:

@@ -7,7 +7,6 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 from logging import getLogger
-from collections import namedtuple
 from gizer.oplog_parser import exec_insert
 from gizer.batch_comparator import ComparatorMongoPsql
 from gizer.oplog_sync_base import OplogSyncBase
@@ -62,14 +61,17 @@ class OplogSyncAllignedData(OplogSyncBase):
         do_again = True
         while do_again:
             do_again = False
-            new_ts_dict = self.read_oplog_apply_ops(new_ts_dict, do_again_counter)
+            new_ts_dict = self.read_oplog_apply_ops(new_ts_dict,
+                                                    do_again_counter)
             compare_res = self.comparator.compare_src_dest()
             failed_attempts = self.comparator.get_failed_cmp_attempts()
-            getLogger(__name__).warning("Failed cmp attempts %s" % failed_attempts)
+            getLogger(__name__).warning("Failed cmp attempts %s",
+                                        failed_attempts)
             last_portion_failed = False
             recover = False
             # if failed only latest data
-            if len(failed_attempts) == 1 and do_again_counter in failed_attempts:
+            if len(failed_attempts) == 1 \
+                    and do_again_counter in failed_attempts:
                 last_portion_failed = True
             elif len(failed_attempts):
                 # recover records whose cmp get negative result
@@ -172,14 +174,14 @@ Force assigning compare_res to True.')
             recs = reader.get_mongo_table_objs_by_ids(chunk_ids)
             for str_rec_id, rec in recs.iteritems():
                 # 1. remove from psql
-                matched_list = [i for i in ids if str(i) == str(str_rec_id) ]
+                matched_list = [i for i in ids if str(i) == str(str_rec_id)]
                 if not matched_list:
                     # filter out results from mock transport,
                     # that was not requested
                     continue
                 rec_id_obj = matched_list[0]
                 remove_rec_from_psqldb(self.psql, self.psql_schema,
-                                       reader.schema_engine, 
+                                       reader.schema_engine,
                                        collection, rec, rec_id_obj)
                 # 2. add new one to psql
                 insert_tables_data_into_dst_psql(self.psql, rec,
