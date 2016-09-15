@@ -57,10 +57,9 @@ def test_update():
 
 
     # oplog_data = loads(test_data_19)
-    # model = []
-    # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, '', '')
+    # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
     # print(result)
-
+    # exit(0)
     # check_print_dictionary(result,model,1)
     # assert sqls_to_dict(result) == sqls_to_dict(model)
 
@@ -325,6 +324,14 @@ def test_update():
         {'DELETE FROM rated_post_comment_rate_item_rates WHERE (rated_posts_comments_idx=(%s)) and (rated_posts_comments_rates_idx=(%s)) and (rated_posts_id_oid=(%s));': [('3', '10', '56b8da59f9fcee1b00000015')]},
         {'UPDATE rated_post_comment_rates SET user_info_last_name=(%s), user_info_name=(%s) WHERE idx=(%s) and rated_posts_comments_idx=(%s) and rated_posts_id_oid=(%s);': [(None, None, '9', '3', '56b8da59f9fcee1b00000015')]}
     ]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
+    assert sqls_to_dict(result) == sqls_to_dict(model)
+
+    print('Test #26')
+    oplog_data = loads(test_data_19)
+    model = [
+        {'DELETE FROM "rated_post_tests" WHERE (rated_posts_id_oid=(%s));': [('54f9d91b70722d95c4ce0600',)]},
+        {'UPDATE "rated_posts" SET "body"=(%s) WHERE "id_oid"=(%s);': [('test body', '54f9d91b70722d95c4ce0600')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
