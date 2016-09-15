@@ -27,26 +27,34 @@ def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
     psql_tables_obj -- Tables obj loaded from postgres;
     mongo_tables_obj -- Tables obj loaded from mongodb. """
     res = None
-    if psql_tables_obj.is_empty() and mongo_tables_obj.is_empty():
-        # comparison of non existing objects gets True
-        res = True
+    if not mongo_tables_obj or mongo_tables_obj.is_empty():
+        if not psql_tables_obj or psql_tables_obj.is_empty():
+            res = True
+        else:
+            res = False
+    elif not psql_tables_obj or psql_tables_obj.is_empty():
+        if not mongo_tables_obj or mongo_tables_obj.is_empty():
+            res = True
+        else:
+            res = False
     else:
-        compare_res = mongo_tables_obj.compare(psql_tables_obj)
-        if not compare_res:
+        res = mongo_tables_obj.compare(psql_tables_obj)
+    if not res:
+        getLogger(__name__).debug('cmp rec=%s res=%s mongo arg[1] data:',
+                                  rec_id, res)
+        if mongo_tables_obj:
             collection_name = mongo_tables_obj.schema_engine.root_node.name
             log_table_errors("%s's MONGO rec load warns:" % collection_name,
                              mongo_tables_obj.errors)
-            getLogger(__name__).debug('cmp rec=%s res=False mongo arg[1] data:',
-                                      rec_id)
             for line in str(mongo_tables_obj.tables).splitlines():
                 getLogger(__name__).debug(line)
-            getLogger(__name__).debug('cmp rec=%s res=False psql arg[2] data:',
-                                      rec_id)
+
+        getLogger(__name__).debug('cmp rec=%s res=%s psql arg[2] data:',
+                                  rec_id, res)
+        if psql_tables_obj:
             for line in str(psql_tables_obj.tables).splitlines():
                 getLogger(__name__).debug(line)
-
-        # save result of comparison
-        res = compare_res
+    
     return res
 
 def parent_id_name_and_quotes_for_table(sqltable):

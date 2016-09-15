@@ -215,36 +215,23 @@ class OplogSyncEngine(object):
                 and len(rec_ids_dict) != count_synced:
             sync_attempt += 1
             getLogger(__name__).info("Sync collection:%s attempt # %d/%d",
-                                     self.collection_name,
-                                     sync_attempt, DO_OPLOG_READ_ATTEMPTS_COUNT)
-            rec_ids = []
+                                     self.collection_name, sync_attempt,
+                                     DO_OPLOG_READ_ATTEMPTS_COUNT)
+            ids = []
             for rec_id, sync in rec_ids_dict.iteritems():
-                if sync:
-                    continue
-
-                rec_ids.append(rec_id)
-                if len(rec_ids) < SYNC_REC_COUNT_IN_ONE_BATCH:
-                    # collect rec_ids for processing
-                    continue
+                if not sync:
+                    ids.append(rec_id)
+            maxs = SYNC_REC_COUNT_IN_ONE_BATCH
+            splitted = [ids[i:i + maxs] for i in xrange(0, len(ids), maxs)]
+            for rec_ids in splitted:
                 synced_recs = sync_engine.sync_and_cache_tsdata(rec_ids)
                 count_synced += len(synced_recs)
-                del rec_ids[:]
                 for synced_rec_id in synced_recs:
                     rec_ids_dict[synced_rec_id] = True # synced
-
                 getLogger(__name__).info("sync progress for %s is: %d / %d",
                                          self.collection_name,
                                          count_synced,
                                          len(rec_ids_dict))
-            # after loop ends check if there items left to be handled
-            if rec_ids:
-                synced_recs = sync_engine.sync_and_cache_tsdata(rec_ids)
-                count_synced += len(synced_recs)
-                for synced_rec_id in synced_recs:
-                    rec_ids_dict[synced_rec_id] = True # synced
-            getLogger(__name__).info("Synced %s %d of %d recs",
-                                     self.collection_name,
-                                     count_synced, len(rec_ids_dict))
         return len(rec_ids_dict) == count_synced
 
     def sync_and_cache_tsdata(self, rec_ids):
@@ -284,8 +271,7 @@ class OplogSyncEngine(object):
         mongo_objects = \
             self.collection_reader.get_mongo_table_objs_by_ids(rec_ids)
         logmore()
-        getLogger(__name__).info("Mongo objects fetched ")
-        getLogger(__name__).info("Get timestamps for rec_ids: %s", rec_ids)
+        getLogger(__name__).info("Getting ts for rec_ids: %s", rec_ids)
         logless()
         recid_ts_queries = self.get_tsdata_for_recs(rec_ids)
         logmore()
@@ -293,11 +279,9 @@ class OplogSyncEngine(object):
             getLogger(__name__).info("Count of timestamps for rec_id: %s : %d",
                                      rec_id, len(ts_data_list))
             logless()
+            mongo_obj = None
             if str(rec_id) in mongo_objects:
                 mongo_obj = mongo_objects[str(rec_id)]
-            else:
-                # get empty object as doesn't exists in mongo
-                mongo_obj = create_tables_load_bson_data(self.schema_engine, {})
             psql_obj = load_single_rec_into_tables_obj(
                 self.sync_base.psql, self.schema_engine, 
                 self.sync_base.psql_schema, rec_id)
@@ -311,6 +295,7 @@ class OplogSyncEngine(object):
                     None, None, self.collection_name, None, rec_id, True)
                 self.psql_cache_table.insert(psql_data)
                 logmore()
+                getLogger(__name__).info("%s already synced", rec_id)
                 continue
             logmore()
             # Apply timestamps and then cmp resulting psql object and mongo obj
@@ -420,6 +405,11 @@ class OplogSyncEngine(object):
             for _, sqltable in mongo_obj.tables.iteritems():
                 getLogger(__name__).warning("mongo rec_id %s", rec_id)
                 getLogger(__name__).warning(sqltable)
+            # log timestamps
+            for ts_data in ts_data_list:
+                getLogger(__name__).warning("ts of rec_id: [%s]%s -> [%s]%s",
+                                            ts_data.collection, rec_id,
+                                            ts_data.oplog, ts_data.ts)
             # log queries data
             getLogger(__name__).warning("--------Queries of rec_id %s:", rec_id)
             for ts_data in ts_data_list:
