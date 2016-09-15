@@ -18,7 +18,7 @@ from mongo_schema.schema_engine import create_tables_load_bson_data
 MONGO_PSQL_CMP_BSON_WORKERS_COUNT = 8
 MONGO_PSQL_CMP_QUEUE_SIZE = MONGO_PSQL_CMP_BSON_WORKERS_COUNT*2
 
-CompareRes = namedtuple('CompareRes', ['rec_id', 'flag', 'attempt'])
+CompareRes = namedtuple('CompareRes', ['rec_id', 'flag', 'ntry'])
 
 def async_worker_handle_mongo_rec(schema_engines,
                                   rec_data_and_collection):
@@ -60,21 +60,21 @@ class ComparatorMongoPsql(object):
                 return True
         return False
 
-    def add_to_compare(self, collection_name, rec_id, attempt):
+    def add_to_compare(self, collection_name, rec_id, ntry):
         """ Add record to compare. Also must be added to compare if previous
         comparison result was negative.
         params:
         collection_name -- collection to which rec_id is belonging
         rec_id -- rec id to compare
-        attempt -- Number of attempt to cmp this rec"""
+        ntry -- Number of ntry to cmp this rec"""
 
         if collection_name not in self.recs_to_compare:
             self.recs_to_compare[collection_name] = {}
         # every time item adding to compare list will reset old state
         # distinguish dict key and rec_id as rec_id can be a mongo object
-        getLogger(__name__).info("%s is rec_id attempt=%d", rec_id, attempt)
+        getLogger(__name__).info("%s is rec_id ntry=%d", rec_id, ntry)
         self.recs_to_compare[collection_name][str(rec_id)] \
-            = CompareRes(rec_id, False, attempt)
+            = CompareRes(rec_id, False, ntry)
 
     def compare_one_src_dest(self, rec_id, mongo_tables_obj, psql_tables_obj):
         getLogger(__name__).info("comparing... rec_id=%s", rec_id)
@@ -148,10 +148,10 @@ class ComparatorMongoPsql(object):
                 else:
                     continue
                 # update cmp result in main dict
-                attempt = self.recs_to_compare[collection][rec_key].attempt
+                ntry = self.recs_to_compare[collection][rec_key].ntry
                 # update cmp result in main dict
                 self.recs_to_compare[collection][rec_key] = \
-                    CompareRes(rec_id, equal, attempt)
+                    CompareRes(rec_id, equal, ntry)
             processed_recs = self.etl_mongo_reader.next_processed()
         # should return True for deleted items (non existing items)
         for rec_id in recs:
@@ -164,9 +164,9 @@ class ComparatorMongoPsql(object):
                 # if psql data also doesn't exist
                 if psql_tables_obj.is_empty():
                     rec_key = str(rec_id)
-                    attempt = self.recs_to_compare[collection][rec_key].attempt
+                    ntry = self.recs_to_compare[collection][rec_key].ntry
                     self.recs_to_compare[collection][rec_key] = \
-                        CompareRes(rec_id, True, attempt)
+                        CompareRes(rec_id, True, ntry)
                     getLogger(__name__).info("cmp non existing rec_id %s",
                                              rec_id)
                 else:
@@ -176,16 +176,16 @@ class ComparatorMongoPsql(object):
                     cmp_res = False
         return cmp_res
 
-    def get_failed_cmp_attempts(self):
+    def get_failed_trydata(self):
         res = {}
         for collection, recs in self.recs_to_compare.iteritems():
             for _, cmp_res in recs.iteritems():
                 if not cmp_res.flag:
-                    attempt = cmp_res.attempt
-                    if attempt not in res:
-                        res[attempt] = {}
-                    if collection not in res[attempt]:
-                        res[attempt][collection] = []
-                    res[attempt][collection].append(cmp_res.rec_id)
+                    ntry = cmp_res.ntry
+                    if ntry not in res:
+                        res[ntry] = {}
+                    if collection not in res[ntry]:
+                        res[ntry][collection] = []
+                    res[ntry][collection].append(cmp_res.rec_id)
         return res
 

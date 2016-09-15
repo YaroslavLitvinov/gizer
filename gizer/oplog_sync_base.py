@@ -12,7 +12,7 @@ from gizer.oplog_handlers import cb_delete
 from gizer.oplog_parser import OplogParser
 from gizer.oplog_parser import Callback
 
-DO_OPLOG_READ_ATTEMPTS_COUNT = 10
+DO_OPLOG_REREAD_MAXCOUNT = 10
 
 class OplogSyncBase(object):
     def __init__(self, psql, mongo_readers, oplog_readers,

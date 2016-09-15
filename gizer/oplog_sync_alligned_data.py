@@ -10,7 +10,7 @@ from logging import getLogger
 from gizer.oplog_parser import exec_insert
 from gizer.batch_comparator import ComparatorMongoPsql
 from gizer.oplog_sync_base import OplogSyncBase
-from gizer.oplog_sync_base import DO_OPLOG_READ_ATTEMPTS_COUNT
+from gizer.oplog_sync_base import DO_OPLOG_REREAD_MAXCOUNT
 from gizer.psql_objects import remove_rec_from_psqldb
 from gizer.psql_objects import insert_tables_data_into_dst_psql
 from gizer.collection_reader import CollectionReader
@@ -64,18 +64,18 @@ class OplogSyncAllignedData(OplogSyncBase):
             new_ts_dict = self.read_oplog_apply_ops(new_ts_dict,
                                                     do_again_counter)
             compare_res = self.comparator.compare_src_dest()
-            failed_attempts = self.comparator.get_failed_cmp_attempts()
-            getLogger(__name__).warning("Failed cmp attempts %s",
-                                        failed_attempts)
+            failed_trydata = self.comparator.get_failed_trydata()
+            getLogger(__name__).warning("Failed cmp rereads %s",
+                                        failed_trydata)
             last_portion_failed = False
             recover = False
             # if failed only latest data
-            if len(failed_attempts) == 1 \
-                    and do_again_counter in failed_attempts:
+            if len(failed_trydata) == 1 \
+                    and do_again_counter in failed_trydata:
                 last_portion_failed = True
-            elif len(failed_attempts):
+            elif len(failed_trydata):
                 # recover records whose cmp get negative result
-                self.recover_failed_items(failed_attempts)
+                self.recover_failed_items(failed_trydata)
                 recover = True
                 compare_res = True
             if not compare_res or not new_ts_dict:
@@ -84,11 +84,11 @@ class OplogSyncAllignedData(OplogSyncBase):
                 if self.failed or self.comparator.is_failed():
                     return start_ts_dict
                 if last_portion_failed:
-                    if do_again_counter < DO_OPLOG_READ_ATTEMPTS_COUNT:
+                    if do_again_counter < DO_OPLOG_REREAD_MAXCOUNT:
                         do_again = True
                         do_again_counter += 1
-                    else: # Attempts count exceeded
-                        getLogger(__name__).warning('Attempts count exceeded.\
+                    else: # Rereads count exceeded
+                        getLogger(__name__).warning('Rereads count exceeded.\
 Force assigning compare_res to True.')
                         compare_res = True
                 else:
@@ -105,7 +105,7 @@ Force assigning compare_res to True.')
             self.psql.conn.rollback()
             return None
 
-    def read_oplog_apply_ops(self, start_ts_dict, attempt):
+    def read_oplog_apply_ops(self, start_ts_dict, reread):
         """ Apply ops going after specified timestamps.
         params:
         start_ts_dict -- dict with Timestamp for every shard.
@@ -126,17 +126,18 @@ Force assigning compare_res to True.')
             rec_id = parser.item_info.rec_id
             self.oplog_rec_counter += 1
             if len(oplog_queries):
-                getLogger(__name__).info("Exec ts queries [%s] %s:",
-                                         parser.item_info.oplog_name,
-                                         parser.item_info.ts)
+                getLogger(__name__).info(\
+                    "Reread %d exec rec_id [%s] %s related queries [%s] %s:",
+                    reread, collection_name, rec_id,
+                    parser.item_info.oplog_name, parser.item_info.ts)
             for oplog_query in oplog_queries:
                 self.queries_counter += 1
                 exec_insert(self.psql, oplog_query)
-                self.comparator.add_to_compare(collection_name, rec_id, attempt)
+                self.comparator.add_to_compare(collection_name, rec_id, reread)
             oplog_queries = parser.next()
         getLogger(__name__).info(\
-            "%d attempt. Handled oplog records/psql queries: %d/%d" %
-            (attempt, self.oplog_rec_counter, self.queries_counter))
+            "%d reread. Handled oplog records/psql queries: %d/%d" %
+            (reread, self.oplog_rec_counter, self.queries_counter))
         res = {}
         for shard in start_ts_dict:
             if shard in parser.last_oplog_ts:

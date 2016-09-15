@@ -18,7 +18,7 @@ from gizer.psql_objects import cmp_psql_mongo_tables
 from gizer.oplog_parser import exec_insert
 from gizer.psql_cache import PsqlCacheTable
 from gizer.oplog_sync_base import OplogSyncBase
-from gizer.oplog_sync_base import DO_OPLOG_READ_ATTEMPTS_COUNT
+from gizer.oplog_sync_base import DO_OPLOG_REREAD_MAXCOUNT
 from gizer.log import logless, logmore
 from mongo_reader.prepare_mongo_request import prepare_oplog_request
 
@@ -206,14 +206,14 @@ class OplogSyncEngine(object):
     def sync_collection_timestamps(self, sync_engine, rec_ids_dict):
         """ Sync all the collection's items. Return True / False """
         count_synced = 0
-        sync_attempt = 0
+        sync_try = 0
         self.cantsync = {}
-        while sync_attempt < DO_OPLOG_READ_ATTEMPTS_COUNT \
+        while sync_try < DO_OPLOG_REREAD_MAXCOUNT \
                 and len(rec_ids_dict) != count_synced:
-            sync_attempt += 1
-            getLogger(__name__).info("Sync collection:%s attempt # %d/%d",
-                                     self.collection_name, sync_attempt,
-                                     DO_OPLOG_READ_ATTEMPTS_COUNT)
+            sync_try += 1
+            getLogger(__name__).info("%s collection sync_try # %d/%d",
+                                     self.collection_name, sync_try,
+                                     DO_OPLOG_REREAD_MAXCOUNT)
             ids = []
             for rec_id, sync in rec_ids_dict.iteritems():
                 if not sync:
@@ -237,7 +237,7 @@ class OplogSyncEngine(object):
         failed_to_sync_rec_ids = []
         # check if sync failed, and log all related data
         for rec_id in rec_ids:
-            # if same timestamps count for more than one attempt
+            # if same timestamps count during more than one sync_try
             if str(rec_id) in self.cantsync and \
                     len(self.cantsync[str(rec_id)]) > 1 \
                     and len(self.cantsync[str(rec_id)]) != \

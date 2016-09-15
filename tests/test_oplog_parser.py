@@ -35,9 +35,9 @@ MAIN_SCHEMA_NAME = ''
 OplogTest = namedtuple('OplogTest', ['before',
                                      'oplog_dataset',
                                      'after',
-                                     'max_attempts',
+                                     'max_tries',
                                      'skip_sync'])
-SYNC_ATTEMPTS_CNT = 10
+SYNC_TRY_COUNT = 10
 
 def data_mock(mongo_data_path_list, collection):
     reader = None
@@ -120,10 +120,10 @@ def run_oplog_engine_check(oplog_test, schemas_path):
     getLogger(__name__).info("Loading mongo data after initload")
 
     try:
-        gizer.oplog_sync_unalligned_data.DO_OPLOG_READ_ATTEMPTS_COUNT \
-            = oplog_test.max_attempts
-        gizer.oplog_sync_alligned_data.DO_OPLOG_READ_ATTEMPTS_COUNT \
-            = oplog_test.max_attempts
+        gizer.oplog_sync_unalligned_data.DO_OPLOG_REREAD_MAXCOUNT \
+            = oplog_test.max_tries
+        gizer.oplog_sync_alligned_data.DO_OPLOG_REREAD_MAXCOUNT \
+            = oplog_test.max_tries
         # for better coverage
         gizer.oplog_sync_unalligned_data.SYNC_REC_COUNT_IN_ONE_BATCH = 2
 
@@ -169,7 +169,7 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         return False
 
 def check_dataset(skip_sync, name, oplog_params, params,
-                  max_attempts=SYNC_ATTEMPTS_CNT):
+                  max_tries=SYNC_TRY_COUNT):
     print '\ntest ', name
     location_fmt = 'test_data/'+name+'/%s_collection_%s.js'
     before_params = {}
@@ -182,7 +182,7 @@ def check_dataset(skip_sync, name, oplog_params, params,
             = (location_fmt % ('after', collection), params[collection])
     oplog_test \
         = OplogTest(before_params, oplog_params, after_params,
-                    max_attempts, skip_sync)
+                    max_tries, skip_sync)
     res = run_oplog_engine_check(oplog_test, SCHEMAS_PATH)
     return res
 
@@ -215,8 +215,8 @@ def test_oplog1():
                         format='%(asctime)s %(levelname)-8s %(message)s')
     save_loglevel()
     # dataset test
-    oplog1 = {'shard1': [('test_data/oplog1/oplog1.js', None), # attempt 0
-                         ('test_data/oplog1/oplog2.js', None)  # attempt 1
+    oplog1 = {'shard1': [('test_data/oplog1/oplog1.js', None), # ntry 0
+                         ('test_data/oplog1/oplog2.js', None)  # ntry 1
                          ],
               'shard2': [('test_data/oplog1/shard2-oplog1.js', None)
                          ]
@@ -254,15 +254,15 @@ def test_oplog4():
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     save_loglevel()
-    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
-                               ('test_data/oplog4/oplog2.js', None), # attempt 1
-                               ('test_data/oplog4/oplog3.js', None), # attempt 2
-                               ('test_data/oplog4/oplog4.js', None), # attempt 3
-                               ('test_data/oplog4/oplog5.js', None), # attempt 4
-                               ('test_data/oplog4/oplog6.js', None), # attempt 5
-                               ('test_data/oplog4/oplog7.js', None), # attempt 6
-                               ('test_data/oplog4/oplog8.js', None), # attempt 7
-                               ('test_data/oplog4/oplog9.js', None) # attempt 8
+    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # ntry 0
+                               ('test_data/oplog4/oplog2.js', None), # ntry 1
+                               ('test_data/oplog4/oplog3.js', None), # ntry 2
+                               ('test_data/oplog4/oplog4.js', None), # ntry 3
+                               ('test_data/oplog4/oplog5.js', None), # ntry 4
+                               ('test_data/oplog4/oplog6.js', None), # ntry 5
+                               ('test_data/oplog4/oplog7.js', None), # ntry 6
+                               ('test_data/oplog4/oplog8.js', None), # ntry 7
+                               ('test_data/oplog4/oplog9.js', None) # ntry 8
                                ]}
     assert(check_dataset(False, 'oplog4', oplog4, 
                          {'posts': None} # don't raise error while reading posts
@@ -274,18 +274,18 @@ def test_oplog5():
                         format='%(asctime)s %(levelname)-8s %(message)s')
     save_loglevel()
     # dataset test should not fail, oplog recover in action
-    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
-                               ('test_data/oplog4/oplog2.js', None), # attempt 1
-                               ('test_data/oplog4/oplog3.js', None), # attempt 2
-                               ('test_data/oplog4/oplog4.js', None), # attempt 3
-                               ('test_data/oplog4/oplog5.js', None), # attempt 4
-                               ('test_data/oplog4/oplog6.js', None), # attempt 5
-                               ('test_data/oplog4/oplog7.js', None), # attempt 6
-                               ('test_data/oplog4/oplog8.js', None) # attempt 7
+    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # ntry 0
+                               ('test_data/oplog4/oplog2.js', None), # ntry 1
+                               ('test_data/oplog4/oplog3.js', None), # ntry 2
+                               ('test_data/oplog4/oplog4.js', None), # ntry 3
+                               ('test_data/oplog4/oplog5.js', None), # ntry 4
+                               ('test_data/oplog4/oplog6.js', None), # ntry 5
+                               ('test_data/oplog4/oplog7.js', None), # ntry 6
+                               ('test_data/oplog4/oplog8.js', None) # ntry 7
                                ]}
     assert(check_dataset(True, 'oplog4', oplog4, 
                          {'posts': None}, # don't raise error while reading posts
-                         10 # - max attempts count to re-read oplog
+                         10 # - max ntrys count to re-read oplog
                          ) == True)
 
 def test_oplog6():
@@ -384,6 +384,6 @@ if __name__ == '__main__':
         = OplogTest(empty_data_before,
                     [mongo_oplog],
                     data_after,
-                    SYNC_ATTEMPTS_CNT)
+                    SYNC_TRY_COUNT)
     res = run_oplog_engine_check(oplog_test1, schemas_path)
     assert(res == True)

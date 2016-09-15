@@ -66,17 +66,17 @@ def test_psql_etl_status_table():
     check_end(recent_status, None, None, STATUS_OPLOG_SYNC, True, ts2)
 
     ts3 = timestamp_str_to_object('Timestamp(1464289389, 1)')
-    status_manager.oplog_use_start(ts3)
+    status_manager.oplog_use_start(ts3, None)
     # check oplog_sync_apply is in progress
     recent_status = status_table.get_recent()
     check_start(recent_status, STATUS_OPLOG_APPLY, None, ts3)
 
-    status_manager.oplog_use_finish(None, None, ts3, True)
+    status_manager.oplog_use_finish(None, None, ts3, None, True)
     # check oplog_sync_apply is finished unsuccessfully
     recent_status = status_table.get_recent()
     check_end(recent_status, None, None, STATUS_OPLOG_APPLY, True, ts3)
 
-    status_manager.oplog_use_finish(1, 10, ts3, False)
+    status_manager.oplog_use_finish(1, 10, ts3, None, False)
     # check oplog_sync_apply is finished successfully
     recent_status = status_table.get_recent()
     check_end(recent_status, 1, 10, STATUS_OPLOG_APPLY, False, ts3)
@@ -120,3 +120,7 @@ def test_psql_etl_status_table2():
     # check oplog_sync is finished unsuccessfully
     recent_status = status_table.get_recent()
     check_end(recent_status, 1, 10, STATUS_OPLOG_SYNC, True, ts2)
+
+if __name__ == '__main__':
+    test_psql_etl_status_table()
+    test_psql_etl_status_table2()
