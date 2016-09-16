@@ -33,7 +33,7 @@ def ensure_dir_empty(dirpath):
 
 CsvInfo = namedtuple('CsvInfo', ['writer', 'filepath', 'name', 'file_counter'])
 
-class CsvWriteManager:
+class CsvWriteManager(object):
     """ Csv files manager, transparently spliting writing files to files
     with max chunk size during writing."""
     def __init__(self, names, csvs_path, chunk_size):
@@ -85,7 +85,7 @@ class CsvWriteManager:
         for name in self.writers:
             self.writers[name].writer.close()
 
-class CsvWriter:
+class CsvWriter(object):
     """ Csv files writer.
     Supports multiline text values and NULLs, using specific csv format."""
     def __init__(self, output_file, psql_copy, null_val=NULLVAL):
@@ -105,8 +105,9 @@ class CsvWriter:
 
     def close(self):
         """ close output file"""
-        self.file.close()
-        self.file = None
+        if self.file:
+            self.file.close()
+            self.file = None
 
     def write_csv(self, rows):
         """ write list of rows into csv file """
@@ -117,7 +118,7 @@ class CsvWriter:
 
 ################
 
-class CsvReader:
+class CsvReader(object):
     """ Csv files reader, during read it's doing decode, escape of data.
     Supports multiline text values and NULLs, using specific csv format."""
     def __init__(self, input_file, null_val=NULLVAL):

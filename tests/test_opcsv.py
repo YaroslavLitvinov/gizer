@@ -10,7 +10,7 @@ from io import BytesIO
 import collections
 from mongo_schema.tests.test_schema_engine import get_schema_engine, get_schema_tables
 from mongo_schema import schema_engine
-from gizer.opcsv import CsvWriter, CsvReader
+from gizer.opcsv import CsvWriter, CsvReader, CsvWriteManager
 from gizer.opcsv import NULLVAL
 from gizer.opinsert import table_rows_list
 from gizer.opinsert import ENCODE_ESCAPE, NO_ENCODE_NO_ESCAPE
@@ -40,6 +40,34 @@ def test_csv_error():
         ok = True
     assert(ok == True)
 
+def test_csvManager():
+    import tempfile
+    import shutil
+    tmppath = tempfile.mkdtemp()
+    # pollute folder
+    csm = CsvWriteManager(['a'], tmppath, 5)
+    csm.write_csv('a', [('a', 'b'), ('c', 'd')])
+    csm.finalize()
+    del csm
+    # continue test
+    csm = CsvWriteManager(['a', 'b'], tmppath, 30)
+    written =  csm.write_csv('a', [('abracadabra', 'abcdefgeh'),
+                                   ('foo', 'something')])
+    assert(written!=0)
+    written =  csm.write_csv('a', [('abracadabra', 'abcdefgeh'),
+                                   ('foo', 'something')])
+    assert(written!=0)
+    written = csm.write_csv('b', [('ABRACADABRA', 'ABCDEFGEH'),
+                                  ('FOO', 'SOMETHING')])
+    assert(written!=0)
+    try:
+        csm.finalize()
+    except:
+        shutil.rmtree(tmppath)
+        raise
+    del csm
+    shutil.rmtree(tmppath)
+
 def test_csv1():
     collection_name = 'a_inserts'
     tables = collection_tables(collection_name).tables
@@ -62,6 +90,7 @@ def test_csv1():
     csv_reader1 = CsvReader(csvs[table1_name].output, NULLVAL)
     table1_csv_row_0 = csv_reader1.read_record()
     no_more_records = csv_reader1.read_record()
+    csv_reader1.close()
     #only one record is expected in table: a_inserts
     print "table1_csv_row_0", table1_csv_row_0
     print "null record", no_more_records
@@ -83,4 +112,6 @@ def test_csv1():
     assert(table2_csv_row_0[4] == '56b8f05cf9fcee1b00000110')
     assert(len(table2_data_row_0) == len(table2_csv_row_0))
 
+    for table_name in tables:
+        csvs[table_name].writer.close()
 

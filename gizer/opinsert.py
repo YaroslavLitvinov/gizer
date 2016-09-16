@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
+""" Handler of timestamps which operation type is insert op=insert """
+
 __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
-
-import json
-import bson
-from bson.json_util import loads
 
 ENCODE_ESCAPE = 1
 ENCODE_ONLY = 0
@@ -42,20 +40,6 @@ def escape_val(val, escape):
     else:
         return val
 
-def prepare_csv_data(row, psql_copy = False):
-    """ @param psql_copy if True then create data consumable by psql_copy"""
-    for row_i in xrange(len(row)):
-        val = row[row_i]
-        if val is not None:
-            if psql_copy is True:
-                val = escape_val(val, ENCODE_ONLY)
-            else:
-                val = escape_val(val, ENCODE_ESCAPE)
-        else:
-            val = self.null_val
-        row[row_i] = val
-    return row
-
 def index_columns_as_dict(table):
     """ get dict with index columns, value is column index in row
     @param table object schema_engine.SqlTable"""
@@ -67,19 +51,20 @@ def index_columns_as_dict(table):
             res[col.index_key()] = col_i
     return res
 
-def apply_indexes_to_table_rows(rows, index_keys, initial_indexes = {}):
+def apply_indexes_to_table_rows(rows, index_keys, initial_indexes={}):
     """ get list of rows, every row is values list
     @param index_keys {'index_name': 'column index'}
     @param initial_indexes dict of indexes from db tables"""
     for index_key in index_keys:
         if index_key and index_key in initial_indexes:
             col_i = index_keys[index_key]
-            # adjust all column's indexes 
+            # adjust all column's indexes
             for row_i in xrange(len(rows)):
-                rows[row_i][col_i] = initial_indexes[index_key] + rows[row_i][col_i]
+                rows[row_i][col_i] = \
+                    initial_indexes[index_key] + rows[row_i][col_i]
     return rows
 
-def table_rows_list(table, escape, null_value = None):
+def table_rows_list(table, escape, null_value=None):
     """ get list of rows, every row is values list
     @param table object schema_engine.SqlTable"""
     res = []
@@ -94,31 +79,25 @@ def table_rows_list(table, escape, null_value = None):
             else:
                 val = null_value
             values.append(val)
-        res.append( values )
+        res.append(values)
     return res
 
 
 
-def generate_insert_queries(table, psql_schema_name, table_prefix, 
-                            initial_indexes = {}):
-    """ get insert queries as 
+def generate_insert_queries(table, psql_schema_name, table_prefix,
+                            initial_indexes={}):
+    """ get insert queries as
     tuple: (format string, [(list,of,values,as,tuples)])
     @param table object schema_engine.SqlTable
     @param initial_indexes dict of indexes from db tables"""
-    fmt_string = format_string_insert_query(table, psql_schema_name, table_prefix)
+    fmt_string = format_string_insert_query(table,
+                                            psql_schema_name, table_prefix)
     index_keys = index_columns_as_dict(table)
-    rows = apply_indexes_to_table_rows(table_rows_list(table, NO_ENCODE_NO_ESCAPE),
-                                       index_keys, initial_indexes)
+    rows = apply_indexes_to_table_rows(
+        table_rows_list(table, NO_ENCODE_NO_ESCAPE),
+        index_keys,
+        initial_indexes)
     queries = []
     for row in rows:
-        queries.append( tuple(row) )
+        queries.append(tuple(row))
     return (fmt_string, queries)
-
-def opinsert_oplog_handler_callback(ns, schema, objdata):
-    return schema_engine.create_schema_engine(collection_name, schema_path)
-    pass
-
-
-if __name__ == "__main__":
-    from test_opinsert import test_insert1
-    test_insert1()

@@ -51,8 +51,8 @@ def generate_create_table_statement(table, psql_schema_name, table_name_prefix):
     return query
 
 
-def generate_create_index_statement(table, 
-                                    psql_schema_name, 
+def generate_create_index_statement(table,
+                                    psql_schema_name,
                                     table_name_prefix,
                                     index_type):
     """ return create table index statement.
@@ -87,11 +87,12 @@ def generate_create_index_statement(table,
     if len(psql_schema_name) and psql_schema_name.find('.') == -1:
         psql_schema_name += '.'
     psql_index_columns.sort() # to have a determenistic order
-    query = 'CREATE INDEX "i{type}_{prefix}{table}" ON {schema}"{prefix}{table}"\
- ({index_columns});'.format( schema=psql_schema_name,
-                             prefix=table_name_prefix,
-                             table=table.table_name,
-                             index_columns=', '.join(psql_index_columns),
-                             type=str(index_type))
+    query = 'CREATE INDEX "i{type}_{prefix}{table}" \
+ON {schema}"{prefix}{table}" ({index_columns});'.\
+        format(schema=psql_schema_name,
+               prefix=table_name_prefix,
+               table=table.table_name,
+               index_columns=', '.join(psql_index_columns),
+               type=str(index_type))
     return query
-    
+
