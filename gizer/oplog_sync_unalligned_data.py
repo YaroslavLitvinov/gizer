@@ -9,7 +9,7 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
-import sys
+import traceback
 import logging
 from logging import getLogger
 from gizer.collection_reader import CollectionReader
@@ -103,7 +103,7 @@ class OplogSyncUnallignedData(OplogSyncBase):
                                                              rec_ids_dict)
             except:
                 getLogger(__name__).error('Exception caught %s',
-                                          sys.exc_info())
+                                          traceback.print_exc())
                 res = None
             if not res:
                 return None
@@ -390,18 +390,19 @@ class OplogSyncEngine(object):
         recid_ts_data_dict = self.fecth_ts_data_from_cache(rec_ids)
         logmore()
         for rec_id, ts_data_list in recid_ts_data_dict.iteritems():
+            # log mongo record
+            mongo_obj = mongo_objects[str(rec_id)]
+            for _, sqltable in mongo_obj.tables.iteritems():
+                getLogger(__name__).warning("mongo rec_id %s", rec_id)
+                getLogger(__name__).warning(sqltable)
+
             # log psql record
             psql_obj = load_single_rec_into_tables_obj(
                 self.sync_base.psql, self.schema_engine,
                 self.sync_base.psql_schema, rec_id)
-            for _, sqltable in psql_obj.tables.iteritems():
-                getLogger(__name__).warning("psql rec_id %s", rec_id)
-                getLogger(__name__).warning(sqltable)
-            # log mongo record
-            mongo_obj = mongo_objects[rec_id]
-            for _, sqltable in mongo_obj.tables.iteritems():
-                getLogger(__name__).warning("mongo rec_id %s", rec_id)
-                getLogger(__name__).warning(sqltable)
+            for table_name, sqltable in psql_obj.tables.iteritems():
+                getLogger(__name__).warning("rec_id table %s %s %s",
+                                            rec_id, table_name, sqltable)
             # log timestamps
             for ts_data in ts_data_list:
                 getLogger(__name__).warning("ts of rec_id: [%s]%s -> [%s]%s",
@@ -410,6 +411,9 @@ class OplogSyncEngine(object):
             # log queries data
             getLogger(__name__).warning("--------Queries of rec_id %s:", rec_id)
             for ts_data in ts_data_list:
-                fmt_string = ts_data.queries[0]
-                for sqlparams in ts_data.queries[1]:
-                    getLogger(__name__).warning("%s %s:", fmt_string, sqlparams)
+                for query in ts_data.queries:
+                    fmt_string = query.query[0]
+                    for sqlparams in query.query[1]:
+                        getLogger(__name__).warning("rec_id: %s -> %s %s",
+                                                    ts_data.rec_id,
+                                                    fmt_string, sqlparams)

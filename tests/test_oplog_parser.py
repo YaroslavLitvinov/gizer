@@ -317,6 +317,15 @@ oplog_simulate_added_after_initload.js',
                          {'posts': pymongo.errors.OperationFailure, 'posts2': None, 
                           'rated_posts': None, 'guests': None}) == True)
 
+def test_oplog7():
+    logging.basicConfig(level=logging.INFO,
+                        stream=sys.stdout,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
+    save_loglevel()
+    # dataset test
+    oplog7 = {'single-oplog': [('test_data/oplog7/oplog.js', None)]}
+    assert(check_dataset(False, 'oplog7', oplog7, {'posts': None}) == True)
+
 def test_oplog8():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
@@ -350,6 +359,7 @@ def test_oplog8():
     else:
         assert(0)
 
+
 def test_oplog9():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
@@ -365,13 +375,16 @@ oplog_simulate_added_after_initload.js',
                          {'posts': None, 'guests': None}) == True)
 
 
+
+
 if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
-    ## temp
-    test_oplog5()
-    exit(0)
-    ## temp
+    logging.basicConfig(level=logging.INFO,
+                        stream=sys.stdout,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
+    save_loglevel()
+
     schemas_path = sys.argv[1]
     data_path = sys.argv[2]
     mongo_oplog = os.path.join(data_path, 'mongo_oplog.json')
@@ -381,11 +394,11 @@ if __name__ == '__main__':
     schema_engines = get_schema_engines_as_dict(schemas_path)
     for schema_name in schema_engines:
         path_with_data = os.path.join(data_path, 'mongo_%s.json' % schema_name)
-        data_after[schema_name] = path_with_data
+        data_after[schema_name] = (path_with_data, None)
     oplog_test1 \
         = OplogTest(empty_data_before,
-                    [mongo_oplog],
+                    {'oplog': [(mongo_oplog, None)]},
                     data_after,
-                    SYNC_TRY_COUNT)
+                    SYNC_TRY_COUNT, False)
     res = run_oplog_engine_check(oplog_test1, schemas_path)
     assert(res == True)
