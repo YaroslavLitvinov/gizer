@@ -268,7 +268,8 @@ class OplogSyncEngine(object):
         mongo_objects = \
             self.collection_reader.get_mongo_table_objs_by_ids(rec_ids)
         logmore()
-        getLogger(__name__).info("Getting ts for rec_ids: %s", rec_ids)
+        getLogger(__name__).info("Getting ts for rec_ids: [%s]%s",
+                                 self.collection_name, rec_ids)
         logless()
         recid_ts_queries = self.get_tsdata_for_recs(rec_ids)
         logmore()
