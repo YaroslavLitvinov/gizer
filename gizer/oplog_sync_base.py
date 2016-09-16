@@ -13,7 +13,8 @@ from gizer.oplog_parser import OplogParser
 from gizer.oplog_parser import Callback
 
 DO_OPLOG_REREAD_MAXCOUNT = 10
-MAX_CONSEQUENT_FAILURES = 3
+MAX_CONSEQUENT_TRANSPORT_FAILURES = 5
+MAX_CONSEQUENT_FAILURES = 2
 
 class OplogSyncBase(object):
     def __init__(self, psql, mongo_readers, oplog_readers,

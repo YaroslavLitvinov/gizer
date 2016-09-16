@@ -12,6 +12,7 @@ from gizer.batch_comparator import ComparatorMongoPsql
 from gizer.oplog_sync_base import OplogSyncBase
 from gizer.oplog_sync_base import DO_OPLOG_REREAD_MAXCOUNT
 from gizer.oplog_sync_base import MAX_CONSEQUENT_FAILURES
+from gizer.oplog_sync_base import MAX_CONSEQUENT_TRANSPORT_FAILURES
 from gizer.psql_objects import remove_rec_from_psqldb
 from gizer.psql_objects import insert_tables_data_into_dst_psql
 from gizer.collection_reader import CollectionReader
@@ -86,10 +87,13 @@ class OplogSyncAllignedData(OplogSyncBase):
             if not compare_res or not new_ts_dict:
                 # if transport returned an error then keep the same ts_start
                 # and return True, as nothing applied
-                if self.failed or self.comparator.is_failed():
+                if (self.failed or self.comparator.is_failed()):
                     getLogger(__name__).warning("Attempt %d failed",
                                                 self.attempt)
-                    return start_ts_dict
+                    if self.attempt < MAX_CONSEQUENT_TRANSPORT_FAILURES:
+                        return start_ts_dict
+                    else:
+                        return None
                 if last_portion_failed:
                     if do_again_counter < DO_OPLOG_REREAD_MAXCOUNT:
                         do_again = True
