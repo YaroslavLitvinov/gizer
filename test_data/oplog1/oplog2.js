@@ -187,5 +187,28 @@
       ]
     }
   }
+},
+{
+  "ts": {"$timestamp": {"t": 1347478290, "i": 1}},
+  "t": 2,
+  "h": "6500669658301126550",
+  "v": 2,
+  "op": "i",
+  "ns": "rails4_mongoid_development.unkonwn_collection",
+  "o": {
+      "_id": { "$oid": "56b8da59f9fcee1b00000007" }
+  }
+},
+{
+  "ts": {"$timestamp": {"t": 1347478291, "i": 1}},
+  "t": 2,
+  "h": "6500669658301126550",
+  "fromMigrate": true,
+  "v": 2,
+  "op": "i",
+  "ns": "rails4_mongoid_development.posts",
+  "o": {
+      "_id": { "$oid": "badbeaf99999999999999999" }
+  }
 }
 ]

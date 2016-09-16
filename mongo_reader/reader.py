@@ -34,6 +34,7 @@ class MongoReader:
         self.failed = False
         self.name = ''
         self.attempts = 0
+        self.message = False
 
     def set_name(self, name):
         self.name = name
@@ -71,20 +72,30 @@ class MongoReader:
         self.client = MongoClient(uri)
         getLogger(__name__).info("Authenticated")
 
-    def make_new_request(self, query):
+    def make_new_request(self, query, projection=None):
         if not self.client:
             self.connauthreq()
         mongo_collection = self.client[self.dbname][self.collection]
-        getLogger(__name__).info("Issue mongo[%s] request[%s]: %s" %
-                                 (self.collection, self.name, query))
-        cursor = mongo_collection.find(query)
-        cursor.batch_size(1000)
+        getLogger(__name__).info('Exec mongo query [%s][%s]: %s' %
+                                  (self.collection, self.name, query))
+        cursor = mongo_collection.find(query, projection=projection)
+        getLogger(__name__).info('[%s] Got mongo cursor' % self.name)
         self.rec_i = 0
+        self.message = False
         self.cursor = cursor
         return cursor
 
     def count(self):
-        return self.cursor.count()
+        try:
+            return self.cursor.count()
+        except pymongo.errors.OperationFailure:
+            self.failed = True
+            getLogger(__name__).error(\
+                "Exception: pymongo.errors.OperationFailure")
+        except pymongo.errors.NetworkTimeout:
+            self.failed = True
+            getLogger(__name__).error(\
+                "Exception: pymongo.errors.NetworkTimeout")
 
     def next(self):
         if not self.cursor:
@@ -93,9 +104,11 @@ class MongoReader:
         self.attempts = 0
         rec = None
         while self.cursor.alive and not self.failed:
-        #while not self.failed:
             try:
                 rec = self.cursor.next()
+                if self.rec_i == 0:
+                    getLogger(__name__).info("[%s] Start iterate query results" % 
+                                             self.name)
                 self.rec_i += 1
             except (pymongo.errors.AutoReconnect,
                     StopIteration):
@@ -109,6 +122,14 @@ class MongoReader:
                     self.failed = True
             except pymongo.errors.OperationFailure:
                 self.failed = True
-                getLogger(__name__).error("Exception: pymongo.errors.OperationFailure")
+                getLogger(__name__).error(\
+"Exception: pymongo.errors.OperationFailure")
+            except pymongo.errors.NetworkTimeout:
+                self.failed = True
+                getLogger(__name__).error(\
+"Exception: pymongo.errors.NetworkTimeout")
             break
+        if self.rec_i and not rec and not self.message:
+            self.message = True
+            getLogger(__name__).info("[%s] End iterate query results" % self.name)
         return rec

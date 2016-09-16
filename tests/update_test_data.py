@@ -742,3 +742,21 @@ test_data_18 = '''{
        }
    }
 }'''
+
+
+
+test_data_19 = '''{
+	"ts" : "1465220614, 2",
+	"h" : "279648261777343585",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "rails4_mongoid_development.rated_posts",
+	"o2" : {"_id" : {"$oid":"54f9d91b70722d95c4ce0600"}
+	},
+	"o" : {
+		"$set" : {
+			"tests" : false,
+			"body" : "test body"
+		}
+	}
+}'''

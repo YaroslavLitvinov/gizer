@@ -168,6 +168,9 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list,
             if type(get_part_schema(schema, element_path)) is list:
                 if oplog_data[element] == None:
                     oplog_data[element] = []
+                if not element_path[-1].isdigit() and type(
+                        oplog_data[element]) != list:
+                    oplog_data[element] = []
             if type(oplog_data[element]) is dict:
                 branch_list = normalize_oplog_recursive(schema,
                                                 oplog_data[element],
