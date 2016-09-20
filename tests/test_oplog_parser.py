@@ -399,6 +399,6 @@ if __name__ == '__main__':
         = OplogTest(empty_data_before,
                     {'oplog': [(mongo_oplog, None)]},
                     data_after,
-                    SYNC_TRY_COUNT, False)
+                    SYNC_TRY_COUNT, True)
     res = run_oplog_engine_check(oplog_test1, schemas_path)
     assert(res == True)
