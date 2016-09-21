@@ -760,3 +760,38 @@ test_data_19 = '''{
 		}
 	}
 }'''
+
+
+test_data_20 = '''{
+	"ts" : "1474458400, 27",
+	"h" : "-5725172150357890103",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "quote_management.rated_posts",
+	"o2" : {
+	"_id" : {"$oid":"57e26d602356e3b6c8ad7e5d"}
+	},
+	"o" : {
+		"$set" : {
+			"enclosed" : {}
+		}
+	}
+}
+'''
+
+test_data_20_A = '''{
+	"ts" : "1474458400, 27",
+	"h" : "-5725172150357890103",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "quote_management.rated_posts",
+	"o2" : {
+	"_id" : {"$oid":"57e26d602356e3b6c8ad7e5d"}
+	},
+	"o" : {
+		"$set" : {
+			"enclosed" : null
+		}
+	}
+}
+'''
