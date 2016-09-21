@@ -38,14 +38,22 @@ class EtlMongoReader(object):
         self.no_more_recs = False
         self.current_mongo_reader = self.mongo_readers[collection]
         self.current_mongo_reader.make_new_request(query)
-        self.retuned_items = []
+        self.returned_items = []
 
     def next(self):
         item = None
-        if self.retuned_items == []:
-            self.retuned_items = self.next_processed()
-        if self.retuned_items:
-            item = self.retuned_items.pop()
+        while self.returned_items is not None:
+            if not self.returned_items:
+                self.returned_items = self.next_processed()
+            if self.returned_items:
+                # use loop to find not null items as item=None
+                # can be at the middle of the list self.returned_items
+                for item_idx in xrange(len(self.returned_items)):
+                    if self.returned_items[item_idx]:
+                        item = self.returned_items.pop(item_idx)
+                        break
+            if item:
+                break
         return item
 
     def next_processed(self):

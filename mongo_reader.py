@@ -201,8 +201,8 @@ def main():
         if not tables_obj:
             break
         all_written = merge_dicts(all_written,
-                                  save_csvs(csm, tables.rows))
-        errors = merge_dicts(errors, tables.errors)
+                                  save_csvs(csm, tables_obj.rows))
+        errors = merge_dicts(errors, tables_obj.errors)
     
     if args.ddl_statements_file:
         save_ddl_create_statements(args.ddl_statements_file,
