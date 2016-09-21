@@ -55,8 +55,12 @@ def test_update():
 
     tz_info = loads(oplog_tz_info)['tzinfo_obj'].tzinfo
 
-
-    # oplog_data = loads(test_data_19)
+    # oplog_data = loads(test_data_20)
+    # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
+    # print(result)
+    #
+    # print('111')
+    # oplog_data = loads(test_data_20_A)
     # result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
     # print(result)
     # exit(0)
@@ -332,6 +336,22 @@ def test_update():
     model = [
         {'DELETE FROM "rated_post_tests" WHERE (rated_posts_id_oid=(%s));': [('54f9d91b70722d95c4ce0600',)]},
         {'UPDATE "rated_posts" SET "body"=(%s) WHERE "id_oid"=(%s);': [('test body', '54f9d91b70722d95c4ce0600')]}]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
+    assert sqls_to_dict(result) == sqls_to_dict(model)
+
+    print('Test #27')
+    oplog_data = loads(test_data_20)
+    model = [
+        {'DELETE FROM "rated_post_enclosed_field_array" WHERE (rated_posts_id_oid=(%s));': [('57e26d602356e3b6c8ad7e5d',)]},
+        {'UPDATE "rated_posts" SET "enclosed_field1"=(%s), "enclosed_field2"=(%s), "enclosed_field3"=(%s), "enclosed_id_bsontype"=(%s), "enclosed_id_oid"=(%s) WHERE "id_oid"=(%s);': [(None, None, None, None, None, '57e26d602356e3b6c8ad7e5d')]}]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
+    assert sqls_to_dict(result) == sqls_to_dict(model)
+
+    print('Test #27.A')
+    oplog_data = loads(test_data_20_A)
+    model = [
+        {'DELETE FROM "rated_post_enclosed_field_array" WHERE (rated_posts_id_oid=(%s));': [('57e26d602356e3b6c8ad7e5d',)]},
+        {'UPDATE "rated_posts" SET "enclosed_field1"=(%s), "enclosed_field2"=(%s), "enclosed_field3"=(%s), "enclosed_id_bsontype"=(%s), "enclosed_id_oid"=(%s) WHERE "id_oid"=(%s);': [(None, None, None, None, None, '57e26d602356e3b6c8ad7e5d')]}]
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
