@@ -90,7 +90,7 @@ class OplogSyncUnallignedData(OplogSyncBase):
                                           self.psql_schema)
         collection_rec_ids_dict = self.get_rec_ids(start_ts_dict)
         for collection, rec_ids_dict in collection_rec_ids_dict.iteritems():
-            getLogger(__name__).info("Collection %s items count to sync: %s",
+            getLogger(__name__).info("Collection %s count to sync: %s",
                                      collection, len(rec_ids_dict))
         # get sync map. Every collection items have differetn sync point
         # and should be aligned
@@ -285,8 +285,8 @@ class OplogSyncEngine(object):
                 self.sync_base.psql_schema, rec_id)
             # cmp mongo and psql records before applying timestamps
             # just to check if it is already synced
-            equal = cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj)
             logmore()
+            equal = cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj)
             if equal:
                 # rec_id not require to sync, set flag it's already synced
                 # overwrite list of ts by assigning True
@@ -305,7 +305,8 @@ class OplogSyncEngine(object):
                 while cur_idx < len(ts_data_list):
                     ts_data = ts_data_list[cur_idx]
                     logmore()
-                    getLogger(__name__).info("Exec queries ts: %s", ts_data.ts)
+                    getLogger(__name__).info("Exec queries [%s]ts: %s",
+                                             ts_data.oplog, ts_data.ts)
                     logless()
                     for single_query in ts_data.queries:
                         exec_insert(self.sync_base.psql, single_query)
