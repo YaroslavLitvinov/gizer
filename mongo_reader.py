@@ -196,13 +196,13 @@ def main():
     getLogger(__name__).info("Connecting to mongo server " + mongo_settings.host)
     errors = {}
     all_written = {}
-    tables_list = etl_mongo_reader.next_processed()
-    while tables_list is not None:
-        for tables in tables_list:
-            all_written = merge_dicts(all_written,
-                                      save_csvs(csm, tables.rows))
-            errors = merge_dicts(errors, tables.errors)
-        tables_list = etl_mongo_reader.next_processed()
+    while True:
+        tables_obj = etl_mongo_reader.next()
+        if not tables_obj:
+            break
+        all_written = merge_dicts(all_written,
+                                  save_csvs(csm, tables.rows))
+        errors = merge_dicts(errors, tables.errors)
     
     if args.ddl_statements_file:
         save_ddl_create_statements(args.ddl_statements_file,

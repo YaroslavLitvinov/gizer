@@ -38,32 +38,47 @@ class EtlMongoReader(object):
         self.no_more_recs = False
         self.current_mongo_reader = self.mongo_readers[collection]
         self.current_mongo_reader.make_new_request(query)
+        self.retuned_items = []
+
+    def next(self):
+        item = None
+        if self.retuned_items == []:
+            self.retuned_items = self.next_processed()
+        if self.retuned_items:
+            item = self.retuned_items.pop()
+        return item
 
     def next_processed(self):
         """ Return list of handled Table objects """
         processed_list = None
-        if self.no_more_recs:
-            return processed_list
-        try:
-            record = self.retrieve_mongo_record()
-            if not self.fast_queue.error:
-                processed_list = self.put_record_get_tables_async(
-                    (record,
-                     self.current_mongo_reader.collection))
-    #            print "loop.b", len(processed_list), self.fast_queue.count()
-                if not record:
-                    self.no_more_recs = True
-                else:
-                    self.etl_recs_count += 1
-        except:
-            self.current_mongo_reader.failed = True
-            del self.fast_queue
-            self.fast_queue = None
-            raise
-        if self.no_more_recs and not len(processed_list):
-            return None
-        else:
-            return processed_list
+        if not self.no_more_recs:
+            try:
+                record = self.retrieve_mongo_record()
+                if not self.fast_queue.error:
+                    processed_list = self.put_record_get_tables_async(
+                        (record,
+                         self.current_mongo_reader.collection))
+        #            print "loop.b", len(processed_list), self.fast_queue.count()
+                    if not record:
+                        self.no_more_recs = True
+                    else:
+                        self.etl_recs_count += 1
+            except:
+                self.current_mongo_reader.failed = True
+                del self.fast_queue
+                self.fast_queue = None
+                raise
+            if self.no_more_recs and not processed_list:
+                processed_list = None
+        if processed_list is None:
+            getLogger(__name__).info("Done: %d(etl %d) of %d",
+                                     self.current_mongo_reader.rec_i,
+                                     self.etl_recs_count,
+                                     self.all_recs_count)
+        if processed_list and self.current_mongo_reader.collection != 'oplog.rs':
+            for rec in processed_list:
+                getLogger(__name__).info("return rec= %s", rec.rec_id())
+        return processed_list
 
     def retrieve_mongo_record(self):
         """ get next record from mongo collection """
@@ -74,8 +89,9 @@ class EtlMongoReader(object):
             rec = None
         if rec:
             if self.current_mongo_reader.rec_i % 1000 == 0:
-                getLogger(__name__).info("%d of %d",
+                getLogger(__name__).info("%d(etl %d) of %d",
                                          self.current_mongo_reader.rec_i,
+                                         self.etl_recs_count,
                                          self.all_recs_count)
         return rec
 

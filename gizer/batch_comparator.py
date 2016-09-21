@@ -119,40 +119,46 @@ class ComparatorMongoPsql(object):
         self.etl_mongo_reader.execute_query(collection, mongo_query)
         received_list = []
         # get and process records to compare
-        processed_recs = self.etl_mongo_reader.next_processed()
-        while processed_recs is not None:
+        while True:
+            rec_obj = self.etl_mongo_reader.next()
+            if not rec_obj:
+                break
             # do cmp for every returned obj
-            for mongo_tables_obj in processed_recs:
-                str_rec_id = mongo_tables_obj.rec_id()
-                matched_list = [i for i in recs if str(i) == str(str_rec_id)]
-                if not matched_list:
-                    # filter out results from mock transport,
-                    # that was not requested
-                    continue
-                rec_id = matched_list[0]
-                received_list.append(str(str_rec_id))
-                psql_tables_obj = load_single_rec_into_tables_obj(
-                    self.psql,
-                    self.schema_engines[collection],
-                    self.psql_schema,
-                    rec_id)
-                # this check makes sence ony for mock transport as it
-                # will return all records and not only requested
-                rec_key = str(str_rec_id)
-                if rec_key in self.recs_to_compare[collection] and \
-                        not self.recs_to_compare[collection][rec_key].flag:
-                    equal = self.compare_one_src_dest(
-                        rec_id, mongo_tables_obj, psql_tables_obj)
-                    if not equal:
-                        cmp_res = False
-                else:
-                    continue
-                # update cmp result in main dict
-                ntry = self.recs_to_compare[collection][rec_key].ntry
-                # update cmp result in main dict
-                self.recs_to_compare[collection][rec_key] = \
-                    CompareRes(rec_id, equal, ntry)
-            processed_recs = self.etl_mongo_reader.next_processed()
+            mongo_tables_obj = rec_obj
+            str_rec_id = mongo_tables_obj.rec_id()
+            matched_list = [i for i in recs if str(i) == str(str_rec_id)]
+            if not matched_list:
+                # filter out results from mock transport,
+                # that was not requested
+                continue
+            rec_id = matched_list[0]
+            received_list.append(str(str_rec_id))
+            psql_tables_obj = load_single_rec_into_tables_obj(
+                self.psql,
+                self.schema_engines[collection],
+                self.psql_schema,
+                rec_id)
+            # this check makes sence ony for mock transport as it
+            # will return all records and not only requested
+            rec_key = str(str_rec_id)
+            if rec_key in self.recs_to_compare[collection] and \
+                    not self.recs_to_compare[collection][rec_key].flag:
+                getLogger(__name__).info(\
+"pre cmp rec_id=%s, str_rec_id=%s, mongo_str_rec_id=%s, psql_rec_id=%s",
+                    rec_id, str_rec_id,
+                    mongo_tables_obj.rec_id(),
+                    psql_tables_obj.rec_id())
+                equal = self.compare_one_src_dest(
+                    rec_id, mongo_tables_obj, psql_tables_obj)
+                if not equal:
+                    cmp_res = False
+            else:
+                continue
+            # update cmp result in main dict
+            ntry = self.recs_to_compare[collection][rec_key].ntry
+            # update cmp result in main dict
+            self.recs_to_compare[collection][rec_key] = \
+                CompareRes(rec_id, equal, ntry)
         # should return True for deleted items (non existing items)
         for rec_id in recs:
             if str(rec_id) not in received_list:
