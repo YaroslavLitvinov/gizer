@@ -177,6 +177,13 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list,
                                                 parent_path[:] + [element],
                                                 branch_list,
                                                 root_info)
+                if len(oplog_data[element]) == 0 or oplog_data[element] is None:
+                    prepared_oplog_data = {element:True}
+                    branch_list = normalize_unset_oplog_recursive(schema,
+                                                            prepared_oplog_data,
+                                                            parent_path,
+                                                            branch_list,
+                                                            root_info)
             else:
                 if type(oplog_data[element]) is bson.objectid.ObjectId:
                     # convert bson.objectid.ObjectId to two fileds _id.oid and
@@ -198,6 +205,14 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list,
                             parent_path + [element + '.bsontype']), 7,
                                     element_conditios_list,
                                     parsed_path_bsontype, None))
+                elif type(get_part_schema(schema, element_path)) is dict and \
+                                oplog_data[element] is None:
+                    prepared_oplog_data = {element: True}
+                    branch_list = normalize_unset_oplog_recursive(schema,
+                                                            prepared_oplog_data,
+                                                            parent_path,
+                                                            branch_list,
+                                                            root_info)
                 else:
                     branch_list.append(
                         OplogBranch('', '.'.join(parent_path + [element]),
