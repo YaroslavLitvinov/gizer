@@ -474,7 +474,7 @@ def update_list(dbreq, schema_e, upd_path_str, oplog_info, database_info):
 
 
 
-def get_correct_type_value(tables_mappings, table, column, value, ):
+def get_correct_type_value(tables_mappings, table, column, value ):
     """do check if data type in particular field in oplod matches with datatype
     for corresponding column in schema and fix it if needed"""
     types = {
@@ -482,7 +482,8 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
         'boolean': bool,
         'double precision': float,
         'bigint': long,
-        'timestamp': datetime.datetime
+        'timestamp': datetime.datetime,
+        'text':str
     }
     if value is None:
         return value
@@ -490,12 +491,14 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
         if column in tables_mappings[table].keys():
             column_type = tables_mappings[table][column]
             if column_type in types.keys():
-                if isinstance(value, types[column_type]):
+                if type(value) == types[column_type]:
                     return value
                 else:
+                    if column_type == 'text' and type(value) == unicode:
+                        return value
                     if column_type == 'double precision':
-                        if isinstance(value, types['integer']) or isinstance(
-                                value, types['bigint']):
+                        # if isinstance(type(value), types['integer']) or isinstance(
+                        if type(value) == types['integer'] or type(value) ==  types['bigint']:
                             return float(value)
                         # :)
                         else:

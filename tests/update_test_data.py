@@ -320,6 +320,24 @@ test_data_03 = '''{
 		"$set" : {
 			"comments.1.updated_at" : {"$date":"2016-02-08T19:58:22.847Z"},
 			"comments.1.rates.1.user_id" : "B",
+			"comments.1.rates.2.rate" : "2",
+			"comments.1.rates.2.namesadas" : "XXX"
+		}
+	}
+}'''
+
+test_data_03_A = '''{
+	"ts": "1465220614, 2",
+	"h": "143890519546180493",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "rails4_mongoid_development.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000012"}
+    },
+	"o" : {
+		"$set" : {
+			"comments.1.rates.1.user_id" : "B",
 			"comments.1.rates.2.rate" : 2,
 			"comments.1.rates.2.namesadas" : "XXX"
 		}
@@ -338,7 +356,7 @@ test_data_04 = '''{
 	"o" : {
 		"$set" : {
 			"comments.1.rates.1.user_id" : "B",
-			"comments.1.rates.2.rate" : 67,
+			"comments.1.rates.2.rate" : "67",
 			"comments.1.rates.2.item_rates" : [
 			    {
 			        "_id": {"$oid": "57557e06cf68790000000000"},
@@ -597,7 +615,7 @@ test_data_14 = '''{
             "number": 33,
             "tests": [123, 4 ,8],
 			"comments.1.rates.1.user_id" : "B",
-			"comments.1.rates.2.rate" : 67,
+			"comments.1.rates.2.rate" : "67",
 			"comments.1.rates.2.item_rates" : [
 			    {
 			        "_id": {"$oid": "57557e06cf68790000000000"},
