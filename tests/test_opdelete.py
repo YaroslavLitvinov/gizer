@@ -72,7 +72,7 @@ def database_prepare():
     curs.execute(SQL_INSERT_max_id_person_relative_contacts)
 
     SQL_CREATE_person_relatives = '\
-        CREATE TABLE %.person_relatives\
+        CREATE TABLE %s.person_relatives\
         (\
           idx bigint,\
           persons_id_oid text\
@@ -88,7 +88,7 @@ def database_prepare():
 
 
     SQL_INSERT_max_id_person_relative_contacts= "\
-        INSERT INTO %.person_relatives(\
+        INSERT INTO %s.person_relatives(\
             idx, persons_id_oid)\
             VALUES (11, '0123456789ABCDEF');    \
     " % SCHEMA_NAME
