@@ -178,6 +178,19 @@ def test_update():
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
+
+    print('Test #13')
+    oplog_data = loads(test_data_03_A)
+    model = [{
+            'do $$    begin    UPDATE rated_post_comment_rates SET rate=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_rates (idx, rated_posts_comments_idx, rated_posts_id_oid, rate) VALUES( %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(None, '56b8da59f9fcee1b00000012', u'2', u'3', u'3', u'2', '56b8da59f9fcee1b00000012', None)]
+        }, {
+            'do $$    begin    UPDATE rated_post_comment_rates SET user_id=(%s) WHERE rated_posts_id_oid=(%s) and rated_posts_comments_idx=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO rated_post_comment_rates (idx, rated_posts_comments_idx, rated_posts_id_oid, user_id) VALUES( %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [(u'B', '56b8da59f9fcee1b00000012', u'2', u'2', '2', '2', '56b8da59f9fcee1b00000012', u'B')]
+        }
+    ]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
+    assert sqls_to_dict(result) == sqls_to_dict(model)
+
+
     print('Test #14')
     oplog_data = loads(test_data_04)
     model = [
