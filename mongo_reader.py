@@ -15,6 +15,7 @@ import logging
 from logging import getLogger
 import configparser
 from collections import namedtuple
+from sets import Set
 # profiling
 from pstats import Stats
 from cProfile import Profile
@@ -197,7 +198,7 @@ def main():
                                    json.loads(args.js_request))
 
     getLogger(__name__).info("Connecting to mongo server " + mongo_settings.host)
-    received_rec_ids = []
+    received_rec_ids = Set([])
     errors = {}
     all_written = {}
     while True:
@@ -206,7 +207,7 @@ def main():
             break
         # don't process duplicates that can be accidently returned by transp
         if tables_to_save.rec_id not in received_rec_ids:
-            received_rec_ids.append(tables_to_save.rec_id)
+            received_rec_ids.add(tables_to_save.rec_id)
             all_written = merge_dicts(all_written,
                                       save_csvs(csm, tables_to_save.rows))
             errors = merge_dicts(errors, tables_to_save.errors)
