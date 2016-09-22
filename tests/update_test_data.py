@@ -320,7 +320,7 @@ test_data_03 = '''{
 		"$set" : {
 			"comments.1.updated_at" : {"$date":"2016-02-08T19:58:22.847Z"},
 			"comments.1.rates.1.user_id" : "B",
-			"comments.1.rates.2.rate" : 2,
+			"comments.1.rates.2.rate" : "2",
 			"comments.1.rates.2.namesadas" : "XXX"
 		}
 	}
@@ -338,7 +338,7 @@ test_data_04 = '''{
 	"o" : {
 		"$set" : {
 			"comments.1.rates.1.user_id" : "B",
-			"comments.1.rates.2.rate" : 67,
+			"comments.1.rates.2.rate" : "67",
 			"comments.1.rates.2.item_rates" : [
 			    {
 			        "_id": {"$oid": "57557e06cf68790000000000"},
@@ -597,7 +597,7 @@ test_data_14 = '''{
             "number": 33,
             "tests": [123, 4 ,8],
 			"comments.1.rates.1.user_id" : "B",
-			"comments.1.rates.2.rate" : 67,
+			"comments.1.rates.2.rate" : "67",
 			"comments.1.rates.2.item_rates" : [
 			    {
 			        "_id": {"$oid": "57557e06cf68790000000000"},
