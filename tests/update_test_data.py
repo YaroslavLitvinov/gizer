@@ -326,6 +326,24 @@ test_data_03 = '''{
 	}
 }'''
 
+test_data_03_A = '''{
+	"ts": "1465220614, 2",
+	"h": "143890519546180493",
+	"v" : 2,
+	"op" : "u",
+	"ns" : "rails4_mongoid_development.rated_posts",
+    "o2": {
+        "_id": {"$oid": "56b8da59f9fcee1b00000012"}
+    },
+	"o" : {
+		"$set" : {
+			"comments.1.rates.1.user_id" : "B",
+			"comments.1.rates.2.rate" : 2,
+			"comments.1.rates.2.namesadas" : "XXX"
+		}
+	}
+}'''
+
 test_data_04 = '''{
 	"ts": "1465220614, 2",
 	"h": "143890519546180493",
