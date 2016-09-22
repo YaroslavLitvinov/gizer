@@ -17,7 +17,7 @@ For succesfully running tests should to be created database test_db with schema 
 """
 
 TEST_INFO = 'TEST_OPDELETE'
-SCHEMA_NAME = 'test_schema'
+SCHEMA_NAME = 'public'
 
 
 
