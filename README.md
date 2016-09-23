@@ -1,4 +1,4 @@
-!https://coveralls.io/repos/github/YaroslavLitvinov/gizer/badge.svg?branch=master(Coverage Status)!:https://coveralls.io/github/YaroslavLitvinov/gizer?branch=master
+[![Coverage Status](https://coveralls.io/repos/github/YaroslavLitvinov/gizer/badge.svg?branch=master)](https://coveralls.io/github/YaroslavLitvinov/gizer?branch=master)
 
 1. Environment
 1.1. Add directory containing mongo_schema module to python path. 
