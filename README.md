@@ -29,3 +29,4 @@ python psql_copy.py --config-file ../gizer-config.ini -cn submit_feedbacks --psq
 5.2. Fields which are not in schema or whose have different types will not be loaded to relational model
 
 6. Test Coverage: 96%
+
