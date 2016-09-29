@@ -177,6 +177,13 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list,
                                                 parent_path[:] + [element],
                                                 branch_list,
                                                 root_info)
+                if len(oplog_data[element]) == 0 or oplog_data[element] is None:
+                    prepared_oplog_data = {element:True}
+                    branch_list = normalize_unset_oplog_recursive(schema,
+                                                            prepared_oplog_data,
+                                                            parent_path,
+                                                            branch_list,
+                                                            root_info)
             else:
                 if type(oplog_data[element]) is bson.objectid.ObjectId:
                     # convert bson.objectid.ObjectId to two fileds _id.oid and
@@ -198,6 +205,14 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list,
                             parent_path + [element + '.bsontype']), 7,
                                     element_conditios_list,
                                     parsed_path_bsontype, None))
+                elif type(get_part_schema(schema, element_path)) is dict and \
+                                oplog_data[element] is None:
+                    prepared_oplog_data = {element: True}
+                    branch_list = normalize_unset_oplog_recursive(schema,
+                                                            prepared_oplog_data,
+                                                            parent_path,
+                                                            branch_list,
+                                                            root_info)
                 else:
                     branch_list.append(
                         OplogBranch('', '.'.join(parent_path + [element]),
@@ -459,7 +474,7 @@ def update_list(dbreq, schema_e, upd_path_str, oplog_info, database_info):
 
 
 
-def get_correct_type_value(tables_mappings, table, column, value, ):
+def get_correct_type_value(tables_mappings, table, column, value ):
     """do check if data type in particular field in oplod matches with datatype
     for corresponding column in schema and fix it if needed"""
     types = {
@@ -467,7 +482,8 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
         'boolean': bool,
         'double precision': float,
         'bigint': long,
-        'timestamp': datetime.datetime
+        'timestamp': datetime.datetime,
+        'text':str
     }
     if value is None:
         return value
@@ -475,12 +491,14 @@ def get_correct_type_value(tables_mappings, table, column, value, ):
         if column in tables_mappings[table].keys():
             column_type = tables_mappings[table][column]
             if column_type in types.keys():
-                if isinstance(value, types[column_type]):
+                if type(value) == types[column_type]:
                     return value
                 else:
+                    if column_type == 'text' and type(value) == unicode:
+                        return value
                     if column_type == 'double precision':
-                        if isinstance(value, types['integer']) or isinstance(
-                                value, types['bigint']):
+                        # if isinstance(type(value), types['integer']) or isinstance(
+                        if type(value) == types['integer'] or type(value) ==  types['bigint']:
                             return float(value)
                         # :)
                         else:

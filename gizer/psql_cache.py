@@ -15,13 +15,13 @@ from gizer.etlstatus_table import timestamp_str_to_object as ts_obj
 def convert_row_to_psql_cache_data(row):
     if row:
         return PsqlCacheTable.PsqlCacheData(
-            ts=ts_obj(row[0]),
-            oplog=row[1],
-            collection=row[2],
+            ts=ts_obj(row[1]),
+            oplog=row[2],
+            collection=row[3],
             # use pickle for non trivial data
-            queries=pickle.loads(row[3]),
-            rec_id=row[4],
-            sync_start=row[5])
+            queries=pickle.loads(row[4]),
+            rec_id=row[5],
+            sync_start=row[6])
     else:
         return None
 
@@ -33,6 +33,7 @@ class PsqlCacheTable(object):
                                                  'queries', 'rec_id',
                                                  'sync_start'])
     def __init__(self, cursor, schema_name):
+        self.counter = 0
         self.cursor = cursor
         if len(schema_name):
             self.schema_name = schema_name + '.'
@@ -48,8 +49,8 @@ class PsqlCacheTable(object):
 
     def create_table(self):
         fmt = 'CREATE TABLE IF NOT EXISTS {schema}qmetlcache (\
-        "ts" TEXT, "oplog" TEXT, "collection" TEXT, "queries" BYTEA, \
-        "rec_id" TEXT, "sync_start" BOOLEAN);'
+        "counter" INT, "ts" TEXT, "oplog" TEXT, \
+"collection" TEXT, "queries" BYTEA, "rec_id" TEXT, "sync_start" BOOLEAN);'
         self.cursor.execute(fmt.format(schema=self.schema_name))
 
     def create_index(self):
@@ -62,7 +63,8 @@ ON {schema}"{table}" (collection, rec_id);'
 
     def insert(self, psql_cache_data):
         fmt = 'INSERT INTO {schema}qmetlcache VALUES(\
-%s, %s, %s, %s, %s, %s);'
+%s, %s, %s, %s, %s, %s, %s);'
+        self.counter += 1
         operation_str = fmt.format(schema=self.schema_name)
         if psql_cache_data.ts:
             ts_str = str(psql_cache_data.ts)
@@ -71,7 +73,8 @@ ON {schema}"{table}" (collection, rec_id);'
         # use pickle to save python objects
         queries = psycopg2.Binary(pickle.dumps(psql_cache_data.queries))
         self.cursor.execute(operation_str,
-                            (ts_str,
+                            (self.counter,
+                             ts_str,
                              psql_cache_data.oplog,
                              psql_cache_data.collection,
                              queries,
@@ -107,7 +110,7 @@ WHERE oplog='{oplog}' and sync_start=TRUE) as a;"
         """ Run sql query and return list of timestamps related to recid """
         res = []
         rec_tss_fmt = "SELECT * from {schema}qmetlcache WHERE \
-collection='{collection}' and rec_id='{rec_id}' ORDER BY ts;"
+collection='{collection}' and rec_id='{rec_id}' ORDER BY counter;"
         select_query = rec_tss_fmt.format(schema=self.schema_name,
                                           collection=collection,
                                           rec_id=str(rec_id))

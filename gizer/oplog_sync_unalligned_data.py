@@ -90,7 +90,7 @@ class OplogSyncUnallignedData(OplogSyncBase):
                                           self.psql_schema)
         collection_rec_ids_dict = self.get_rec_ids(start_ts_dict)
         for collection, rec_ids_dict in collection_rec_ids_dict.iteritems():
-            getLogger(__name__).info("Collection %s items count to sync: %s",
+            getLogger(__name__).info("Collection %s count to sync: %s",
                                      collection, len(rec_ids_dict))
         # get sync map. Every collection items have differetn sync point
         # and should be aligned
@@ -285,17 +285,17 @@ class OplogSyncEngine(object):
                 self.sync_base.psql_schema, rec_id)
             # cmp mongo and psql records before applying timestamps
             # just to check if it is already synced
-            if cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj):
+            logmore()
+            equal = cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj)
+            if equal:
                 # rec_id not require to sync, set flag it's already synced
                 # overwrite list of ts by assigning True
                 res[rec_id] = True
                 psql_data = PsqlCacheTable.PsqlCacheData(
                     None, None, self.collection_name, None, rec_id, True)
                 self.psql_cache_table.insert(psql_data)
-                logmore()
                 getLogger(__name__).info("%s already synced", rec_id)
                 continue
-            logmore()
             # Apply timestamps and then cmp resulting psql object and mongo obj
             # If not equal then shift to next timestamp and do it again
             equal = True
@@ -304,14 +304,18 @@ class OplogSyncEngine(object):
                 logless()
                 while cur_idx < len(ts_data_list):
                     ts_data = ts_data_list[cur_idx]
+                    logmore()
+                    getLogger(__name__).info("Exec queries [%s]ts: %s",
+                                             ts_data.oplog, ts_data.ts)
+                    logless()
                     for single_query in ts_data.queries:
                         exec_insert(self.sync_base.psql, single_query)
                     cur_idx += 1
                 psql_obj = load_single_rec_into_tables_obj(
                     self.sync_base.psql, self.schema_engine,
                     self.sync_base.psql_schema, rec_id)
-                equal = cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj)
                 logmore()
+                equal = cmp_psql_mongo_tables(rec_id, mongo_obj, psql_obj)
                 # make start point from located ts
                 if equal:
                     if rec_id not in res:
@@ -393,17 +397,18 @@ class OplogSyncEngine(object):
         for rec_id, ts_data_list in recid_ts_data_dict.iteritems():
             # log mongo record
             mongo_obj = mongo_objects[str(rec_id)]
-            for _, sqltable in mongo_obj.tables.iteritems():
-                getLogger(__name__).warning("mongo rec_id %s", rec_id)
+            for tblname, sqltable in mongo_obj.tables.iteritems():
+                getLogger(__name__).warning("mongo rec_id %s [%s] %s",
+                                            rec_id, tblname, sqltable)
                 getLogger(__name__).warning(sqltable)
 
             # log psql record
             psql_obj = load_single_rec_into_tables_obj(
                 self.sync_base.psql, self.schema_engine,
                 self.sync_base.psql_schema, rec_id)
-            for table_name, sqltable in psql_obj.tables.iteritems():
-                getLogger(__name__).warning("rec_id table %s %s %s",
-                                            rec_id, table_name, sqltable)
+            for tblname, sqltable in psql_obj.tables.iteritems():
+                getLogger(__name__).warning("psql rec_id %s [%s] %s",
+                                            rec_id, tblname, sqltable)
             # log timestamps
             for ts_data in ts_data_list:
                 getLogger(__name__).warning("ts of rec_id: [%s]%s -> [%s]%s",

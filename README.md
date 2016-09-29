@@ -1,3 +1,5 @@
+[![Coverage Status](https://coveralls.io/repos/github/YaroslavLitvinov/gizer/badge.svg?branch=master)](https://coveralls.io/github/YaroslavLitvinov/gizer?branch=master)
+
 1. Environment
 1.1. Add directory containing mongo_schema module to python path. 
      If module resided in git directory: export PYTHONPATH=~/git/:.
@@ -27,3 +29,4 @@ python psql_copy.py --config-file ../gizer-config.ini -cn submit_feedbacks --psq
 5.2. Fields which are not in schema or whose have different types will not be loaded to relational model
 
 6. Test Coverage: 96%
+

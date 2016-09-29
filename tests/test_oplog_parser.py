@@ -127,28 +127,29 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         # for better coverage
         gizer.oplog_sync_unalligned_data.SYNC_REC_COUNT_IN_ONE_BATCH = 2
 
-        unalligned_sync \
-            = OplogSyncUnallignedData(dbreq_etl, dbreq, 
-                                      mongo_readers_after, oplog_readers,
-                                      schemas_path, schema_engines, psql_schema,
-                                      3)
+        if not oplog_test.skip_sync:
+            unalligned_sync \
+                = OplogSyncUnallignedData(dbreq_etl, dbreq, 
+                                          mongo_readers_after, oplog_readers,
+                                          schemas_path, schema_engines, psql_schema,
+                                          3)
 
-        #start syncing from very start of oplog
-        ts_synced = unalligned_sync.sync(None)
-        getLogger(__name__).info("Sync done ts_synced: %s" % str(ts_synced))
-        getLogger(__name__).info("statistic %s" % str(unalligned_sync.statistic()))
-        del unalligned_sync
-        # sync failed
-        if ts_synced is None and not oplog_test.skip_sync:
-            return False
+            #start syncing from very start of oplog
+            ts_synced = unalligned_sync.sync(None)
+            getLogger(__name__).info("Sync done ts_synced: %s" % str(ts_synced))
+            getLogger(__name__).info("statistic %s" % str(unalligned_sync.statistic()))
+            del unalligned_sync
+            # sync failed
+            if ts_synced is None:
+                return False
 
-        del dbreq
-        dbreq = PsqlRequests(psycopg2.connect(connstr))
+            del dbreq
+            dbreq = PsqlRequests(psycopg2.connect(connstr))
 
-        oplog_readers, mongo_readers_after = get_readers(oplog_test, 
-                                                         enable_exceptions=True)
-        # ignore sync results
-        if oplog_test.skip_sync:
+            oplog_readers, mongo_readers_after = get_readers(oplog_test, 
+                                                             enable_exceptions=True)
+        else:
+            # ignore sync results
             ts_synced = {}
             for name in oplog_readers:
                 ts_synced[name] = None
@@ -341,7 +342,7 @@ def test_oplog8():
     try:
         oplog32 = {'single-oplog': [('test_data/oplog3/oplog.js', 
                                          pymongo.errors.InvalidURI)]}
-        check_dataset(True, 'oplog3', oplog32,
+        check_dataset(False, 'oplog3', oplog32,
                       {'posts': None, 'posts2': None, 
                           'rated_posts': None, 'guests': None})
     except:
@@ -380,7 +381,7 @@ oplog_simulate_added_after_initload.js',
 if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     save_loglevel()
@@ -399,6 +400,6 @@ if __name__ == '__main__':
         = OplogTest(empty_data_before,
                     {'oplog': [(mongo_oplog, None)]},
                     data_after,
-                    SYNC_TRY_COUNT, False)
+                    SYNC_TRY_COUNT, True)
     res = run_oplog_engine_check(oplog_test1, schemas_path)
     assert(res == True)
