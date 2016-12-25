@@ -22,11 +22,8 @@ Solution is divided into 3 phases:<br>
   psql_copy.py exports colections of csv files into Postgres.
 * Oplog load.<br>
   Sharded cluster supported. Every mongodb replica should be specified
-  in config file as separate section. As solution is kind of batch
-  it's must be invoked every time in order to process freshly added
-  mongodb's changes. Simple scheduler like crontab works for this and
-  helps to deliver fresh pattches to PostgreSQL. So frequently as you
-  need, for example every minute of five.<br>
+  in config file as separate section. In this mode oplog reader data is reading from syncronization point and transforming oplog data to appropriate sqls. Additionally, just before commiting changes into Postgres it makes reverse load of postgres data and comparing it to actual mongodb record's data. It creates additional overhead, but ensures us from having non consistent data in Postgres database. In case if inconsistency detected, bad data will be fixed by reloading specific record or in worst case it can lead to complete reload of whole database. So, in short this is a startegy that keeps data consistent. As solution is kind of batch `mongo_to_psql` must be invoked every time in order to process freshly added
+  mongodb's changes. Simple crontab scheduler can be used for this. So every app invoke will deliver fresh pattches to PostgreSQL. For example, you can run this 'synchronization' tool every minute or five.<br>
   Tool mongo_to_psql.py serves for this stage.<br>
 
 ## Environment<br>
