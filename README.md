@@ -30,6 +30,7 @@ Solution is divided into 3 phases:<br>
   Tool mongo_to_psql.py serves for this stage.<br>
 
 ## Environment<br>
+* Python 2.7.x
 * Add directory containing mongo_schema module to python path.  If
      module resided in git directory: export PYTHONPATH=~/git/:.
 * Specify TEST_PSQLCONN env variable before running tests, for
