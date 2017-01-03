@@ -47,12 +47,27 @@ Solution is divided into 3 phases:<br>
 * config_value.py - external config reader, one value per execution;
 * mongo_to_psql.py - application for syncing, handling oplog.
 
-## Examples from cmd line to perform init load<br>
-```
-python mongo_schema/get_mongo_schema_as_json.py --host localhost:27017  -cn test.get_sql_query_tests > get_sql_query_tests.js
-python mongo_reader.py --config-file ../gizer-config.ini -cn submit_feedbacks --ddl-statements-file submit_feedbacks.sql --csv-path tmp -psql-table-prefix 2016_04_11_ -stats-file submit_feedbacks.stat
-python psql_copy.py --config-file ../gizer-config.ini -cn submit_feedbacks --psql-table-name submit_feedbacks --input-csv-dir tmp/submit_feedbacks/ -psql-table-prefix 2016_04_11_
-```
+## Command line examples<br>
+Acquire schema<br>
+```python mongo_schema/get_mongo_schema_as_json.py --host localhost:27017  -cn test.get_sql_query_tests > get_sql_query_tests.js```
+
+Save latest oplog timestamp before running init load<br>
+```python etlstatus.py -init-load-start-save-ts  --config-file ../gizer-config.ini```
+
+Run init load part 1 of 2
+```python mongo_reader.py --config-file ../gizer-config.ini -cn submit_feedbacks --ddl-statements-file submit_feedbacks.sql --csv-path tmp -psql-table-prefix 2016_04_11_ -stats-file submit_feedbacks.stat```
+
+Run init load part 2 of 2
+```python psql_copy.py --config-file ../gizer-config.ini -cn submit_feedbacks --psql-table-name submit_feedbacks --input-csv-dir tmp/submit_feedbacks/ -psql-table-prefix 2016_04_11_```
+
+When init load finishes save completion status ok/error<br>
+```python etlstatus.py -init-load-finish ok  --config-file ../gizer-config.ini```
+
+Verify etl status, if exit code is 1 then run init load<br>
+```python etlstatus.py -init-load-status  --config-file ../gizer-config.ini```
+
+Run following command every time to update postgres database by MongoDB data<br>
+```python mongo_to_psql.py --config-file ../gizer-config.ini```
 
 ## Know issues.<br>
 * Schema items' types should be strictly defined. Incorrectly defined types may lead to errors.
