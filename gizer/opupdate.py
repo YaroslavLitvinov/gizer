@@ -38,13 +38,17 @@ def locate_in_schema(schema_in, path):
     if current_element in schema.keys():
         if len(new_path_clear) > 1:
             new_path = new_path_clear[1:]
+            next_element = None
             if type(schema[current_element]) is list:
                 next_element = schema[current_element][0]
             elif type(schema[current_element]) is dict:
                 next_element = schema[current_element]
 
             if len(new_path) >= 1:
-                return locate_in_schema(next_element, new_path)
+                if next_element is not None:
+                    return locate_in_schema(next_element, new_path)
+                else:
+                    return False
             else:
                 return new_path in next_element.keys()
         else:

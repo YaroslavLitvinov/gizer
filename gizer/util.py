@@ -82,6 +82,7 @@ def get_postgres_type(type_name):
         'LONG': 'bigint',
         'TIMESTAMP': 'timestamp',
         'DOUBLE': 'double precision',
+        'BIGINT': 'bigint',
         'TINYINT': 'integer'
     }[type_name.upper()]
 

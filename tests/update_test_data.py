@@ -813,3 +813,31 @@ test_data_20_A = '''{
 	}
 }
 '''
+
+test_data_21__ = '''{
+   "ts": "1465220614, 2",
+   "h": "-1447958161854102698",
+   "v": 2,
+   "op": "u",
+   "ns": "rails4_mongoid_development.rated_posts",
+   "o2": {"_id": {"$oid": "56b8da59f9fcee1b00000013"}},
+   "o": {
+       "$set": {
+           "test_bigint":1234,
+           "rates.1": {
+               "_id": {"$oid":"5769a855cf6879d0b0a01978"},
+               "name": "Configuration 2",
+               "a_filed_with_id": {"$oid":"5769a7ebcf6879d0b0a01971"},
+               "another_filed_with_id2":{
+                    "onemore_enclosed_level": {
+                        "$oid":"5769a7ebcf6879d0b0a01973",
+                        "bsontype":7
+                    },
+                    "some_strange_field":{"Struct not in schema":"value not in schema"}
+                },
+               "datacenter_id": 3,
+               "position": 2
+           }
+       }
+   }
+}'''

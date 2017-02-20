@@ -231,6 +231,7 @@ def test_get_tables_structure():
         'documents': {
             'personal_info_driver_licence': 'text',
             'personal_info_date_of_birth': 'text',
+            'personal_info_full_name_bigint_number':'bigint',
             'id_bsontype': 'integer',
             'personal_info_full_name_last_name': 'text',
             'field': 'text',
