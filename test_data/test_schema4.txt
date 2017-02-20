@@ -4,6 +4,7 @@
 		"full_name":{
 			"first_name":"STRING",
 			"last_name":"STRING",
+			"bigint_number":"BIGINT",
 			"SSNs":[
 				"INT"
 			]
