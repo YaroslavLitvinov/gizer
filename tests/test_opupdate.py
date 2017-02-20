@@ -368,6 +368,12 @@ def test_update():
     result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
     assert sqls_to_dict(result) == sqls_to_dict(model)
 
+    print('Test #28')
+    oplog_data = loads(test_data_21__)
+    model = [{'do $$    begin    UPDATE "rated_post_rates" SET "a_filed_with_id_bsontype"=(%s), "a_filed_with_id_oid"=(%s), "another_filed_with_id2_onemore_enclosed_level_bsontype"=(%s), "another_filed_with_id2_onemore_enclosed_level_oid"=(%s), "id_bsontype"=(%s), "id_oid"=(%s) WHERE "idx"=(%s) and "rated_posts_id_oid"=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO "rated_post_rates" ("idx", "rated_posts_id_oid", "a_filed_with_id_bsontype", "a_filed_with_id_oid", "another_filed_with_id2_onemore_enclosed_level_bsontype", "another_filed_with_id2_onemore_enclosed_level_oid", "id_bsontype", "id_oid") VALUES(%s, %s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$': [(7, '5769a7ebcf6879d0b0a01971', 7, '5769a7ebcf6879d0b0a01973', 7, '5769a855cf6879d0b0a01978', '2', '56b8da59f9fcee1b00000013', '2', '56b8da59f9fcee1b00000013', 7, '5769a7ebcf6879d0b0a01971', 7, '5769a7ebcf6879d0b0a01973', 7, '5769a855cf6879d0b0a01978')]}]
+    result = update(dbreq, schema_engine[oplog_data["ns"].split('.')[1]], oplog_data, DatabaseInfo('', ''))
+    assert sqls_to_dict(result) == sqls_to_dict(model)
+
 
     print(TEST_INFO, 'update', 'PASSED')
 
