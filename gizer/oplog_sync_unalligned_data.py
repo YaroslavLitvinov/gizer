@@ -103,7 +103,7 @@ class OplogSyncUnallignedData(OplogSyncBase):
                                                              rec_ids_dict)
             except:
                 getLogger(__name__).error('Exception caught %s',
-                                          traceback.print_exc())
+                                          traceback.format_exc())
                 res = None
             if not res:
                 return None
