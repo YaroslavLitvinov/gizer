@@ -115,8 +115,9 @@ class PsqlEtlStatusTable(object):
         return ts
 
     def get_recent(self):
-        fmt = 'SELECT * from {schema}qmetlstatus order by time_start \
-desc limit 1;'
+        fmt = 'SELECT \
+comment,time_start,time_end,recs_count,queries_count,ts,status,attempt,error \
+FROM {schema}qmetlstatus ORDER BY time_start DESC LIMIT 1;'
         self.cursor.execute(fmt.format(schema=self.schema_name))
         rec = self.cursor.fetchone()
         if rec is not None:
@@ -133,8 +134,9 @@ desc limit 1;'
             return None
 
     def save_new(self, status):
-        fmt = 'INSERT INTO {schema}qmetlstatus VALUES(\
-%s, %s, %s, %s, %s, %s, %s, %s, %s);'
+        fmt = 'INSERT INTO {schema}qmetlstatus(\
+comment,time_start,time_end,recs_count,queries_count,ts,status,attempt,error) \
+VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s);'
         operation_str = fmt.format(schema=self.schema_name)
         self.cursor.execute(operation_str,
                             (status.comment,
