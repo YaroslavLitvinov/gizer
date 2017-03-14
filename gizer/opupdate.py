@@ -127,11 +127,11 @@ def normalize_unset_oplog_recursive(schema, oplog_data, parent_path,
                 elements_list = get_elements_list(elements_to_set_null, [], [])
                 for elements_list_el in elements_list:
                     parsed_path = parse_column_path('.'.join(
-                        [root_info.root_collection, element,
+                        [root_info.root_collection] + parent_path + [element,
                          elements_list_el.iterkeys().next()]))
                     branch_list.append(
-                        OplogBranch('', element + '.' +
-                                    elements_list_el.iterkeys().next(),
+                        OplogBranch('', '.'.join(parent_path + [element,
+                                    elements_list_el.iterkeys().next()]),
                                     elements_list_el.itervalues().next(),
                                     element_conditios_list, parsed_path, None))
             elif type(elements_to_set_null) is list:
