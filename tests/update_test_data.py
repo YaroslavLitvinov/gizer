@@ -841,3 +841,20 @@ test_data_21__ = '''{
        }
    }
 }'''
+
+test_data_22 = '''{
+   "ts": "1465220614, 2",
+   "h": "-1447958161854102698",
+   "v": 2,
+   "op": "u",
+   "ns": "rails4_mongoid_development.rated_posts",
+   "o2": {"_id": {"$oid": "56b8da59f9fcee1b00000013"}},
+   "o": {
+       "$set": {
+            "comments.10.rates.3":{
+                "rate":"24",
+                "user_info":{}
+            }
+        }
+   }
+}'''
