@@ -28,7 +28,8 @@ class OplogSyncAllignedData(OplogSyncBase):
         must be used. """
 
     def __init__(self, psql, mongo_readers, oplog_readers,
-                 schemas_path, schema_engines, psql_schema, attempt):
+                 schemas_path, schema_engines, psql_schema,
+                 attempt, recovery_allowed):
         """ params:
         psql -- Postgres cursor wrapper
         mongo_readers -- dict of mongo readers, one per collection
@@ -38,6 +39,7 @@ class OplogSyncAllignedData(OplogSyncBase):
         super(OplogSyncAllignedData, self).\
             __init__(psql, mongo_readers, oplog_readers,
                      schemas_path, schema_engines, psql_schema, attempt)
+        self.recovery_allowed = recovery_allowed
         self.comparator = ComparatorMongoPsql(schema_engines,
                                               mongo_readers,
                                               psql,
@@ -79,7 +81,7 @@ class OplogSyncAllignedData(OplogSyncBase):
                     # on high level will not return an error
                     self.set_failed()
                     return start_ts_dict
-                else:
+                else if self.recovery_allowed:
                     # recover records whose cmp get negative result
                     self.recover_failed_items(failed_trydata)
                     recover = True

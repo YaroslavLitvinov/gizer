@@ -93,6 +93,7 @@ def main():
 
     schemas_path = config['misc']['schemas-dir']
     logspath = config['misc']['logs-dir']
+    recovery_allowed = config['misc'].getboolean('recovery-allowed')
 
     oplog_settings = load_mongo_replicas_from_setting(config, 'mongo-oplog')
 
@@ -176,7 +177,7 @@ def main():
             alligned_sync = \
                 OplogSyncAllignedData(psql_main, mongo_readers, oplog_readers,
                                       schemas_path, schema_engines, psql_schema,
-                                      attempt)
+                                      attempt, recovery_allowed)
             try:
                 ts_res = alligned_sync.sync(status.ts)
                 if alligned_sync.failed:
