@@ -29,9 +29,16 @@ Solution is divided into 3 phases:<br>
 ## Environment<br>
 * Python 2.7.x
 * Add directory containing mongo_schema module to python path.  If
-     module resided in git directory: export PYTHONPATH=~/git/:.
-* Specify TEST_PSQLCONN env variable before running tests, for
-     example: export TEST_PSQLCONN="dbname=zvm user=zvm"
+     modules are resided in git directory do: 
+     ```export PYTHONPATH=~/git/:~/git/gizer```
+* Specify TEST_PSQLCONN env variable before running tests
+     ```export TEST_PSQLCONN="dbname=zvm user=zvm"```
+* create test postgresql user at once (following will create admin user)
+     ```sudo su - postgres
+     createuser -sdrl zvm
+     createdb zvm
+     psql -U postgres -c "ALTER USER zvm WITH PASSWORD 'zvm';"
+     ```
 * Test it
      ./run_cov_tests.sh or py.test
 
