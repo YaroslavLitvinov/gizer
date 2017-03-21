@@ -81,7 +81,7 @@ class OplogSyncAllignedData(OplogSyncBase):
                     # on high level will not return an error
                     self.set_failed()
                     return start_ts_dict
-                else if self.recovery_allowed:
+                elif self.recovery_allowed:
                     # recover records whose cmp get negative result
                     self.recover_failed_items(failed_trydata)
                     recover = True

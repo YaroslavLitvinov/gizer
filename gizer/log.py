@@ -8,8 +8,8 @@ __email__ = "yaroslav.litvinov@rackspace.com"
 
 import logging
 
-LOG_LEVEL = logging.INFO
-#LOG_LEVEL = logging.DEBUG
+#LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 
 def save_loglevel():
     LOG_LEVEL = logging.getLogger().getEffectiveLevel()
