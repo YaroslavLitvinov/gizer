@@ -95,7 +95,7 @@ def get_readers(oplog_test, enable_exceptions):
             mongo_readers_after[name] = data_mock_no_exception([mongo_data_path], name)
     return (oplog_readers, mongo_readers_after)
 
-def run_oplog_engine_check(oplog_test, schemas_path):
+def run_oplog_engine_check(oplog_test, schemas_path, recovery_allowed):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
@@ -157,7 +157,7 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         alligned_sync \
             = OplogSyncAllignedData(dbreq, mongo_readers_after, oplog_readers,
                                     schemas_path, schema_engines, psql_schema,
-                                    3, False)
+                                    3, recovery_allowed)
         res = alligned_sync.sync(ts_synced)
         if res:
             getLogger(__name__).info("Test passed")
@@ -186,7 +186,9 @@ def check_dataset(skip_sync, name, oplog_params, params,
     oplog_test \
         = OplogTest(before_params, oplog_params, after_params,
                     max_tries, skip_sync)
-    res = run_oplog_engine_check(oplog_test, SCHEMAS_PATH)
+    res = run_oplog_engine_check(oplog_test=oplog_test,
+                                 schemas_path=SCHEMAS_PATH,
+                                 recovery_allowed=True)
     return res
 
 
@@ -401,5 +403,7 @@ if __name__ == '__main__':
                     {'oplog': [(mongo_oplog, None)]},
                     data_after,
                     SYNC_TRY_COUNT, True)
-    res = run_oplog_engine_check(oplog_test1, schemas_path)
+    res = run_oplog_engine_check(oplog_test=oplog_test1,
+                                 schemas_path=schemas_path,
+                                 recovery_allowed=False)
     assert(res == True)
