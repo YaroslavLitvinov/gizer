@@ -157,7 +157,7 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         alligned_sync \
             = OplogSyncAllignedData(dbreq, mongo_readers_after, oplog_readers,
                                     schemas_path, schema_engines, psql_schema,
-                                    3)
+                                    3, False)
         res = alligned_sync.sync(ts_synced)
         if res:
             getLogger(__name__).info("Test passed")
