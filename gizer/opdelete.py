@@ -41,7 +41,8 @@ __email__ = "vladimir.varchuk@rackspace.com"
 from gizer.util import get_idx_column_name_from_list, SELECT_TMPLT, \
     UPDATE_TMPLT, DELETE_TMPLT, get_indexes_dictionary_idx, \
     get_root_table_from_path, get_ids_list, get_table_name_from_list, \
-    get_tables_structure, get_table_name_schema, get_last_idx_from_path
+    get_tables_structure, get_table_name_schema, get_last_idx_from_path, \
+    get_part_schema
 import psycopg2
 
 
@@ -140,13 +141,31 @@ def gen_statements(dbreq, schema, path, str_id, database_info):
     related to delete operation"""
     tables_mappings = get_tables_structure(schema, path.split('.')[0], {}, {},
                                            1, '')
+    # getting partial table mappings
+    if len(path.split('.')) <= 1:
+        schema_partial = schema
+    else:
+        schema_partial = get_part_schema(schema, path.split('.')[1:])
+    if schema_partial == None:
+        schema_partial = {}
+    tables_mappings_partial = get_tables_structure(schema_partial,
+                                                   path.split('.')[0], {}, {},
+                                           1, '')
+
     conditions_list = get_conditions_list(schema, path, str_id)
     where_clauses = get_where_templates(conditions_list)
     target_table = get_table_name_from_list(path.split('.'))
     if not target_table in tables_mappings.keys():
         return {'del': {}, 'upd': {}}
     tables_list = []
-    for table in tables_mappings.keys():
+    tables_mappings_partial_fixed = {}
+    # fixing prefixes for partial table mappings
+    for table_partial in tables_mappings_partial:
+        tables_mappings_partial_fixed[table_partial.replace(
+                path.split('.')[0][:-1], target_table[:-1],)] = \
+            tables_mappings_partial[table_partial]
+
+    for table in tables_mappings_partial_fixed.keys():
         if str.startswith(str(table), target_table[:-1], 0,
                           len(table)) and not table == target_table:
             tables_list.append(table)
