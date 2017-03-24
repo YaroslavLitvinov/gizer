@@ -167,7 +167,8 @@ def gen_statements(dbreq, schema, path, str_id, database_info):
 
     for table in tables_mappings_partial_fixed.keys():
         if str.startswith(str(table), target_table[:-1], 0,
-                          len(table)) and not table == target_table:
+                          len(table)) and not table == target_table and \
+                        table in tables_mappings.keys():
             tables_list.append(table)
     del_statements = {}
     del_statements[DELETE_TMPLT.format(
