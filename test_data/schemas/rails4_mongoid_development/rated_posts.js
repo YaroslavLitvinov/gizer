@@ -33,7 +33,17 @@
 			}]
 		}]
     }],
-    "title": "STRING",
+ 	"item_rates":[{
+		"_id": {
+			"oid": "STRING",
+		    "bsontype": "INT"
+		 },
+		"name" : "STRING",
+		"description" : "STRING",
+		"created_at": "TIMESTAMP",
+		"updated_at": "TIMESTAMP"
+	}],
+   "title": "STRING",
     "body": "STRING",
     "user_id": "STRING",
     "updated_at": "TIMESTAMP",
