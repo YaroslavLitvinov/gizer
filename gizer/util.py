@@ -29,6 +29,7 @@ DatabaseInfo = namedtuple('DatabaseInfo', ['database_name', 'schema_name'])
 
 def get_cleaned_field_name(field_name):
     """returns cleared field name for flat database"""
+    ret_val = None
     for i in range(len(field_name)):
         if field_name[i].isalpha():
             ret_val = field_name[i:]
@@ -287,3 +288,31 @@ def get_quotes_using(schema, table, field_name, collection_name):
     quotes_not_needed = ['int', 'bigint', 'integer', 'double']
     return not get_column_type(schema, table, field_name, collection_name) in \
             quotes_not_needed
+
+
+def get_part_schema(schema_in, path):
+    """returns 'child' part of the schema related to path"""
+    schema = get_schema(schema_in)
+    w_path = []
+    if type(path) is list:
+        w_path = get_cleaned_path(path)
+        current_path = w_path[0]
+    else:
+        current_path = path
+
+    if current_path in schema.keys():
+        if type(schema[current_path]) is dict:
+            if len(w_path) > 1:
+                return get_part_schema(schema[current_path], w_path[1:])
+            else:
+                return schema[current_path]
+        elif type(schema[current_path]) is list:
+            if type(w_path) is list:
+                if len(w_path[1:]) == 0:
+                    return schema[current_path]
+                else:
+                    return get_part_schema(schema[current_path], w_path[1:])
+            else:
+                return schema[current_path]
+        else:
+            return schema[current_path]
