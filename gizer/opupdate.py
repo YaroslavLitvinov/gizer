@@ -15,7 +15,8 @@ from gizer.oppartial_record import get_tables_data_from_oplog_set_command
 from gizer.opdelete import op_delete_stmts as delete, get_conditions_list
 from gizer.util import get_tables_structure, get_table_name_from_list, \
     get_table_name_schema, UPDATE_TMPLT, UPSERT_TMLPT, INSERT_TMPLT, \
-    get_schema, get_cleaned_path, get_schema_dict, get_cleaned_field_name
+    get_schema, get_cleaned_path, get_schema_dict, get_cleaned_field_name, \
+    get_part_schema
 from collections import namedtuple
 from logging import getLogger
 
@@ -55,34 +56,6 @@ def locate_in_schema(schema_in, path):
             return True
     else:
         return False
-
-
-def get_part_schema(schema_in, path):
-    """returns 'child' part of the schema related to path"""
-    schema = get_schema(schema_in)
-    w_path = []
-    if type(path) is list:
-        w_path = get_cleaned_path(path)
-        current_path = w_path[0]
-    else:
-        current_path = path
-
-    if current_path in schema.keys():
-        if type(schema[current_path]) is dict:
-            if len(w_path) > 1:
-                return get_part_schema(schema[current_path], w_path[1:])
-            else:
-                return schema[current_path]
-        elif type(schema[current_path]) is list:
-            if type(w_path) is list:
-                if len(w_path[1:]) == 0:
-                    return schema[current_path]
-                else:
-                    return get_part_schema(schema[current_path], w_path[1:])
-            else:
-                return schema[current_path]
-        else:
-            return schema[current_path]
 
 
 def get_elements_list(schema, path, paths):
