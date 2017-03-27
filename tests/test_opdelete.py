@@ -141,7 +141,7 @@ def test_get_tables_list():
 
     schema = json.loads(open('test_data/schemas/rails4_mongoid_development/rated_posts.js').read())
     result = get_tables_structure(schema,'rated_posts',{},{},1, '').keys()
-    model = [u'rated_posts', u'rated_post_tests', u'rated_post_comments', u'rated_post_comment_tests', u'rated_post_comment_rates', u'rated_post_comment_rate_item_rates', u'rated_post_rates', u'rated_post_enclosed_field_array']
+    model = [u'rated_posts', u'rated_post_tests', u'rated_post_comments', u'rated_post_comment_tests', u'rated_post_comment_rates', u'rated_post_comment_rate_item_rates', u'rated_post_rates', u'rated_post_enclosed_field_array', u'rated_post_item_rates']
     assert sorted(model) == sorted(result)
 
     print(TEST_INFO, 'get_tables_list', 'PASSED')
