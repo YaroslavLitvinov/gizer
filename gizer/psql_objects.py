@@ -4,6 +4,8 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
+import psycopg2
+import traceback
 from logging import getLogger
 from gizer.opinsert import generate_insert_queries
 from gizer.opcreate import generate_drop_table_statement
@@ -171,23 +173,33 @@ def create_psql_index(table, dbreq, psql_schema, prefix):
                                             prefix,
                                             INDEX_ID_IDXS)
     getLogger(__name__).info("EXECUTE: " + query)
-    dbreq.cursor.execute(query)
+    try:
+        dbreq.cursor.execute(query)
+    except psycopg2.ProgrammingError:
+        getLogger(__name__).error("Can't create index, exception: %s",
+                                  traceback.format_exc()))
     # index 2
     query = generate_create_index_statement(table,
                                             psql_schema,
                                             prefix,
                                             INDEX_ID_ONLY)
     getLogger(__name__).info("EXECUTE: " + query)
-    dbreq.cursor.execute(query)
+    try:
+        dbreq.cursor.execute(query)
+    except psycopg2.ProgrammingError:
+        getLogger(__name__).error("Can't create index, exception: %s",
+                                  traceback.format_exc()))
     # index 3
     query = generate_create_index_statement(table,
                                             psql_schema,
                                             prefix,
                                             INDEX_ID_PARENT_IDXS)
     getLogger(__name__).info("EXECUTE: " + query)
-    dbreq.cursor.execute(query)
-
-
+    try:
+        dbreq.cursor.execute(query)
+    except psycopg2.ProgrammingError:
+        getLogger(__name__).error("Can't create index, exception: %s",
+                                  traceback.format_exc()))
 
 def create_psql_tables(tables_obj, dbreq, psql_schema, prefix, drop):
     """ drop and create tables related to Tables obj """
