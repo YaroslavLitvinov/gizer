@@ -177,7 +177,7 @@ def create_psql_index(table, dbreq, psql_schema, prefix):
         dbreq.cursor.execute(query)
     except psycopg2.ProgrammingError:
         getLogger(__name__).error("Can't create index, exception: %s",
-                                  traceback.format_exc()))
+                                  traceback.format_exc())
     # index 2
     query = generate_create_index_statement(table,
                                             psql_schema,
@@ -188,7 +188,7 @@ def create_psql_index(table, dbreq, psql_schema, prefix):
         dbreq.cursor.execute(query)
     except psycopg2.ProgrammingError:
         getLogger(__name__).error("Can't create index, exception: %s",
-                                  traceback.format_exc()))
+                                  traceback.format_exc())
     # index 3
     query = generate_create_index_statement(table,
                                             psql_schema,
@@ -199,7 +199,7 @@ def create_psql_index(table, dbreq, psql_schema, prefix):
         dbreq.cursor.execute(query)
     except psycopg2.ProgrammingError:
         getLogger(__name__).error("Can't create index, exception: %s",
-                                  traceback.format_exc()))
+                                  traceback.format_exc())
 
 def create_psql_tables(tables_obj, dbreq, psql_schema, prefix, drop):
     """ drop and create tables related to Tables obj """
