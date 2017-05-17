@@ -93,6 +93,7 @@ def main():
 
     schemas_path = config['misc']['schemas-dir']
     logspath = config['misc']['logs-dir']
+    recovery_allowed = config['misc'].getboolean('recovery-allowed')
 
     oplog_settings = load_mongo_replicas_from_setting(config, 'mongo-oplog')
 
@@ -136,16 +137,21 @@ def main():
             status_manager.oplog_sync_start(status.ts)
             unalligned_sync = OplogSyncUnallignedData(
                 psql_qmetl, psql_sync, mongo_readers, oplog_readers,
-                schemas_path, schema_engines, psql_schema)
+                schemas_path, schema_engines, psql_schema, 0)
             try:
                 ts = unalligned_sync.sync(status.ts)
+                if unalligned_sync.failed:
+                    getLogger(__name__).warning("Attempt %d failed",
+                                                unalligned_sync.attempt)
                 stat = unalligned_sync.statistic()
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
                 if ts: # sync ok
-                    status_manager.oplog_sync_finish(stat[0], stat[1], ts, False)
+                    status_manager.oplog_sync_finish(stat[0], stat[1],
+                                                     ts, False)
                     res = 0
                 else: # error
-                    status_manager.oplog_sync_finish(stat[0], stat[1], None, True)
+                    status_manager.oplog_sync_finish(stat[0], stat[1],
+                                                     None, True)
                     res = -1
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)
@@ -161,34 +167,53 @@ def main():
             create_logger(logspath, 'oploguse')
             # sync done, now apply oplog pacthes to main psql
             # save oplog sync status
-            getLogger(__name__).\
-                info('Sync point is ts:{ts}'.format(ts=status.ts))
-            status_manager.oplog_use_start(status.ts)
+            getLogger(__name__).info(\
+                'Sync point is ts:{ts}, attempt=%d'.format(
+                    ts=status.ts, attempt=status.attempt))
+            attempt = 1
+            if status.attempt is not None:
+                attempt = status.attempt + 1
+            status_manager.oplog_use_start(status.ts, attempt)
             alligned_sync = \
                 OplogSyncAllignedData(psql_main, mongo_readers, oplog_readers,
-                                      schemas_path, schema_engines, psql_schema)
+                                      schemas_path, schema_engines, psql_schema,
+                                      attempt, recovery_allowed)
             try:
                 ts_res = alligned_sync.sync(status.ts)
+                if alligned_sync.failed:
+                    getLogger(__name__).warning("Attempt %d failed",
+                                                alligned_sync.attempt)
+                else:
+                    attempt = 0
                 stat = alligned_sync.statistic()
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
                 if ts_res == 'resync':
                     # some records recovered must do resync at next step
-                    status_manager.oplog_resync_finish(stat[0], stat[1],
-                                                       status.ts, False)
+                    status_manager.oplog_resync_finish(recs_count=stat[0],
+                                                       queries_count=stat[1],
+                                                       ts=status.ts,
+                                                       error=False)
                     res= 0
                 elif ts_res: # oplog apply ok
-                    status_manager.oplog_use_finish(stat[0], stat[1],
-                                                    ts_res, False)
+                    status_manager.oplog_use_finish(recs_count=stat[0],
+                                                    queries_count=stat[1],
+                                                    ts=ts_res,
+                                                    attempt=attempt,
+                                                    error=False)
                     res= 0
                 else: # error
-                    status_manager.oplog_use_finish(stat[0], stat[1], None, True)
+                    status_manager.oplog_use_finish(recs_count=stat[0],
+                                                    queries_count=stat[1],
+                                                    ts=None,
+                                                    attempt=0,
+                                                    error=True)
                     res = -1
             except Exception, e:
                 getLogger(__name__).error(e, exc_info=True)
                 getLogger(__name__).error('ROLLBACK CLOSE')
                 psql_main.conn.rollback()
                 reinit_conn(psql_settings, psql_qmetl, status_manager)
-                status_manager.oplog_use_finish(None, None, None, True)
+                status_manager.oplog_use_finish(None, None, None, None, True)
                 res = -1
         else:
             # initial load is not performed 

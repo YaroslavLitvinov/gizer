@@ -4,6 +4,8 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
+import psycopg2
+import traceback
 from logging import getLogger
 from gizer.opinsert import generate_insert_queries
 from gizer.opcreate import generate_drop_table_statement
@@ -54,7 +56,7 @@ def cmp_psql_mongo_tables(rec_id, mongo_tables_obj, psql_tables_obj):
         if psql_tables_obj:
             for line in str(psql_tables_obj.tables).splitlines():
                 getLogger(__name__).debug(line)
-    
+
     return res
 
 def parent_id_name_and_quotes_for_table(sqltable):
@@ -171,23 +173,33 @@ def create_psql_index(table, dbreq, psql_schema, prefix):
                                             prefix,
                                             INDEX_ID_IDXS)
     getLogger(__name__).info("EXECUTE: " + query)
-    dbreq.cursor.execute(query)
+    try:
+        dbreq.cursor.execute(query)
+    except:
+        getLogger(__name__).error("Can't create index, exception: %s",
+                                  traceback.format_exc())
     # index 2
     query = generate_create_index_statement(table,
                                             psql_schema,
                                             prefix,
                                             INDEX_ID_ONLY)
     getLogger(__name__).info("EXECUTE: " + query)
-    dbreq.cursor.execute(query)
+    try:
+        dbreq.cursor.execute(query)
+    except:
+        getLogger(__name__).error("Can't create index, exception: %s",
+                                  traceback.format_exc())
     # index 3
     query = generate_create_index_statement(table,
                                             psql_schema,
                                             prefix,
                                             INDEX_ID_PARENT_IDXS)
     getLogger(__name__).info("EXECUTE: " + query)
-    dbreq.cursor.execute(query)
-
-
+    try:
+        dbreq.cursor.execute(query)
+    except:
+        getLogger(__name__).error("Can't create index, exception: %s",
+                                  traceback.format_exc())
 
 def create_psql_tables(tables_obj, dbreq, psql_schema, prefix, drop):
     """ drop and create tables related to Tables obj """
@@ -207,13 +219,13 @@ def remove_rec_from_psqldb(psql, psql_schema, schema_engine,
     fake_ts = ts_obj("Timestamp(1000000000, 1)")
     fake_ns = "doesntmatter.%s" % (collection)
     sql_table = rec.tables[collection]
-    # if Id node is ObjectId, then fetch name of parent 
+    # if Id node is ObjectId, then fetch name of parent
     id_name = sql_table.root.get_id_node().parent.name
     if id_name is None:
         id_name = sql_table.root.get_id_node().name
-    o_field = { id_name : rec_id_obj }
+    o_field = {id_name : rec_id_obj}
     getLogger(__name__).info("o_field: %s", o_field)
-    delete_queries = cb_delete((psql, psql_schema), 
+    delete_queries = cb_delete((psql, psql_schema),
                                fake_ts, fake_ns, schema_engine, o_field)
     for query in delete_queries:
         exec_insert(psql, query)

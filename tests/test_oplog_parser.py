@@ -35,9 +35,9 @@ MAIN_SCHEMA_NAME = ''
 OplogTest = namedtuple('OplogTest', ['before',
                                      'oplog_dataset',
                                      'after',
-                                     'max_attempts',
+                                     'max_tries',
                                      'skip_sync'])
-SYNC_ATTEMPTS_CNT = 10
+SYNC_TRY_COUNT = 10
 
 def data_mock(mongo_data_path_list, collection):
     reader = None
@@ -95,7 +95,7 @@ def get_readers(oplog_test, enable_exceptions):
             mongo_readers_after[name] = data_mock_no_exception([mongo_data_path], name)
     return (oplog_readers, mongo_readers_after)
 
-def run_oplog_engine_check(oplog_test, schemas_path):
+def run_oplog_engine_check(oplog_test, schemas_path, recovery_allowed):
     connstr = os.environ['TEST_PSQLCONN']
     dbreq = PsqlRequests(psycopg2.connect(connstr))
 
@@ -120,41 +120,44 @@ def run_oplog_engine_check(oplog_test, schemas_path):
     getLogger(__name__).info("Loading mongo data after initload")
 
     try:
-        gizer.oplog_sync_unalligned_data.DO_OPLOG_READ_ATTEMPTS_COUNT \
-            = oplog_test.max_attempts
-        gizer.oplog_sync_alligned_data.DO_OPLOG_READ_ATTEMPTS_COUNT \
-            = oplog_test.max_attempts
+        gizer.oplog_sync_unalligned_data.DO_OPLOG_REREAD_MAXCOUNT \
+            = oplog_test.max_tries
+        gizer.oplog_sync_alligned_data.DO_OPLOG_REREAD_MAXCOUNT \
+            = oplog_test.max_tries
         # for better coverage
         gizer.oplog_sync_unalligned_data.SYNC_REC_COUNT_IN_ONE_BATCH = 2
 
-        unalligned_sync \
-            = OplogSyncUnallignedData(dbreq_etl, dbreq, 
-                                      mongo_readers_after, oplog_readers,
-                                      schemas_path, schema_engines, psql_schema)
+        if not oplog_test.skip_sync:
+            unalligned_sync \
+                = OplogSyncUnallignedData(dbreq_etl, dbreq, 
+                                          mongo_readers_after, oplog_readers,
+                                          schemas_path, schema_engines, psql_schema,
+                                          3)
 
-        #start syncing from very start of oplog
-        ts_synced = unalligned_sync.sync(None)
-        getLogger(__name__).info("Sync done ts_synced: %s" % str(ts_synced))
-        getLogger(__name__).info("statistic %s" % str(unalligned_sync.statistic()))
-        del unalligned_sync
-        # sync failed
-        if ts_synced is None and not oplog_test.skip_sync:
-            return False
+            #start syncing from very start of oplog
+            ts_synced = unalligned_sync.sync(None)
+            getLogger(__name__).info("Sync done ts_synced: %s" % str(ts_synced))
+            getLogger(__name__).info("statistic %s" % str(unalligned_sync.statistic()))
+            del unalligned_sync
+            # sync failed
+            if ts_synced is None:
+                return False
 
-        del dbreq
-        dbreq = PsqlRequests(psycopg2.connect(connstr))
+            del dbreq
+            dbreq = PsqlRequests(psycopg2.connect(connstr))
 
-        oplog_readers, mongo_readers_after = get_readers(oplog_test, 
-                                                         enable_exceptions=True)
-        # ignore sync results
-        if oplog_test.skip_sync:
+            oplog_readers, mongo_readers_after = get_readers(oplog_test, 
+                                                             enable_exceptions=True)
+        else:
+            # ignore sync results
             ts_synced = {}
             for name in oplog_readers:
                 ts_synced[name] = None
 
         alligned_sync \
             = OplogSyncAllignedData(dbreq, mongo_readers_after, oplog_readers,
-                                    schemas_path, schema_engines, psql_schema)
+                                    schemas_path, schema_engines, psql_schema,
+                                    3, recovery_allowed)
         res = alligned_sync.sync(ts_synced)
         if res:
             getLogger(__name__).info("Test passed")
@@ -169,7 +172,7 @@ def run_oplog_engine_check(oplog_test, schemas_path):
         return False
 
 def check_dataset(skip_sync, name, oplog_params, params,
-                  max_attempts=SYNC_ATTEMPTS_CNT):
+                  max_tries=SYNC_TRY_COUNT):
     print '\ntest ', name
     location_fmt = 'test_data/'+name+'/%s_collection_%s.js'
     before_params = {}
@@ -182,8 +185,10 @@ def check_dataset(skip_sync, name, oplog_params, params,
             = (location_fmt % ('after', collection), params[collection])
     oplog_test \
         = OplogTest(before_params, oplog_params, after_params,
-                    max_attempts, skip_sync)
-    res = run_oplog_engine_check(oplog_test, SCHEMAS_PATH)
+                    max_tries, skip_sync)
+    res = run_oplog_engine_check(oplog_test=oplog_test,
+                                 schemas_path=SCHEMAS_PATH,
+                                 recovery_allowed=True)
     return res
 
 
@@ -215,8 +220,8 @@ def test_oplog1():
                         format='%(asctime)s %(levelname)-8s %(message)s')
     save_loglevel()
     # dataset test
-    oplog1 = {'shard1': [('test_data/oplog1/oplog1.js', None), # attempt 0
-                         ('test_data/oplog1/oplog2.js', None)  # attempt 1
+    oplog1 = {'shard1': [('test_data/oplog1/oplog1.js', None), # ntry 0
+                         ('test_data/oplog1/oplog2.js', None)  # ntry 1
                          ],
               'shard2': [('test_data/oplog1/shard2-oplog1.js', None)
                          ]
@@ -254,15 +259,15 @@ def test_oplog4():
                         stream=sys.stdout,
                         format='%(asctime)s %(levelname)-8s %(message)s')
     save_loglevel()
-    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
-                               ('test_data/oplog4/oplog2.js', None), # attempt 1
-                               ('test_data/oplog4/oplog3.js', None), # attempt 2
-                               ('test_data/oplog4/oplog4.js', None), # attempt 3
-                               ('test_data/oplog4/oplog5.js', None), # attempt 4
-                               ('test_data/oplog4/oplog6.js', None), # attempt 5
-                               ('test_data/oplog4/oplog7.js', None), # attempt 6
-                               ('test_data/oplog4/oplog8.js', None), # attempt 7
-                               ('test_data/oplog4/oplog9.js', None) # attempt 8
+    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # ntry 0
+                               ('test_data/oplog4/oplog2.js', None), # ntry 1
+                               ('test_data/oplog4/oplog3.js', None), # ntry 2
+                               ('test_data/oplog4/oplog4.js', None), # ntry 3
+                               ('test_data/oplog4/oplog5.js', None), # ntry 4
+                               ('test_data/oplog4/oplog6.js', None), # ntry 5
+                               ('test_data/oplog4/oplog7.js', None), # ntry 6
+                               ('test_data/oplog4/oplog8.js', None), # ntry 7
+                               ('test_data/oplog4/oplog9.js', None) # ntry 8
                                ]}
     assert(check_dataset(False, 'oplog4', oplog4, 
                          {'posts': None} # don't raise error while reading posts
@@ -274,18 +279,18 @@ def test_oplog5():
                         format='%(asctime)s %(levelname)-8s %(message)s')
     save_loglevel()
     # dataset test should not fail, oplog recover in action
-    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # attempt 0
-                               ('test_data/oplog4/oplog2.js', None), # attempt 1
-                               ('test_data/oplog4/oplog3.js', None), # attempt 2
-                               ('test_data/oplog4/oplog4.js', None), # attempt 3
-                               ('test_data/oplog4/oplog5.js', None), # attempt 4
-                               ('test_data/oplog4/oplog6.js', None), # attempt 5
-                               ('test_data/oplog4/oplog7.js', None), # attempt 6
-                               ('test_data/oplog4/oplog8.js', None) # attempt 7
+    oplog4 = {'single-oplog': [('test_data/oplog4/oplog1.js', None), # ntry 0
+                               ('test_data/oplog4/oplog2.js', None), # ntry 1
+                               ('test_data/oplog4/oplog3.js', None), # ntry 2
+                               ('test_data/oplog4/oplog4.js', None), # ntry 3
+                               ('test_data/oplog4/oplog5.js', None), # ntry 4
+                               ('test_data/oplog4/oplog6.js', None), # ntry 5
+                               ('test_data/oplog4/oplog7.js', None), # ntry 6
+                               ('test_data/oplog4/oplog8.js', None) # ntry 7
                                ]}
     assert(check_dataset(True, 'oplog4', oplog4, 
                          {'posts': None}, # don't raise error while reading posts
-                         10 # - max attempts count to re-read oplog
+                         10 # - max ntrys count to re-read oplog
                          ) == True)
 
 def test_oplog6():
@@ -315,6 +320,15 @@ oplog_simulate_added_after_initload.js',
                          {'posts': pymongo.errors.OperationFailure, 'posts2': None, 
                           'rated_posts': None, 'guests': None}) == True)
 
+def test_oplog7():
+    logging.basicConfig(level=logging.INFO,
+                        stream=sys.stdout,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
+    save_loglevel()
+    # dataset test
+    oplog7 = {'single-oplog': [('test_data/oplog7/oplog.js', None)]}
+    assert(check_dataset(False, 'oplog7', oplog7, {'posts': None}) == True)
+
 def test_oplog8():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
@@ -330,7 +344,7 @@ def test_oplog8():
     try:
         oplog32 = {'single-oplog': [('test_data/oplog3/oplog.js', 
                                          pymongo.errors.InvalidURI)]}
-        check_dataset(True, 'oplog3', oplog32,
+        check_dataset(False, 'oplog3', oplog32,
                       {'posts': None, 'posts2': None, 
                           'rated_posts': None, 'guests': None})
     except:
@@ -348,6 +362,7 @@ def test_oplog8():
     else:
         assert(0)
 
+
 def test_oplog9():
     logging.basicConfig(level=logging.INFO,
                         stream=sys.stdout,
@@ -363,13 +378,16 @@ oplog_simulate_added_after_initload.js',
                          {'posts': None, 'guests': None}) == True)
 
 
+
+
 if __name__ == '__main__':
     """ Test external data by providing path to schemas folder, 
     data folder as args """
-    ## temp
-    test_oplog5()
-    exit(0)
-    ## temp
+    logging.basicConfig(level=logging.DEBUG,
+                        stream=sys.stdout,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
+    save_loglevel()
+
     schemas_path = sys.argv[1]
     data_path = sys.argv[2]
     mongo_oplog = os.path.join(data_path, 'mongo_oplog.json')
@@ -379,11 +397,13 @@ if __name__ == '__main__':
     schema_engines = get_schema_engines_as_dict(schemas_path)
     for schema_name in schema_engines:
         path_with_data = os.path.join(data_path, 'mongo_%s.json' % schema_name)
-        data_after[schema_name] = path_with_data
+        data_after[schema_name] = (path_with_data, None)
     oplog_test1 \
         = OplogTest(empty_data_before,
-                    [mongo_oplog],
+                    {'oplog': [(mongo_oplog, None)]},
                     data_after,
-                    SYNC_ATTEMPTS_CNT)
-    res = run_oplog_engine_check(oplog_test1, schemas_path)
+                    SYNC_TRY_COUNT, True)
+    res = run_oplog_engine_check(oplog_test=oplog_test1,
+                                 schemas_path=schemas_path,
+                                 recovery_allowed=False)
     assert(res == True)

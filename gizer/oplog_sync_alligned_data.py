@@ -7,11 +7,12 @@ __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 from logging import getLogger
-from collections import namedtuple
 from gizer.oplog_parser import exec_insert
 from gizer.batch_comparator import ComparatorMongoPsql
 from gizer.oplog_sync_base import OplogSyncBase
-from gizer.oplog_sync_base import DO_OPLOG_READ_ATTEMPTS_COUNT
+from gizer.oplog_sync_base import DO_OPLOG_REREAD_MAXCOUNT
+from gizer.oplog_sync_base import MAX_CONSEQUENT_FAILURES
+from gizer.oplog_sync_base import MAX_CONSEQUENT_TRANSPORT_FAILURES
 from gizer.psql_objects import remove_rec_from_psqldb
 from gizer.psql_objects import insert_tables_data_into_dst_psql
 from gizer.collection_reader import CollectionReader
@@ -27,7 +28,8 @@ class OplogSyncAllignedData(OplogSyncBase):
         must be used. """
 
     def __init__(self, psql, mongo_readers, oplog_readers,
-                 schemas_path, schema_engines, psql_schema):
+                 schemas_path, schema_engines, psql_schema,
+                 attempt, recovery_allowed):
         """ params:
         psql -- Postgres cursor wrapper
         mongo_readers -- dict of mongo readers, one per collection
@@ -36,12 +38,12 @@ class OplogSyncAllignedData(OplogSyncBase):
         psql_schema -- psql schema whose tables data to patch."""
         super(OplogSyncAllignedData, self).\
             __init__(psql, mongo_readers, oplog_readers,
-                     schemas_path, schema_engines, psql_schema)
+                     schemas_path, schema_engines, psql_schema, attempt)
+        self.recovery_allowed = recovery_allowed
         self.comparator = ComparatorMongoPsql(schema_engines,
                                               mongo_readers,
                                               psql,
                                               psql_schema)
-        self.failed = False
 
     def __del__(self):
         del self.comparator
@@ -62,35 +64,46 @@ class OplogSyncAllignedData(OplogSyncBase):
         do_again = True
         while do_again:
             do_again = False
-            new_ts_dict = self.read_oplog_apply_ops(new_ts_dict, do_again_counter)
+            new_ts_dict = self.read_oplog_apply_ops(new_ts_dict,
+                                                    do_again_counter)
             compare_res = self.comparator.compare_src_dest()
-            failed_attempts = self.comparator.get_failed_cmp_attempts()
-            getLogger(__name__).warning("Failed cmp attempts %s" % failed_attempts)
+            failed_trydata = self.comparator.get_failed_trydata()
+            getLogger(__name__).warning("Failed cmp rereads %s",
+                                        failed_trydata)
             last_portion_failed = False
             recover = False
-            # if failed only latest data
-            if len(failed_attempts) == 1 and do_again_counter in failed_attempts:
-                last_portion_failed = True
-            elif len(failed_attempts):
-                # recover records whose cmp get negative result
-                self.recover_failed_items(failed_attempts)
-                recover = True
-                compare_res = True
+            if failed_trydata:
+                if len(failed_trydata) == 1 \
+                        and do_again_counter in failed_trydata:
+                    # if failed only latest data
+                    last_portion_failed = True
+                elif self.attempt < MAX_CONSEQUENT_FAILURES:
+                    # on high level will not return an error
+                    self.set_failed()
+                    return start_ts_dict
+                elif self.recovery_allowed:
+                    # recover records whose cmp get negative result
+                    self.recover_failed_items(failed_trydata)
+                    recover = True
+                    compare_res = True
             if not compare_res or not new_ts_dict:
                 # if transport returned an error then keep the same ts_start
                 # and return True, as nothing applied
-                if self.failed or self.comparator.is_failed():
-                    return start_ts_dict
+                if (self.failed or self.comparator.is_failed()):
+                    getLogger(__name__).warning("Attempt %d failed",
+                                                self.attempt)
+                    if self.attempt < MAX_CONSEQUENT_TRANSPORT_FAILURES:
+                        return start_ts_dict
+                    else:
+                        return None
                 if last_portion_failed:
-                    if do_again_counter < DO_OPLOG_READ_ATTEMPTS_COUNT:
+                    if do_again_counter < DO_OPLOG_REREAD_MAXCOUNT:
                         do_again = True
                         do_again_counter += 1
-                    else: # Attempts count exceeded
-                        getLogger(__name__).warning('Attempts count exceeded.\
+                    else: # Rereads count exceeded
+                        getLogger(__name__).warning('Rereads count exceeded.\
 Force assigning compare_res to True.')
                         compare_res = True
-                else:
-                    getLogger(__name__).warning("Recs cmp failed.")
         if compare_res:
             getLogger(__name__).info('COMMIT')
             self.psql.conn.commit()
@@ -103,7 +116,7 @@ Force assigning compare_res to True.')
             self.psql.conn.rollback()
             return None
 
-    def read_oplog_apply_ops(self, start_ts_dict, attempt):
+    def read_oplog_apply_ops(self, start_ts_dict, reread):
         """ Apply ops going after specified timestamps.
         params:
         start_ts_dict -- dict with Timestamp for every shard.
@@ -117,6 +130,7 @@ Force assigning compare_res to True.')
             #if self.oplog_readers[name].real_transport():
             #    self.oplog_readers[name].cursor.limit(MAX_REQCOUNT_FOR_SHARD)
         parser = self.new_oplog_parser(dry_run=False)
+        getLogger(__name__).info("Reread oplog ntry=%d", reread)
         # go over oplog, and apply oplog ops for every timestamp
         oplog_queries = parser.next()
         while oplog_queries != None:
@@ -124,17 +138,18 @@ Force assigning compare_res to True.')
             rec_id = parser.item_info.rec_id
             self.oplog_rec_counter += 1
             if len(oplog_queries):
-                getLogger(__name__).info("Exec ts queries [%s] %s:",
-                                         parser.item_info.oplog_name,
-                                         parser.item_info.ts)
+                getLogger(__name__).info(\
+                    "Reread %d exec rec_id [%s] %s related queries [%s] %s:",
+                    reread, collection_name, rec_id,
+                    parser.item_info.oplog_name, parser.item_info.ts)
             for oplog_query in oplog_queries:
                 self.queries_counter += 1
                 exec_insert(self.psql, oplog_query)
-                self.comparator.add_to_compare(collection_name, rec_id, attempt)
+                self.comparator.add_to_compare(collection_name, rec_id, reread)
             oplog_queries = parser.next()
         getLogger(__name__).info(\
-            "%d attempt. Handled oplog records/psql queries: %d/%d" %
-            (attempt, self.oplog_rec_counter, self.queries_counter))
+            "%d reread. Handled oplog records/psql queries: %d/%d" %
+            (reread, self.oplog_rec_counter, self.queries_counter))
         res = {}
         for shard in start_ts_dict:
             if shard in parser.last_oplog_ts:
@@ -143,8 +158,8 @@ Force assigning compare_res to True.')
             else:
                 # nothing received from this shard
                 res[shard] = start_ts_dict[shard]
-        self.failed = parser.is_failed()
         if parser.is_failed():
+            self.set_failed()
             res = None
         return res
 
@@ -172,14 +187,14 @@ Force assigning compare_res to True.')
             recs = reader.get_mongo_table_objs_by_ids(chunk_ids)
             for str_rec_id, rec in recs.iteritems():
                 # 1. remove from psql
-                matched_list = [i for i in ids if str(i) == str(str_rec_id) ]
+                matched_list = [i for i in ids if str(i) == str(str_rec_id)]
                 if not matched_list:
                     # filter out results from mock transport,
                     # that was not requested
                     continue
                 rec_id_obj = matched_list[0]
                 remove_rec_from_psqldb(self.psql, self.psql_schema,
-                                       reader.schema_engine, 
+                                       reader.schema_engine,
                                        collection, rec, rec_id_obj)
                 # 2. add new one to psql
                 insert_tables_data_into_dst_psql(self.psql, rec,

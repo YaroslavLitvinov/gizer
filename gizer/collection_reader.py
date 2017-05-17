@@ -53,10 +53,9 @@ class CollectionReader(object):
                                                      rec_ids)
         self.etl_mongo_reader.execute_query(self.collection_name, mongo_query)
         # get and process records
-        processed_recs = self.etl_mongo_reader.next_processed()
-        while processed_recs is not None:
-            for mongo_tables_obj in processed_recs:
-                rec_id = mongo_tables_obj.rec_id()
-                res[str(rec_id)] = mongo_tables_obj
-            processed_recs = self.etl_mongo_reader.next_processed()
+        while True:
+            item_obj = self.etl_mongo_reader.next()
+            if not item_obj:
+                break
+            res[str(item_obj.rec_id())] = item_obj
         return res

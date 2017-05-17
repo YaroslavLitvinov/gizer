@@ -17,7 +17,7 @@ For succesfully running tests should to be created database test_db with schema 
 """
 
 TEST_INFO = 'TEST_OPDELETE'
-SCHEMA_NAME = 'test_schema'
+SCHEMA_NAME = 'public'
 
 
 
@@ -50,14 +50,14 @@ def database_prepare():
 
     #preparing test tables && records
     SQL_CREATE_person_relative_contacts = ' \
-        CREATE TABLE test_schema.person_relative_contacts\
+        CREATE TABLE %s.person_relative_contacts\
         (\
           idx bigint,\
           persons_relatives_idx bigint,\
           persons_id_oid text\
         );\
-    '
-    SQL_DROP_person_relative_contacts = 'DROP TABLE test_schema.person_relative_contacts;'
+    ' % SCHEMA_NAME
+    SQL_DROP_person_relative_contacts = 'DROP TABLE %s.person_relative_contacts;' % SCHEMA_NAME
     try:
         curs.execute(SQL_DROP_person_relative_contacts)
     except ProgrammingError:
@@ -65,20 +65,20 @@ def database_prepare():
     curs.execute('COMMIT')
     curs.execute(SQL_CREATE_person_relative_contacts)
     SQL_INSERT_max_id_person_relative_contacts= "\
-        INSERT INTO test_schema.person_relative_contacts(\
+        INSERT INTO %s.person_relative_contacts(\
             idx, persons_relatives_idx, persons_id_oid)\
             VALUES (11, 3, '0123456789ABCDEF');\
-    "
+    " % SCHEMA_NAME
     curs.execute(SQL_INSERT_max_id_person_relative_contacts)
 
     SQL_CREATE_person_relatives = '\
-        CREATE TABLE test_schema.person_relatives\
+        CREATE TABLE %s.person_relatives\
         (\
           idx bigint,\
           persons_id_oid text\
         )\
-    '
-    SQL_DROP_person_relatives = 'DROP TABLE test_schema.person_relatives;'
+    ' % SCHEMA_NAME
+    SQL_DROP_person_relatives = 'DROP TABLE %s.person_relatives;' % SCHEMA_NAME
     try:
         curs.execute(SQL_DROP_person_relatives)
     except ProgrammingError:
@@ -88,10 +88,10 @@ def database_prepare():
 
 
     SQL_INSERT_max_id_person_relative_contacts= "\
-        INSERT INTO test_schema.person_relatives(\
+        INSERT INTO %s.person_relatives(\
             idx, persons_id_oid)\
             VALUES (11, '0123456789ABCDEF');    \
-    "
+    " % SCHEMA_NAME
     curs.execute(SQL_INSERT_max_id_person_relative_contacts)
     connector.commit()
     return connector

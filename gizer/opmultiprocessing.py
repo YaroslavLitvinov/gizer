@@ -70,7 +70,7 @@ class FastQueueProcessor:
     def __init__(self, worker, worker_1st_arg, procn):
         self.queue_data = deque()
         self.procs = [_create_worker_proccess(worker, worker_1st_arg) \
-                      for i in xrange(procn)]
+                      for _ in xrange(procn)]
         self.proc_statuses = [False for i in xrange(procn)]
         self.error = False
 

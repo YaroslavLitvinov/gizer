@@ -332,5 +332,19 @@
   "o" : {
     "_id" : {"$oid":"56b8f05cf9fcee1b00011000"}
   }
+},
+{
+  "ts": {"$timestamp": {"t": 1000000018, "i": 1}},
+  "t": 2,
+  "h": "6500669658301126550",
+  "v": 2,
+  "op": "i",
+  "ns": "rails4_mongoid_development.posts2",
+  "o": {
+      "_id": 77,
+       "comments" : [{
+          "body": {}
+       }]
+  }
 }
 ]

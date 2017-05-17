@@ -15,6 +15,7 @@ import logging
 from logging import getLogger
 import configparser
 from collections import namedtuple
+from sets import Set
 # profiling
 from pstats import Stats
 from cProfile import Profile
@@ -42,7 +43,7 @@ CSV_CHUNK_SIZE = 1024 * 1024 * 100  # 100MB
 ETL_PROCESS_NUMBER = 8
 ETL_QUEUE_SIZE = ETL_PROCESS_NUMBER*2
 
-TablesToSave = namedtuple('TablesToSave', ['rows', 'errors'])
+TablesToSave = namedtuple('TablesToSave', ['rec_id', 'rows', 'errors'])
 
 def create_table(sqltable, psql_schema_name, table_prefix):
     """ get drop / create ddl statements """
@@ -105,7 +106,9 @@ def async_worker_handle_mongo_rec(schema_engines, rec_collection):
     for table_name, table in tables_obj.tables.iteritems():
         rows = table_rows_list(table, ENCODE_ONLY, null_value=NULLVAL)
         rows_as_dict[table_name] = rows
-    return TablesToSave(rows=rows_as_dict, errors=tables_obj.errors)
+    return TablesToSave(rec_id=tables_obj.rec_id(),
+                        rows=rows_as_dict,
+                        errors=tables_obj.errors)
 
 # Fast queue helpers
 
@@ -191,18 +194,26 @@ def main():
                                       #1st worker param
                                       {args.collection_name: schema_engine}, 
                                       {args.collection_name: mongo_reader})
-    etl_mongo_reader.execute_query(args.collection_name, json.loads(args.js_request))
+    etl_mongo_reader.execute_query(args.collection_name,
+                                   json.loads(args.js_request))
 
     getLogger(__name__).info("Connecting to mongo server " + mongo_settings.host)
+    received_rec_ids = Set([])
     errors = {}
     all_written = {}
-    tables_list = etl_mongo_reader.next_processed()
-    while tables_list is not None:
-        for tables in tables_list:
+    while True:
+        tables_to_save = etl_mongo_reader.next()
+        if not tables_to_save:
+            break
+        # don't process duplicates that can be accidently returned by transp
+        if tables_to_save.rec_id not in received_rec_ids:
+            received_rec_ids.add(tables_to_save.rec_id)
             all_written = merge_dicts(all_written,
-                                      save_csvs(csm, tables.rows))
-            errors = merge_dicts(errors, tables.errors)
-        tables_list = etl_mongo_reader.next_processed()
+                                      save_csvs(csm, tables_to_save.rows))
+            errors = merge_dicts(errors, tables_to_save.errors)
+        else:
+            getLogger(__name__).warning("Skip duplicated rec_id=%s",
+                                        tables_to_save.rec_id)
     
     if args.ddl_statements_file:
         save_ddl_create_statements(args.ddl_statements_file,
