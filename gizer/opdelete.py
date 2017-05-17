@@ -59,8 +59,8 @@ def get_max_id_in_array(dbreq, table, condition_list, database_info):
             cond_list[column] = condition_list['target'][column]
     where = get_where_templates({'target': cond_list, 'child': {}})['target']
     sql_query = SELECT_TMPLT.format(
-        table='.'.join([database_info.database_name, database_info.schema_name,
-                        table]),
+        table='.'.join(filter(None, [database_info.database_name, database_info.schema_name,
+                        table])),
         conditions=where['template'])
     if not type(dbreq) == psycopg2.extensions.cursor:
         curs = dbreq.cursor()
