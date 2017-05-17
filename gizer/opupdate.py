@@ -149,6 +149,10 @@ def normalize_oplog_recursive(schema, oplog_data, parent_path, branch_list,
                         oplog_data[element]) != list:
                     oplog_data[element] = []
             if type(oplog_data[element]) is dict:
+                prepared_oplog_data = {element:True}
+                branch_list = normalize_unset_oplog_recursive(schema,
+                                    prepared_oplog_data,parent_path,branch_list,
+                                                              root_info)
                 branch_list = normalize_oplog_recursive(schema,
                                                 oplog_data[element],
                                                 parent_path[:] + [element],
@@ -397,16 +401,17 @@ def generate_upsert_statements(branch, dest_column_list_with_value,
 def insert_wrapper(schema_e, oploda_data_set, oplog_data_object_id,
                    schema_name):
     """wrapper for insert operation"""
-    get_tables_data_from_oplog_set = get_tables_data_from_oplog_set_command(
-        schema_e, oploda_data_set,
-        oplog_data_object_id)
-    ins_stmnt = {}
-    for set_el in get_tables_data_from_oplog_set:
-        for table in set_el.tables.itervalues():
-            ins_result = generate_insert_queries(table, schema_name, "",
-                                         set_el.initial_indexes)
-            ins_stmnt[ins_result[0]] = ins_result[1]
-    return ins_stmnt
+    if len(oploda_data_set) > 0:
+        get_tables_data_from_oplog_set = get_tables_data_from_oplog_set_command(
+            schema_e, oploda_data_set,
+            oplog_data_object_id)
+        ins_stmnt = {}
+        for set_el in get_tables_data_from_oplog_set:
+            for table in set_el.tables.itervalues():
+                ins_result = generate_insert_queries(table, schema_name, "",
+                                             set_el.initial_indexes)
+                ins_stmnt[ins_result[0]] = ins_result[1]
+        return ins_stmnt
 
 
 def parse_column_path(path):
@@ -442,11 +447,12 @@ def update_list(dbreq, schema_e, upd_path_str, oplog_info, database_info):
         if type(del_stmnt[del_stmnt_op]) is dict:
             for k in del_stmnt[del_stmnt_op]:
                 ret_val.append({k: [tuple(del_stmnt[del_stmnt_op][k])]})
-    insert_stmnts = insert_wrapper(schema_e, oplog_info.oplog_data_set,
-                                   oplog_info.oplog_data_object_id,
-                                   database_info.schema_name)
-    if insert_stmnts != {}:
-        ret_val.append(insert_stmnts)
+    if len(oplog_info.oplog_data_set.itervalues().next()) > 0:
+        insert_stmnts = insert_wrapper(schema_e, oplog_info.oplog_data_set,
+                                       oplog_info.oplog_data_object_id,
+                                       database_info.schema_name)
+        if insert_stmnts != {}:
+            ret_val.append(insert_stmnts)
     return ret_val
 
 
