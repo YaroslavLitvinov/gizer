@@ -22,7 +22,8 @@ import re
 
 
 TEST_INFO = 'TEST_OPUPDATE'
-SCHEMA_NAME = 'test_schema'
+SCHEMA_NAME = 'public'
+# SCHEMA_NAME = 'test_schema'
 
 
 # def database_prepare():
