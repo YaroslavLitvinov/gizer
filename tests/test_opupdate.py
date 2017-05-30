@@ -22,7 +22,7 @@ import re
 
 
 TEST_INFO = 'TEST_OPUPDATE'
-SCHEMA_NAME = 'test_schema_update'
+SCHEMA_NAME = 'test_schema'
 
 
 # def database_prepare():
@@ -191,11 +191,11 @@ def test_update():
     print('Test #4')
     # model = [{'do $$    begin    UPDATE test_db.{}.post_comments SET body=(%s), created_at=(%s), id_bsontype=(%s), id_oid=(%s), updated_at=(%s) WHERE posts_id_oid=(%s) and idx=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO test_db.{}.post_comments (idx, posts_id_oid, body, created_at, id_bsontype, id_oid, updated_at) VALUES( %s,  %s,  %s,  %s,  %s,  %s,  %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$'.format(SCHEMA_NAME, SCHEMA_NAME): [(u'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info), '56b8da51f9fcee1b00000006', u'6', '6', '56b8da51f9fcee1b00000006', u'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info))]}]
     model = [{
-            'DELETE FROM test_schema_update."post_comments" WHERE (idx=(%s)) and (posts_id_oid=(%s));' : [('6', '56b8da51f9fcee1b00000006')]
+            'DELETE FROM {}."post_comments" WHERE (idx=(%s)) and (posts_id_oid=(%s));'.format(SCHEMA_NAME) : [('6', '56b8da51f9fcee1b00000006')]
         }, {
-            'DELETE FROM test_schema_update."post_comment_tests" WHERE (posts_comments_idx=(%s)) and (posts_id_oid=(%s));' : [('6', '56b8da51f9fcee1b00000006')]
+            'DELETE FROM {}."post_comment_tests" WHERE (posts_comments_idx=(%s)) and (posts_id_oid=(%s));'.format(SCHEMA_NAME) : [('6', '56b8da51f9fcee1b00000006')]
         }, {
-            'do $$    begin    UPDATE test_schema_update."post_comments" SET "body"=(%s), "created_at"=(%s), "id_bsontype"=(%s), "id_oid"=(%s), "updated_at"=(%s) WHERE "idx"=(%s) and "posts_id_oid"=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO test_schema_update."post_comments" ("idx", "posts_id_oid", "body", "created_at", "id_bsontype", "id_oid", "updated_at") VALUES(%s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$' : [( 'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info), '6', '56b8da51f9fcee1b00000006', '6', '56b8da51f9fcee1b00000006', 'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info))]
+            'do $$    begin    UPDATE {}."post_comments" SET "body"=(%s), "created_at"=(%s), "id_bsontype"=(%s), "id_oid"=(%s), "updated_at"=(%s) WHERE "idx"=(%s) and "posts_id_oid"=(%s);    IF FOUND THEN        RETURN;    END IF;    BEGIN        INSERT INTO {}."post_comments" ("idx", "posts_id_oid", "body", "created_at", "id_bsontype", "id_oid", "updated_at") VALUES(%s, %s, %s, %s, %s, %s, %s);        RETURN;    EXCEPTION WHEN unique_violation THEN    END;    end    $$'.format(SCHEMA_NAME, SCHEMA_NAME) : [( 'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info), '6', '56b8da51f9fcee1b00000006', '6', '56b8da51f9fcee1b00000006', 'comment6', d('2016-02-08T19:42:33.589Z', tz_info), 7, '56b8efa9f9fcee1b0000000f', d('2016-02-08T19:42:33.589Z', tz_info))]
         }
     ]
 
