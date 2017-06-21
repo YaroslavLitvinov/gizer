@@ -45,9 +45,9 @@ class OplogSyncBase(object):
         return OplogParser(self.oplog_readers, self.schemas_path,
                            Callback(cb_insert, ext_arg=self.psql_schema),
                            Callback(cb_update,
-                                    ext_arg=(self.psql, self.psql_schema)),
+                                    ext_arg=(self.psql.conn, self.psql_schema)),
                            Callback(cb_delete,
-                                    ext_arg=(self.psql, self.psql_schema)),
+                                    ext_arg=(self.psql.conn, self.psql_schema)),
                            dry_run=dry_run)
 
     def sync(self, start_ts_dict):
