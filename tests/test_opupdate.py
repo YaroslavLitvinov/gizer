@@ -102,6 +102,8 @@ def database_prepare():
 
     create_table_struct(curs, table_name='person_relatives', fields=['idx bigint', 'persons_id_oid text'])
     create_table_struct(curs, table_name='post_comments', fields=['idx bigint', 'posts_id_oid text'])
+    create_table_struct(curs, table_name='rated_post_rates', fields=['idx bigint', 'rated_posts_id_oid text'])
+    create_table_struct(curs, table_name='rated_post_comment_rates', fields=['idx bigint', 'rated_posts_id_oid text', 'rated_posts_comments_idx bigint', ])
     # SELECT MAX(idx) FROM test_db.test_schema_update.post_comment
 
     # SQL_CREATE_person_relatives = '\
