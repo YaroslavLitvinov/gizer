@@ -32,8 +32,8 @@ def test_betterize_coverage():
     connstr = os.environ['TEST_PSQLCONN']
     conn = psycopg2.connect(connstr)
     cursor = conn.cursor()
-    etlstat = PsqlEtlStatusTable(cursor, 'test_schema', ['shard'], recreate=False)
-    assert etlstat.schema_name == 'test_schema.'
+    etlstat = PsqlEtlStatusTable(cursor, '', ['shard'], recreate=False)
+    #assert etlstat.schema_name == 'test_schema.'
     conn2 = psycopg2.connect(connstr)
     etlstat.replace_conn(conn2)
     #log.py coverag
