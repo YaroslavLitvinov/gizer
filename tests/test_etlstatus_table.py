@@ -4,10 +4,12 @@ __author__ = "Yaroslav Litvinov"
 __copyright__ = "Copyright 2016, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
+import logging
 import os
 import psycopg2
 from bson.json_util import loads
 from gizer.etlstatus_table import *
+from gizer.log import logless
 
 def check_start(obj, status, error, ts):
     print obj, ts, status, error
@@ -25,6 +27,22 @@ def check_end(obj, recs_count, queries_count, status, error, ts):
     assert(obj.ts == ts)
     assert(obj.error == error)
 
+def test_betterize_coverage():
+    assert(timestamp_str_to_object('None')==None)
+    connstr = os.environ['TEST_PSQLCONN']
+    conn = psycopg2.connect(connstr)
+    cursor = conn.cursor()
+    etlstat = PsqlEtlStatusTable(cursor, 'test_schema', ['shard'], recreate=False)
+    assert etlstat.schema_name == 'test_schema.'
+    conn2 = psycopg2.connect(connstr)
+    etlstat.replace_conn(conn2)
+    #log.py coverag
+    import gizer
+    gizer.log.LOG_LEVEL = logging.INFO
+    logless()
+    gizer.log.LOG_LEVEL = logging.DEBUG
+    logless()
+    
 def test_psql_etl_status_table():
     connstr = os.environ['TEST_PSQLCONN']
     conn = psycopg2.connect(connstr)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 __author__ = "Yaroslav Litvinov"
-__copyright__ = "Copyright 2016, Rackspace Inc."
+__copyright__ = "Copyright 2016-2017, Rackspace Inc."
 __email__ = "yaroslav.litvinov@rackspace.com"
 
 
@@ -11,14 +11,23 @@ import configparser
 from io import BytesIO
 from pprint import PrettyPrinter
 from gizer.opconfig import mongo_settings_from_config
+from gizer.opconfig import psql_settings_from_config
 from gizer.opconfig import get_structure
 from gizer.opconfig import load_mongo_replicas_from_setting
-#from gizer.opconfig import mongo_oplog_structure_from_config
 
 config_file_sections = ['mongo', 'mongo-oplog-shard1-rs1', 'mongo-oplog-shard1-rs2', 'mongo-oplog-shard2-rs1', 'psql', 'psql-tmp', 'bmp-psql', 'misc']
 config_file_sections2 = ['mongo', 'mongo-oplog']
 config_file_sections3 = ['mongo', 'mongo-oplog-rs1', 'mongo-oplog-rs2']
 
+def test_betterize_coverage_opconfig():
+    test_config_file = BytesIO()
+    append_psql_setting(test_config_file, 'psql')
+    test_config_file.seek(0)
+    # config file processing
+    config = configparser.ConfigParser()
+    config.read_file(test_config_file)
+    # test config
+    psql_settings_from_config(config, 'psql')
 
 def test_config_sections():
     pp = PrettyPrinter()
@@ -41,6 +50,17 @@ def test_config_sections():
     pp.pprint(res)
     assert(res['mongo'] == ['mongo', 'mongo-oplog'])
     assert(res['mongo-oplog'] == ['mongo-oplog-rs1', 'mongo-oplog-rs2'])
+
+def append_psql_setting(output, name):
+    output_fmt = '\
+\n[{name}]\
+\n{name}-host={name}\
+\n{name}-port=1234\
+\n{name}-dbname=test\
+\n{name}-schema-name=test_schema\
+\n{name}-user=test\
+\n{name}-pass=test'
+    output.write(output_fmt.format(name=name))
 
 
 def append_to_file_mongo_setting(output, name):
@@ -72,8 +92,13 @@ def test_config_load1():
     assert(all_settings.keys() == ['mongo-oplog'])
     assert(1 == len(all_settings['mongo-oplog']))
     assert('mongo-oplog' == all_settings['mongo-oplog'][0].host)
-
-
+    try:
+        wrong_settings = load_mongo_replicas_from_setting(config, 
+                                                          'mongo-uplog')
+        testok = 0
+    except:
+        testok = 1
+    assert testok == 1
 
 def test_config_load2():
     """ test config single mongo instance with many replicas """
@@ -96,7 +121,7 @@ def test_config_load2():
     assert('mongo-oplog-rs1' == all_settings['mongo-oplog'][0].host)
     assert('mongo-oplog-rs2' == all_settings['mongo-oplog'][1].host)
     assert('mongo-oplog-rs3' == all_settings['mongo-oplog'][2].host)
-
+    mongo_settings_from_config(config, 'mongo-oplog-rs1')
 
 def test_config_load3():
     """ test config many shards with many replicas """
