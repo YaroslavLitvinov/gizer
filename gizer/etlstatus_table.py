@@ -105,13 +105,11 @@ class PsqlEtlStatusTable(object):
     def ts_from_str(self, ts_str):
         ts_list = ts_str.split(';')
         assert len(ts_list) == len(self.shards_list)
-        if len(ts_list) == 1:
-            ts = timestamp_str_to_object(ts_list[0])
-        else:
-            ts = {}
-            for idx in xrange(len(ts_list)):
-                ts[self.shards_list[idx]] \
-                    = timestamp_str_to_object(ts_list[idx])
+        # as multiple shards are supported, ts is going to be a dict
+        # even if we only have one shard - one timestamp
+        ts = {}
+        for idx in xrange(len(ts_list)):
+            ts[self.shards_list[idx]] = timestamp_str_to_object(ts_list[idx])
         return ts
 
     def get_recent(self):
