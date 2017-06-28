@@ -12,7 +12,7 @@ before_script:
   - psql -c 'SHOW SERVER_VERSION' -U postgres
   - psql -c 'create database etl;' -U postgres
   - psql -c "CREATE USER etl WITH PASSWORD 'etl';" -U postgres 
-  - psql -c "CREATE SCHEMA test_schema AUTHORIZATION etl;" -U postgres
+  - psql -c "CREATE SCHEMA test_schema;" -U postgres
   - psql -c "CREATE SCHEMA test_schema_update AUTHORIZATION etl;" -U postgres
   - export TEST_PSQLCONN="dbname=etl user=etl password=etl"
   - export PYTHONPATH="$TRAVIS_BUILD_DIR/..:$TRAVIS_BUILD_DIR/../gizer"
