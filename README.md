@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/YaroslavLitvinov/gizer.svg?branch=master)](https://travis-ci.org/YaroslavLitvinov/gizer)
 [![Coverage Status](https://coveralls.io/repos/github/YaroslavLitvinov/gizer/badge.svg?branch=master)](https://coveralls.io/github/YaroslavLitvinov/gizer?branch=master)
 
 ## Intro<br>
