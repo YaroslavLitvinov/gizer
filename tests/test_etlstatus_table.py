@@ -10,6 +10,7 @@ from bson.json_util import loads
 from gizer.etlstatus_table import *
 
 def check_start(obj, status, error, ts):
+    print obj, ts, status, error
     assert(obj.status == status)
     assert(obj.ts == ts)
     assert(obj.time_start != None)
@@ -33,7 +34,7 @@ def test_psql_etl_status_table():
     recent_status = status_table.get_recent()
     assert(recent_status == None)
 
-    ts1 = timestamp_str_to_object('Timestamp(1464278289, 1)')
+    ts1 = {'shard': timestamp_str_to_object('Timestamp(1464278289, 1)')}
     status_manager.init_load_start(ts1)
     # check init_load is in progress
     recent_status = status_table.get_recent()
@@ -49,7 +50,7 @@ def test_psql_etl_status_table():
     recent_status = status_table.get_recent()
     check_end(recent_status, None, None, STATUS_INITIAL_LOAD, True, ts1)
 
-    ts2 = timestamp_str_to_object('Timestamp(1464279389, 1)')
+    ts2 = {'shard': timestamp_str_to_object('Timestamp(1464279389, 1)')}
     status_manager.oplog_sync_start(ts2)
     # check oplog_sync_start is in progress
     recent_status = status_table.get_recent()
@@ -65,7 +66,7 @@ def test_psql_etl_status_table():
     recent_status = status_table.get_recent()
     check_end(recent_status, None, None, STATUS_OPLOG_SYNC, True, ts2)
 
-    ts3 = timestamp_str_to_object('Timestamp(1464289389, 1)')
+    ts3 = {'shard': timestamp_str_to_object('Timestamp(1464289389, 1)')}
     status_manager.oplog_use_start(ts3, None)
     # check oplog_sync_apply is in progress
     recent_status = status_table.get_recent()
